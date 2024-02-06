@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 from index.embedding import EmbeddingModel
-from index.model import Terminology, Mapping, Concept, Variable
+from index.db.model import Terminology, Mapping, Concept, Variable
 from index.parsing import MappingSource, DataDictionarySource, EmbeddingSource
 
 
