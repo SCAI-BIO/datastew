@@ -27,7 +27,9 @@ class Embedding:
 
 class Variable:
 
-    def __init__(self, name: str, description: str, source: str, embedding: Embedding = None):
+    def __init__(
+        self, name: str, description: str, source: str, embedding: Embedding = None
+    ):
         self.name = name
         self.description = description
         self.source = source
@@ -42,7 +44,10 @@ class Mapping:
         self.source = source
 
     def __eq__(self, other):
-        return self.concept.identifier == other.concept.identifier and self.variable.name == other.variable.name
+        return (
+            self.concept.identifier == other.concept.identifier
+            and self.variable.name == other.variable.name
+        )
 
     def __hash__(self):
         return hash((self.concept.identifier, self.variable.name))
