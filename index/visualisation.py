@@ -14,8 +14,8 @@ from index.mapping import MappingTable
 
 
 class PlotSide(Enum):
-    LEFT = (1,)
-    RIGHT = (2,)
+    LEFT = 1,
+    RIGHT = 2,
     BOTH = 3
 
 
@@ -43,11 +43,7 @@ def enrichment_plot(
     save_plot=False,
     save_dir="resources/results/plots",
 ):
-    if (
-        len(acc_gpt) != len(acc_fuzzy)
-        or len(acc_gpt) != len(acc_mpnet)
-        or len(acc_mpnet) != len(acc_fuzzy)
-    ):
+    if not (len(acc_gpt) == len(acc_fuzzy) == len(acc_mpnet)):
         raise ValueError(
             "acc_gpt, acc_mpnet and acc_fuzzy should be of the same length!"
         )
@@ -82,43 +78,17 @@ def concat_embeddings(tables1: [MappingTable], tables2: [MappingTable]):
     tables1_cleaned = [copy.deepcopy(table) for table in tables1]
     tables2_cleaned = [copy.deepcopy(table) for table in tables2]
     for table1, table2 in zip(tables1_cleaned, tables2_cleaned):
-        table1.joined_mapping_table.dropna(
-            subset=["embedding", "description"], inplace=True
-        )
-        table2.joined_mapping_table.dropna(
-            subset=["embedding", "description"], inplace=True
-        )
-    vectors_tables1 = np.concatenate(
-        [table.get_embeddings_numpy() for table in tables1_cleaned]
-    )
-    vectors_tables2 = np.concatenate(
-        [table.get_embeddings_numpy() for table in tables2_cleaned]
-    )
-    descriptions_table1 = np.concatenate(
-        [table.joined_mapping_table["description"] for table in tables1_cleaned]
-    )
-    descriptions_table2 = np.concatenate(
-        [table.joined_mapping_table["description"] for table in tables2_cleaned]
-    )
-    boundaries1 = np.array(
-        [
-            table.joined_mapping_table["embedding"].index.size
-            for table in tables1_cleaned
-        ]
-    )
-    boundaries2 = np.array(
-        [
-            table.joined_mapping_table["embedding"].index.size
-            for table in tables2_cleaned
-        ]
-    )
+        table1.joined_mapping_table.dropna(subset=["embedding", "description"], inplace=True)
+        table2.joined_mapping_table.dropna(subset=["embedding", "description"], inplace=True)
+    vectors_tables1 = np.concatenate([table.get_embeddings_numpy() for table in tables1_cleaned])
+    vectors_tables2 = np.concatenate([table.get_embeddings_numpy() for table in tables2_cleaned])
+    descriptions_table1 = np.concatenate([table.joined_mapping_table["description"] for table in tables1_cleaned])
+    descriptions_table2 = np.concatenate([table.joined_mapping_table["description"] for table in tables2_cleaned])
+    boundaries1 = np.array([table.joined_mapping_table["embedding"].index.size for table in tables1_cleaned])
+    boundaries2 = np.array([table.joined_mapping_table["embedding"].index.size for table in tables2_cleaned])
     vectors_concatenated = np.concatenate([vectors_tables1, vectors_tables2])
-    descriptions_concatenated = np.concatenate(
-        [descriptions_table1, descriptions_table2]
-    )
-    boundaries_concatenated = size_array_to_boundaries(
-        np.concatenate([boundaries1, boundaries2])
-    )
+    descriptions_concatenated = np.concatenate([descriptions_table1, descriptions_table2])
+    boundaries_concatenated = size_array_to_boundaries(np.concatenate([boundaries1, boundaries2]))
     return vectors_concatenated, descriptions_concatenated, boundaries_concatenated
 
 

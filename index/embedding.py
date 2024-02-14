@@ -27,9 +27,7 @@ class GPT4Adapter(EmbeddingModel):
                 return None
             if isinstance(text, str):
                 text = text.replace("\n", " ")
-            return openai.Embedding.create(input=[text], model=model)["data"][0][
-                "embedding"
-            ]
+            return openai.Embedding.create(input=[text], model=model)["data"][0]["embedding"]
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
             return None

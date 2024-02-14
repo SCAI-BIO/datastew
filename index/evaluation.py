@@ -36,26 +36,16 @@ def enrichment_analysis(
     # not every variable can be matched
     max_matches = 0
     # clean up source and target table (missing embeddings, descriptions etc.)
-    source_table.joined_mapping_table.drop_duplicates(
-        subset=["variable"], keep="first", inplace=True
-    )
+    source_table.joined_mapping_table.drop_duplicates(subset=["variable"], keep="first", inplace=True)
     source_table.joined_mapping_table.dropna(subset=["description"], inplace=True)
     target_table.joined_mapping_table.dropna(subset=["description"], inplace=True)
-    if (
-        matching_method == MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE
-        or matching_method == MatchingMethod.COSINE_EMBEDDING_DISTANCE
-    ):
+    if (matching_method == MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE or matching_method == MatchingMethod.COSINE_EMBEDDING_DISTANCE):
         source_table.joined_mapping_table.dropna(subset=["embedding"], inplace=True)
         target_table.joined_mapping_table.dropna(subset=["embedding"], inplace=True)
     # re-index to account for dropped rows
-    target_table.joined_mapping_table = target_table.joined_mapping_table.reset_index(
-        drop=True
-    )
+    target_table.joined_mapping_table = target_table.joined_mapping_table.reset_index(drop=True)
     for idx, source_table_row in source_table.joined_mapping_table.iterrows():
-        correct_target_index = target_table.joined_mapping_table[
-            target_table.joined_mapping_table["identifier"]
-            == source_table_row["identifier"]
-        ].index
+        correct_target_index = target_table.joined_mapping_table[target_table.joined_mapping_table["identifier"] == source_table_row["identifier"]].index
         if len(correct_target_index) == 0:
             # can not be matched -> skip
             continue
@@ -67,37 +57,21 @@ def enrichment_analysis(
             if matching_method == MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE:
                 source_table_embedding = source_table_row["embedding"]
                 target_table_embedding = target_table_row["embedding"]
-                distances.append(
-                    np.linalg.norm(
-                        np.array(source_table_embedding)
-                        - np.array(target_table_embedding)
-                    )
-                )
+                distances.append(np.linalg.norm(np.array(source_table_embedding) - np.array(target_table_embedding)))
             elif matching_method == MatchingMethod.COSINE_EMBEDDING_DISTANCE:
                 source_table_embedding = np.array(source_table_row["embedding"])
                 target_table_embedding = np.array(target_table_row["embedding"])
-                distances.append(
-                    distance.cosine(source_table_embedding, target_table_embedding)
-                )
+                distances.append(distance.cosine(source_table_embedding, target_table_embedding))
             elif matching_method == MatchingMethod.FUZZY_STRING_MATCHING:
                 source_table_description = source_table_row["description"]
                 target_table_description = target_table_row["description"]
-                distances.append(
-                    100 - fuzz.ratio(source_table_description, target_table_description)
-                )
+                distances.append(100 - fuzz.ratio(source_table_description, target_table_description))
             else:
-                raise NotImplementedError(
-                    "Specified matching method is not implemented!"
-                )
-        min_distance_indices = np.argsort(np.array(distances))[
-            :max_cumulative_match_rank
-        ]
+                raise NotImplementedError("Specified matching method is not implemented!")
+        min_distance_indices = np.argsort(np.array(distances))[:max_cumulative_match_rank]
         for n in range(max_cumulative_match_rank):
             # (due to upper level concepts) there may be more than one correct mapping
-            if any(
-                element in min_distance_indices[: n + 1]
-                for element in correct_target_index
-            ):
+            if any(element in min_distance_indices[: n + 1] for element in correct_target_index):
                 correct_matches[n] += 1
     return (correct_matches / max_matches).round(2)
 
@@ -118,9 +92,7 @@ def match_closest_descriptions(
     """
     # sometimes the same concept gets mapped against multiple concepts in CDM, resulting in artifacts in the results
     # -> drop duplicates, only keep first
-    source_table.joined_mapping_table.drop_duplicates(
-        subset=["variable"], keep="first", inplace=True
-    )
+    source_table.joined_mapping_table.drop_duplicates(subset=["variable"], keep="first", inplace=True)
     # remove rows from source and target that do not contain either a description (in general) or embedding (for gpt)
     source_table.joined_mapping_table.dropna(subset=["description"], inplace=True)
     target_table.joined_mapping_table.dropna(subset=["description"], inplace=True)
@@ -280,60 +252,22 @@ def evaluate(
     model="gpt",
     results_root_dir="resources/results/pd",
 ):
-
-    if model == "gpt":
-        data_gpt = {}
-        data_fuzzy = {}
-        for idx, source in enumerate(datasets):
-            acc_gpt = []
-            acc_fuzzy = []
-            for idy, target in enumerate(datasets):
-                map_gpt = match_closest_descriptions(source, target)
-                map_fuzzy = match_closest_descriptions(
-                    source, target, matching_method=MatchingMethod.FUZZY_STRING_MATCHING
-                )
-                if target == "jadni":
-                    print("check")
-                if store_results:
-                    map_gpt.to_excel(
-                        results_root_dir
-                        + "/gpt_"
-                        + f"{labels[idx]}_to_{labels[idy]}.xlsx"
-                    )
-                    map_fuzzy.to_excel(
-                        results_root_dir
-                        + "/fuzzy_"
-                        + f"{labels[idx]}_to_{labels[idy]}.xlsx"
-                    )
-                acc_gpt.append(round(score_mappings(map_gpt), 2))
-                acc_fuzzy.append(round(score_mappings(map_fuzzy), 2))
-            data_gpt[labels[idx]] = acc_gpt
-            data_fuzzy[labels[idx]] = acc_fuzzy
-        # transpose to have from -> to | row -> column like in the paper
-        gpt = pd.DataFrame(data_gpt, index=labels).T
-        fuzzy = pd.DataFrame(data_fuzzy, index=labels).T
-        return gpt, fuzzy
-
-    elif model == "mpnet":
-        data_mpnet = {}
-        for idx, source in enumerate(datasets):
-            acc_mpnet = []
-            for idy, target in enumerate(datasets):
-                map_mpnet = match_closest_descriptions(
-                    source,
-                    target,
-                    matching_method=MatchingMethod.COSINE_EMBEDDING_DISTANCE,
-                )
-                if target == "jadni":
-                    print("check")
-                if store_results:
-                    map_mpnet.to_excel(
-                        results_root_dir
-                        + "/mpnet_"
-                        + f"{labels[idx]}_to_{labels[idy]}.xlsx"
-                    )
-                acc_mpnet.append(round(score_mappings(map_mpnet), 2))
-            data_mpnet[labels[idx]] = acc_mpnet
-        # transpose to have from -> to | row -> column like in the paper
-        mpnet = pd.DataFrame(data_mpnet, index=labels).T
-        return mpnet
+    data = {}
+    for idx, source in enumerate(datasets):
+        acc = []
+        for idy, target in enumerate(datasets):
+            if model == "gpt":
+                map = match_closest_descriptions(source, target)
+            elif model == "mpnet":
+                map = match_closest_descriptions(source,target, matching_method=MatchingMethod.COSINE_EMBEDDING_DISTANCE)
+            elif model == "fuzzy":
+                map = match_closest_descriptions(source, target, matching_method=MatchingMethod.FUZZY_STRING_MATCHING)
+            else:
+                raise NotImplementedError("Specified model is not implemented!")
+            if store_results:
+                map.to_excel(results_root_dir + f"/{model}_" + f"{labels[idx]}_to_{labels[idy]}.xlsx")
+            acc.append(round(score_mappings(map), 2))
+        data[labels[idx]] = acc
+    # transpose to have from -> to | row -> column like in the paper
+    model_output = pd.DataFrame(data, index=labels).T
+    return model_output

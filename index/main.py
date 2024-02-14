@@ -236,11 +236,19 @@ if EVAL_PD:
     print(ppmi_luxpark_enrichment_mpnet)
     print(ppmi_luxpark_enrichment_fuzzy)
 
-    gpt_table1, fuzzy_table1 = evaluate(
+    gpt_table1 = evaluate(
         pd_datasets_gpt,
         pd_datasets_labels,
         store_results=True,
         model="gpt",
+        results_root_dir="./resources/results/pd",
+    )
+
+    fuzzy_table1 = evaluate(
+        pd_datasets_gpt,
+        pd_datasets_labels,
+        store_results=True,
+        model="fuzzy",
         results_root_dir="./resources/results/pd",
     )
 
@@ -568,11 +576,19 @@ if EVAL_AD:
         "VITA",
         "AD-Mapper",
     ]
-    gpt_table2, fuzzy_table2 = evaluate(
+    gpt_table2 = evaluate(
         ad_datasets_gpt,
         ad_datasets_labels,
         store_results=True,
         model="gpt",
+        results_root_dir="resources/results/ad",
+    )
+
+    fuzzy_table2 = evaluate(
+        ad_datasets_gpt,
+        ad_datasets_labels,
+        store_results=True,
+        model="fuzzy",
         results_root_dir="resources/results/ad",
     )
 
