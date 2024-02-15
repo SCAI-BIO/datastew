@@ -57,5 +57,5 @@ jobs:
         file: Dockerfile
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}/backend:latest
-          ghcr.io/${{ github.repository }}/backend:${{ steps.versions.outputs.BACKEND_VERSION }}
+          ghcr.io/scai-bio/backend:latest
+          ghcr.io/scai-bio/backend:${{ steps.versions.outputs.BACKEND_VERSION }}
