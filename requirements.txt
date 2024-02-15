@@ -16,3 +16,7 @@ six==1.16.0
 thefuzz~=0.20.0
 tzdata==2023.3
 wheel==0.37.1
+aiofiles~=0.7.0
+uvicorn>=0.15.0
+python-multipart
+fastapi~=0.87.0
