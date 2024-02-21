@@ -57,7 +57,9 @@ class MPNetAdapter(EmbeddingModel):
             return None
 
     def get_embeddings(self, messages: [str]) -> [[float]]:
-        return [self.get_embedding(msg) for msg in messages]
+        embeddings = self.mpnet_model.encode(messages)
+        flattened_embeddings = [[float(element) for element in row] for row in embeddings]
+        return flattened_embeddings
 
 
 class TextEmbedding:
