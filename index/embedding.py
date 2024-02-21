@@ -39,11 +39,11 @@ class GPT4Adapter(EmbeddingModel):
 
 
 class MPNetAdapter(EmbeddingModel):
-    def __init__(self):
+    def __init__(self, model="sentence-transformers/all-mpnet-base-v2"):
         logging.getLogger().setLevel(logging.INFO)
+        self.mpnet_model = SentenceTransformer(model)
 
-    def get_embedding(self, text: str, model="sentence-transformers/all-mpnet-base-v2"):
-        mpnet_model = SentenceTransformer(model)
+    def get_embedding(self, text: str):
         logging.info(f"Getting embedding for {text}")
         try:
             if text is None or text == "" or text is np.nan:
@@ -51,7 +51,7 @@ class MPNetAdapter(EmbeddingModel):
                 return None
             if isinstance(text, str):
                 text = text.replace("\n", " ")
-            return mpnet_model.encode(text)
+            return self.mpnet_model.encode(text)
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
             return None
