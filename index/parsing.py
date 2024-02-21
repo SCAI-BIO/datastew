@@ -13,9 +13,7 @@ class Source(ABC):
         if self.file_path.endswith("pharmacog.csv"):
             return pd.read_csv(self.file_path, sep=" ")
         elif self.file_path.endswith("arwibo.csv"):
-            return pd.read_csv(
-                self.file_path, sep=";", usecols=range(6), encoding="ISO-8859-1"
-            )
+            return pd.read_csv(self.file_path, sep=";", usecols=range(6), encoding="ISO-8859-1")
         elif self.file_path.endswith("jadni.tsv"):
             return pd.read_csv(self.file_path, sep="\t", encoding="ISO-8859-1")
         elif self.file_path.endswith("vita.csv"):
@@ -29,17 +27,12 @@ class Source(ABC):
             return pd.read_csv(self.file_path, sep="\t")
         elif self.file_path.endswith(".xlsx"):
             xls = pd.ExcelFile(self.file_path)
-            dfs = [
-                pd.read_excel(xls, sheet_name=sheet_name)
-                for sheet_name in xls.sheet_names
-            ]
+            dfs = [pd.read_excel(xls, sheet_name=sheet_name) for sheet_name in xls.sheet_names]
             for df in dfs:
                 # Replace control sequences in string columns / headers & remove trailing whitespaces
                 df.columns = df.columns.str.replace("\r", "", regex=True).str.strip()
                 string_columns = df.select_dtypes(include=["object"]).columns
-                df[string_columns] = df[string_columns].apply(
-                    lambda x: x.str.replace("\r", "").str.strip(), axis=1
-                )
+                df[string_columns] = df[string_columns].apply(lambda x: x.str.replace("\r", "").str.strip(), axis=1)
                 combined_df = pd.concat(dfs, ignore_index=True)
             return combined_df
         else:
@@ -60,20 +53,11 @@ class MappingSource(Source):
         df = super().to_dataframe()
         # sanity check
         if self.variable_field not in df.columns:
-            raise ValueError(
-                f"Variable field {self.variable_field} not found in {self.file_path}"
-            )
+            raise ValueError(f"Variable field {self.variable_field} not found in {self.file_path}")
         if self.identifier_field not in df.columns:
-            raise ValueError(
-                f"Identifier field {self.identifier_field} not found in {self.file_path}"
-            )
+            raise ValueError(f"Identifier field {self.identifier_field} not found in {self.file_path}")
         df = df[[self.variable_field, self.identifier_field]]
-        df = df.rename(
-            columns={
-                self.variable_field: "variable",
-                self.identifier_field: "identifier",
-            }
-        )
+        df = df.rename(columns={self.variable_field: "variable", self.identifier_field: "identifier"})
         df.dropna(subset=["variable", "identifier"], inplace=True)
         return df
 
@@ -92,20 +76,11 @@ class DataDictionarySource(Source):
         df = super().to_dataframe()
         # sanity check
         if self.variable_field not in df.columns:
-            raise ValueError(
-                f"Variable field {self.variable_field} not found in {self.file_path}"
-            )
+            raise ValueError(f"Variable field {self.variable_field} not found in {self.file_path}")
         if self.description_field not in df.columns:
-            raise ValueError(
-                f"Description field {self.description_field} not found in {self.file_path}"
-            )
+            raise ValueError(f"Description field {self.description_field} not found in {self.file_path}")
         df = df[[self.variable_field, self.description_field]]
-        df = df.rename(
-            columns={
-                self.variable_field: "variable",
-                self.description_field: "description",
-            }
-        )
+        df = df.rename(columns={self.variable_field: "variable", self.description_field: "description"})
         df.dropna(subset=["variable", "description"], inplace=True)
         return df
 
