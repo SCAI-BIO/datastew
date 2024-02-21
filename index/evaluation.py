@@ -10,17 +10,13 @@ from index.mapping import MappingTable
 
 
 class MatchingMethod(Enum):
-    EUCLIDEAN_EMBEDDING_DISTANCE = (1,)
-    FUZZY_STRING_MATCHING = (2,)
+    EUCLIDEAN_EMBEDDING_DISTANCE = 1,
+    FUZZY_STRING_MATCHING = 2,
     COSINE_EMBEDDING_DISTANCE = 3
 
 
-def enrichment_analysis(
-    source_table: MappingTable,
-    target_table: MappingTable,
-    max_cumulative_match_rank: int = 10,
-    matching_method=MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE,
-) -> np.ndarray:
+def enrichment_analysis(source_table: MappingTable, target_table: MappingTable, max_cumulative_match_rank: int = 10,
+                        matching_method=MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE) -> np.ndarray:
     """
     Calculate accuracy for the n the closest matches for two mapping tables
 
@@ -45,7 +41,8 @@ def enrichment_analysis(
     # re-index to account for dropped rows
     target_table.joined_mapping_table = target_table.joined_mapping_table.reset_index(drop=True)
     for idx, source_table_row in source_table.joined_mapping_table.iterrows():
-        correct_target_index = target_table.joined_mapping_table[target_table.joined_mapping_table["identifier"] == source_table_row["identifier"]].index
+        correct_target_index = target_table.joined_mapping_table[
+            target_table.joined_mapping_table["identifier"] == source_table_row["identifier"]].index
         if len(correct_target_index) == 0:
             # can not be matched -> skip
             continue
@@ -76,11 +73,8 @@ def enrichment_analysis(
     return (correct_matches / max_matches).round(2)
 
 
-def match_closest_descriptions(
-    source_table: MappingTable,
-    target_table: MappingTable,
-    matching_method=MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE,
-) -> pd.DataFrame:
+def match_closest_descriptions(source_table: MappingTable, target_table: MappingTable,
+                               matching_method=MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE) -> pd.DataFrame:
     """
     Match descriptions from source table to target table based on the biggest similarity
 
@@ -96,81 +90,48 @@ def match_closest_descriptions(
     # remove rows from source and target that do not contain either a description (in general) or embedding (for gpt)
     source_table.joined_mapping_table.dropna(subset=["description"], inplace=True)
     target_table.joined_mapping_table.dropna(subset=["description"], inplace=True)
-    if (
-        matching_method == MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE
-        or matching_method == MatchingMethod.COSINE_EMBEDDING_DISTANCE
-    ):
+    if (matching_method == MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE or matching_method == MatchingMethod.COSINE_EMBEDDING_DISTANCE):
         source_table.joined_mapping_table.dropna(subset=["embedding"], inplace=True)
         target_table.joined_mapping_table.dropna(subset=["embedding"], inplace=True)
     # method -> compute distance based on embeddings
-    if (
-        matching_method == MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE
-        or matching_method == MatchingMethod.COSINE_EMBEDDING_DISTANCE
-    ):
-        if (
-            "embedding" not in source_table.joined_mapping_table.columns
-            or "embedding" not in target_table.joined_mapping_table.columns
-        ):
+    if (matching_method == MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE or matching_method == MatchingMethod.COSINE_EMBEDDING_DISTANCE):
+        if ("embedding" not in source_table.joined_mapping_table.columns or "embedding" not in target_table.joined_mapping_table.columns):
             raise ValueError("Mapping tables must contain an 'embedding' column")
     # re-index to account for dropped rows
-    target_table.joined_mapping_table = target_table.joined_mapping_table.reset_index(
-        drop=True
-    )
+    target_table.joined_mapping_table = target_table.joined_mapping_table.reset_index(drop=True)
     # METHOD: Euclidean Distance based on embeddings
     if matching_method == MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE:
-        if (
-            "embedding" not in source_table.joined_mapping_table.columns
-            or "embedding" not in target_table.joined_mapping_table.columns
-        ):
+        if ("embedding" not in source_table.joined_mapping_table.columns or "embedding" not in target_table.joined_mapping_table.columns):
             raise ValueError("Mapping tables must contain an 'embedding' column")
         source_embeddings = source_table.get_embeddings_numpy()
         target_embeddings = target_table.get_embeddings_numpy()
-        distance_matrix = np.linalg.norm(
-            source_embeddings[:, np.newaxis] - target_embeddings, axis=-1
-        )
+        distance_matrix = np.linalg.norm(source_embeddings[:, np.newaxis] - target_embeddings, axis=-1)
         closest_indices = np.argmin(distance_matrix, axis=1)
         distances = np.min(distance_matrix, axis=1)
-        matched_target_descriptions = target_table.joined_mapping_table.loc[
-            closest_indices, "description"
-        ].tolist()
+        matched_target_descriptions = target_table.joined_mapping_table.loc[closest_indices, "description"].tolist()
     # METHOD: Cosine Distance based on embeddings
     elif matching_method == MatchingMethod.COSINE_EMBEDDING_DISTANCE:
-        if (
-            "embedding" not in source_table.joined_mapping_table.columns
-            or "embedding" not in target_table.joined_mapping_table.columns
-        ):
+        if ("embedding" not in source_table.joined_mapping_table.columns or "embedding" not in target_table.joined_mapping_table.columns):
             raise ValueError("Mapping tables must contain an 'embedding' column")
         source_embeddings = source_table.get_embeddings_numpy()
         target_embeddings = target_table.get_embeddings_numpy()
         distance_matrix = cosine_distances(source_embeddings, target_embeddings)
         closest_indices = np.argmin(distance_matrix, axis=1)
         distances = np.min(distance_matrix, axis=1)
-        matched_target_descriptions = target_table.joined_mapping_table.loc[
-            closest_indices, "description"
-        ].tolist()
+        matched_target_descriptions = target_table.joined_mapping_table.loc[closest_indices, "description"].tolist()
     # METHOD: Fuzzy String Matching based on Levenstein Distance
     elif matching_method == MatchingMethod.FUZZY_STRING_MATCHING:
-        if (
-            "description" not in source_table.joined_mapping_table.columns
-            or "description" not in target_table.joined_mapping_table.columns
-        ):
+        if ("description" not in source_table.joined_mapping_table.columns or "description" not in target_table.joined_mapping_table.columns):
             raise ValueError("Mapping tables must contain an 'description' column")
-        source_descriptions = source_table.joined_mapping_table[
-            "description"
-        ].to_numpy()
-        target_descriptions = target_table.joined_mapping_table[
-            "description"
-        ].to_numpy()
-        target_descriptions_dict = {
-            idx: el for idx, el in enumerate(target_descriptions)
-        }
+        source_descriptions = source_table.joined_mapping_table["description"].to_numpy()
+        target_descriptions = target_table.joined_mapping_table["description"].to_numpy()
+        target_descriptions_dict = {idx: el for idx, el in enumerate(target_descriptions)}
         closest_indices = []
         distances = []
         matched_target_descriptions = []
         for source_description in source_descriptions:
-            matched_target_description, distance, target_idx = process.extractOne(
-                source_description, target_descriptions_dict
-            )
+            matched_target_description, distance, target_idx = process.extractOne(source_description,
+                                                                                  target_descriptions_dict)
             closest_indices.append(target_idx)
             matched_target_descriptions.append(matched_target_description)
             # it is not a distance but a score [0,100] in this case -> take inverse (+1 to avoid division by 0)
@@ -179,17 +140,12 @@ def match_closest_descriptions(
     else:
         raise ValueError("Specified Matching method is not implemented!")
     source_concept_label = source_table.joined_mapping_table["identifier"]
-    target_concept_label = target_table.joined_mapping_table.loc[
-        closest_indices, "identifier"
-    ].tolist()
+    target_concept_label = target_table.joined_mapping_table.loc[closest_indices, "identifier"].tolist()
     source_variable = source_table.joined_mapping_table["variable"]
-    target_variable = target_table.joined_mapping_table.loc[
-        closest_indices, "variable"
-    ].tolist()
+    target_variable = target_table.joined_mapping_table.loc[closest_indices, "variable"].tolist()
     correct = source_concept_label == target_concept_label
-    ground_truth_target_descriptions = get_ground_truth_target_descriptions(
-        source_table.joined_mapping_table, target_table.joined_mapping_table
-    )
+    ground_truth_target_descriptions = get_ground_truth_target_descriptions(source_table.joined_mapping_table,
+                                                                            target_table.joined_mapping_table)
     source_descriptions = source_table.joined_mapping_table["description"]
     result = pd.DataFrame(
         {
@@ -207,9 +163,7 @@ def match_closest_descriptions(
     return result
 
 
-def get_ground_truth_target_descriptions(
-    source_table: pd.DataFrame, target_table: pd.DataFrame
-) -> np.ndarray[str]:
+def get_ground_truth_target_descriptions(source_table: pd.DataFrame, target_table: pd.DataFrame) -> np.ndarray[str]:
     """
     Get the ground truth target descriptions based on the matched identifiers
 
@@ -221,9 +175,7 @@ def get_ground_truth_target_descriptions(
     descriptions = []
     for source_id in source_table["identifier"]:
         try:
-            target_description = target_table.loc[
-                target_table["identifier"] == source_id, "description"
-            ].iloc[0]
+            target_description = target_table.loc[target_table["identifier"] == source_id, "description"].iloc[0]
             descriptions.append(target_description)
         except IndexError:
             descriptions.append(None)
@@ -245,13 +197,7 @@ def score_mappings(matches: pd.DataFrame) -> float:
     return accuracy
 
 
-def evaluate(
-    datasets,
-    labels,
-    store_results=False,
-    model="gpt",
-    results_root_dir="resources/results/pd",
-):
+def evaluate(datasets, labels, store_results=False, model="gpt", results_root_dir="resources/results/pd"):
     data = {}
     for idx, source in enumerate(datasets):
         acc = []
