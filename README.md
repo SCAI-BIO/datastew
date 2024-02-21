@@ -3,20 +3,15 @@
 INDEX is an intelligent data steward toolbox that leverages Large Language Model embeddings for automated Data-Harmonization. 
 
 ## Table of Contents
-- [Introduction](##ntroduction)
-- [Installation & Usage](#installation)
+- [Introduction](#introduction)
+- [Installation](#installation)
 - [Configuration](#configuration)
 
 ## Introduction
 
-INDEX relies on vector embeddings calculated based on variable descriptions to generate mapping suggestions for any 
-dataset, enabling efficient and accurate data indexing and retrieval. Confirmed mappings are stored alongside their 
-vectorized representations in a knowledge base, facilitating rapid search and retrieval operations, ultimately enhancing 
-data management and analysis capabilities. New mappings may be added to the knowledge base in an iterative procedure,
-allowing for improved mapping suggestions in subsequent harmonization tasks.
+INDEX uses vector embeddings from variable descriptions to suggest mappings for datasets, improving data indexing and retrieval. Confirmed mappings are stored with their vector representations in a knowledge base for fast search and retrieval, enhancing data management and analysis. New mappings can be added iteratively to improve suggestions for future harmonization tasks.
 
-## Installation & Usage
-
+## Installation
 Clone the repository:
 
 ```bash
@@ -41,10 +36,21 @@ uvicorn main:app --reload --port 5000
 
 ### Run the Backend via Docker
 
-Download the latest docker build:
+You can either build the docker container locally or downlaod the latest build from the index github package registry. 
+
+
+```bash
+docker build . -t ghcr.io/scai-bio/backend:latest
+```
 
 ```bash
 docker pull ghcr.io/scai-bio/backend:latest
+```
+
+After build/download you will be able to start the container and access the IDNEX API per default on [localhost:8000](http://localhost:8000):
+
+```bash
+docker run  -p 8000:80 ghcr.io/scai-bio/backend:latest
 ```
 
 ## Configuration
@@ -56,3 +62,9 @@ is significantly faster, you will need to provide an API key that is linked to y
 
 Currently, the following local models are implemented:
 * [MPNet](https://huggingface.co/docs/transformers/model_doc/mpnet)
+
+The API will default to use a local embedding model. You can adjust the model loaded on start up in the configurations.
+
+### Database
+
+INDEX will be default store mappings in a file based db file in the [following directory](https://github.com/SCAI-BIO/index/tree/main/index/db).
