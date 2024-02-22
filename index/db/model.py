@@ -1,5 +1,6 @@
 import json
 
+import numpy as np
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -41,6 +42,8 @@ class Mapping(Base):
     def __init__(self, concept: Concept, text: str, embedding: list):
         self.concept = concept
         self.text = text
+        if isinstance(embedding, np.ndarray):
+            embedding = embedding.tolist()
         self.embedding_json = json.dumps(embedding)  # Store embedding as JSON
 
     @property
