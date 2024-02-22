@@ -1,7 +1,7 @@
 import unittest
 
 from index.db.model import Terminology, Concept, Mapping
-from index.db.repository import SQLLiteRepository
+from index.repository.sqllite import SQLLiteRepository
 
 
 class TestGetClosestEmbedding(unittest.TestCase):

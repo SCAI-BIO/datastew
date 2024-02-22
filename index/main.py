@@ -2,18 +2,15 @@ import os
 import sys
 
 sys.path.append("../")
-import pandas as pd
 
-from index import evaluation
 from index.conf import PD_CDM_SRC, PPMI_DICT_SRC, LUXPARK_DICT_SRC, BIOFIND_DICT_SRC, AD_CDM_SRC
 from index.embedding import GPT4Adapter, MPNetAdapter
-from index.evaluation import match_closest_descriptions, MatchingMethod, enrichment_analysis, evaluate
+from index.evaluation import MatchingMethod, enrichment_analysis, evaluate
 from index.mapping import MappingTable
 from index.parsing import MappingSource, DataDictionarySource
 from dotenv import load_dotenv
 
-from index.visualisation import scatter_plot_two_distributions, enrichment_plot, scatter_plot_all_cohorts, \
-    bar_chart_average_acc_two_distributions
+from index.visualisation import scatter_plot_two_distributions, enrichment_plot, scatter_plot_all_cohorts
 
 EVAL_PD = True
 EVAL_AD = True
