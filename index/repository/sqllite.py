@@ -1,14 +1,12 @@
-import json
-
 from typing import Union, List
 
-import numpy as np
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker, aliased
 from index.db.model import Base, Terminology, Concept, Mapping
+from index.repository.base import BaseRepository
 
 
-class SQLLiteRepository:
+class SQLLiteRepository(BaseRepository):
 
     def __init__(self, mode="disk"):
         if mode == "disk":
