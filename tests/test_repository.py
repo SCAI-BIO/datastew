@@ -21,5 +21,5 @@ class TestGetClosestEmbedding(unittest.TestCase):
         self.repository.store_all([terminology, concept, mapping_1, mapping_2, mapping_3])
         sample_embedding = [0.15, 0.25, 0.35]
         closest_mappings, distances = self.repository.get_closest_mappings(sample_embedding, limit=3)
-        self.assertEqual(len(closest_mappings), 2)
+        self.assertEqual(len(closest_mappings), 3)
         self.assertEqual(mapping_1, closest_mappings[0])
