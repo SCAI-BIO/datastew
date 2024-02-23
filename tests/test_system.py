@@ -35,5 +35,3 @@ class TestGetClosestEmbedding(unittest.TestCase):
         self.assertEqual(len(mappings1), 2)
         self.assertEqual(concept1_description, mappings1[0].text)
         self.assertEqual(concept2_description, mappings2[0].text)
-
-
