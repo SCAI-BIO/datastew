@@ -44,7 +44,6 @@ class SQLLiteRepository(BaseRepository):
         )
 
         distances_and_mappings = distances_and_mappings_query.all()
-        print(distances_and_mappings)
         # Sort results based on distances
         sorted_results = sorted(distances_and_mappings, key=lambda x: x[1])
 
