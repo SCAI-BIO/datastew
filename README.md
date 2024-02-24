@@ -31,7 +31,7 @@ pip install -r requirements.txt
 Run the Backend API on port 5000:
 
 ```bash
-uvicorn main:app --reload --port 5000
+uvicorn index.api.routes:app --reload --port 5000
 ```
 
 ### Run the Backend via Docker

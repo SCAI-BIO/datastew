@@ -1,51 +1,51 @@
-import pandas as pd
+import json
+
+import numpy as np
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+
+Base = declarative_base()
 
 
-class Terminology:
+class Terminology(Base):
+    __tablename__ = 'terminology'
+    id = Column(String, primary_key=True)
+    name = Column(String)
 
-    def __int__(self, identifier: str, name: str):
-        self.identifier = identifier
+    def __init__(self, name: str, id: str):
         self.name = name
+        self.id = id
 
 
-class Concept:
+class Concept(Base):
+    __tablename__ = 'concept'
+    id = Column(String, primary_key=True)
+    name = Column(String)
+    terminology_id = Column(String, ForeignKey('terminology.id'))
+    terminology = relationship("Terminology")
 
-    def __init__(self, identifier: str, terminology: Terminology):
-        self.identifier = identifier
+    def __init__(self, terminology: Terminology, name: str, id: str):
         self.terminology = terminology
-
-
-class Embedding:
-
-    def __init__(self, embedding: [float], source: str):
-        self.embedding = embedding
-        self.source = source
-
-    def to_dataframe(self):
-        return pd.DataFrame(self.embedding, columns=[self.source])
-
-
-class Variable:
-
-    def __init__(self, name: str, description: str, source: str, embedding: Embedding = None):
         self.name = name
-        self.description = description
-        self.source = source
-        self.embedding = embedding
+        self.id = id
 
 
-class Mapping:
+class Mapping(Base):
+    __tablename__ = 'mapping'
+    id = Column(Integer, primary_key=True, autoincrement=True)  # Auto-incrementing primary key
+    concept_id = Column(String, ForeignKey('concept.id'))
+    concept = relationship("Concept")
+    text = Column(Text)
+    embedding_json = Column(Text)
 
-    def __init__(self, concept: Concept, variable: Variable, source: str):
+    def __init__(self, concept: Concept, text: str, embedding: list):
         self.concept = concept
-        self.variable = variable
-        self.source = source
+        self.text = text
+        if isinstance(embedding, np.ndarray):
+            embedding = embedding.tolist()
+        self.embedding_json = json.dumps(embedding)  # Store embedding as JSON
 
-    def __eq__(self, other):
-        return self.concept.identifier == other.concept.identifier and self.variable.name == other.variable.name
-
-    def __hash__(self):
-        return hash((self.concept.identifier, self.variable.name))
-
-    def __str__(self):
-        return f"{self.variable.name} ({self.variable.description}) -> {self.concept.identifier}"
+    @property
+    def embedding(self):
+        return json.loads(self.embedding_json)
