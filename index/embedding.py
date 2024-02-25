@@ -57,7 +57,10 @@ class MPNetAdapter(EmbeddingModel):
             return None
 
     def get_embeddings(self, messages: [str]) -> [[float]]:
-        embeddings = self.mpnet_model.encode(messages)
+        try:
+            embeddings = self.mpnet_model.encode(messages)
+        except Exception as e:
+            logging.error(f"Failed for messages {messages}")
         flattened_embeddings = [[float(element) for element in row] for row in embeddings]
         return flattened_embeddings
 
