@@ -1,6 +1,8 @@
+import numpy as np
+
 from typing import Union, List
 
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, cast, String
 from sqlalchemy.orm import sessionmaker, aliased
 from index.db.model import Base, Terminology, Concept, Mapping
 from index.repository.base import BaseRepository
@@ -28,44 +30,15 @@ class SQLLiteRepository(BaseRepository):
         self.session.add_all(model_object_instances)
         self.session.commit()
 
-    def get_closest_mappings(self, embedding, limit=5):
-        # Calculate Euclidean distance for each embedding in the database
-        mapping_embedding_alias = aliased(Mapping)
-
-        # Construct the SQL query dynamically based on the length of the embedding
-        distance_expression = sum(
-            func.pow(func.json_extract(mapping_embedding_alias.embedding_json, f"$[{i}]") - embedding[i], 2)
-            for i in range(len(embedding))
-        ).label('distance')
-
-        distances_and_mappings_query = self.session.query(
-            mapping_embedding_alias,
-            distance_expression
-        )
-
-        distances_and_mappings = distances_and_mappings_query.all()
-
-        # Sort results based on distances
-        sorted_results = sorted(distances_and_mappings, key=lambda x: x[1])
-
-        # Extract deserialized mappings and distances
-        closest_mappings = [(mapping, float(distance)) for mapping, distance in sorted_results[:limit]]
-
-        # Extract Concept objects for mappings
-        concept_ids = [mapping.concept_id for mapping, _ in closest_mappings]
-        concepts = self.session.query(Concept).filter(Concept.id.in_(concept_ids)).all()
-
-        # Create mapping objects with corresponding Concept objects
-        closest_mapping_objects = []
-        for mapping, distance in closest_mappings:
-            concept = next(concept for concept in concepts if concept.id == mapping.concept_id)
-            closest_mapping_objects.append((mapping, concept, distance))
-
-        # Extract mapping objects and distances
-        result_mappings = [mapping for mapping, _, _ in closest_mapping_objects]
-        distances = [distance for _, _, distance in closest_mapping_objects]
-
-        return result_mappings, distances
+    def get_closest_mappings(self, embedding: List[float], limit=5):
+        mappings = self.session.query(Mapping).all()
+        all_embeddings = np.array([mapping.embedding for mapping in mappings])
+        similarities = np.dot(all_embeddings, np.array(embedding)) / (
+                np.linalg.norm(all_embeddings, axis=1) * np.linalg.norm(np.array(embedding)))
+        sorted_indices = np.argsort(similarities)[::-1]
+        sorted_mappings = [mappings[i] for i in sorted_indices[:limit]]
+        sorted_similarities = [similarities[i] for i in sorted_indices[:limit]]
+        return sorted_mappings, sorted_similarities
 
     def shut_down(self):
         self.session.close()

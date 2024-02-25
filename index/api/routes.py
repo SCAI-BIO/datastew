@@ -1,9 +1,12 @@
+import json
 import logging
+from typing import Dict
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
 
+from index.db.model import Terminology, Concept, Mapping
 from index.repository.sqllite import SQLLiteRepository
 from index.embedding import MPNetAdapter
 
@@ -48,9 +51,51 @@ def get_current_version():
     return app.version
 
 
+@app.put("/terminologies/{id}", tags=["terminologies"])
+async def create_or_update_terminology(id: str, name: str):
+    try:
+        terminology = Terminology(name=name, id=id)
+        repository.store(terminology)
+        return {"message": f"Terminology {id} created or updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create or update terminology: {str(e)}")
+
+
+@app.put("/concepts/{id}", tags=["concepts"])
+async def create_or_update_concept(id: str, terminology_id: str, name: str):
+    try:
+        terminology = repository.session.query(Terminology).filter(Terminology.id == terminology_id).first()
+        if not terminology:
+            raise HTTPException(status_code=404, detail=f"Terminology with id {terminology_id} not found")
+
+        concept = Concept(terminology=terminology, name=name, id=id)
+        repository.store(concept)
+        return {"message": f"Concept {id} created or updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create or update concept: {str(e)}")
+
+
+@app.put("/mappings/{id}", tags=["mappings"])
+async def create_or_update_mapping(id: str, concept_id: str, text: str):
+    try:
+        concept = repository.session.query(Concept).filter(Concept.id == concept_id).first()
+        if not concept:
+            raise HTTPException(status_code=404, detail=f"Concept with id {concept_id} not found")
+        embedding = embedding_model.get_embedding(text)
+        # Convert embedding from numpy array to list
+        embedding_list = embedding.tolist()
+        print(embedding_list)
+        mapping = Mapping(concept=concept, text=text, embedding=json.dumps(embedding_list))
+        repository.store(mapping)
+        return {"message": f"Mapping {id} created or updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create or update mapping: {str(e)}")
+
+
 @app.post("/mappings", tags=["mappings"])
 async def get_closest_mappings_for_text(text: str):
-    embedding = embedding_model.get_embedding(text)
+    embedding = embedding_model.get_embedding(text).tolist()
+    print(embedding)
     closest_mappings, similarities = repository.get_closest_mappings(embedding)
     response_data = []
     for mapping, similarity in zip(closest_mappings, similarities):
