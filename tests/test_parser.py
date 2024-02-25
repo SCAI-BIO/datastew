@@ -2,7 +2,7 @@ import os
 from unittest import TestCase
 
 from index.mapping import MappingTable
-from index.parsing import MappingSource, DataDictionarySource
+from index.process.parsing import MappingSource, DataDictionarySource
 
 
 class Test(TestCase):

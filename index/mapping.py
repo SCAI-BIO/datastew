@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 from index.embedding import EmbeddingModel
-from index.parsing import MappingSource, DataDictionarySource, EmbeddingSource
+from index.process.parsing import MappingSource, DataDictionarySource, EmbeddingSource
 
 
 class Terminology:
