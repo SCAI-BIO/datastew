@@ -65,7 +65,7 @@ docker run  -p 8000:80 ghcr.io/scai-bio/backend:latest
 ### Python
 
 A simple example how to initialize an in memory database and compute a similarity mapping is shown in 
-[index/scripts/mapping_example.py](index/scripts/mapping_example.py):
+[index/scripts/mapping_db_example.py](index/scripts/mapping_db_example.py):
 
 ```python
 # omit mode to create a permanent db file instead
