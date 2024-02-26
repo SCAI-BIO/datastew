@@ -13,7 +13,7 @@ class Terminology(Base):
     id = Column(String, primary_key=True)
     name = Column(String)
 
-    def __init__(self, name: str, id: str):
+    def __init__(self, name: str, id: str) -> object:
         self.name = name
         self.id = id
 
@@ -25,7 +25,7 @@ class Concept(Base):
     terminology_id = Column(String, ForeignKey('terminology.id'))
     terminology = relationship("Terminology")
 
-    def __init__(self, terminology: Terminology, name: str, id: str):
+    def __init__(self, terminology: Terminology, name: str, id: str) -> object:
         self.terminology = terminology
         self.name = name
         self.id = id
@@ -39,7 +39,7 @@ class Mapping(Base):
     text = Column(Text)
     embedding_json = Column(Text)
 
-    def __init__(self, concept: Concept, text: str, embedding: list):
+    def __init__(self, concept: Concept, text: str, embedding: list) -> object:
         self.concept = concept
         self.text = text
         if isinstance(embedding, np.ndarray):

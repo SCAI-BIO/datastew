@@ -10,9 +10,9 @@ from index.repository.base import BaseRepository
 
 class SQLLiteRepository(BaseRepository):
 
-    def __init__(self, mode="disk"):
+    def __init__(self, mode="disk", name="index"):
         if mode == "disk":
-            self.engine = create_engine('sqlite:///index.db')
+            self.engine = create_engine(f'sqlite:///{name}.db')
         # for tests
         elif mode == "memory":
             self.engine = create_engine('sqlite:///:memory:')
