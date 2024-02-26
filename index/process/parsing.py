@@ -9,18 +9,7 @@ class Source(ABC):
         self.file_path = file_path
 
     def to_dataframe(self) -> pd.DataFrame:
-        # TODO: hardcoded for ad resources -> remove later
-        if self.file_path.endswith("pharmacog.csv"):
-            return pd.read_csv(self.file_path, sep=" ")
-        elif self.file_path.endswith("arwibo.csv"):
-            return pd.read_csv(self.file_path, sep=";", usecols=range(6), encoding="ISO-8859-1")
-        elif self.file_path.endswith("jadni.tsv"):
-            return pd.read_csv(self.file_path, sep="\t", encoding="ISO-8859-1")
-        elif self.file_path.endswith("vita.csv"):
-            return pd.read_csv(self.file_path, sep=",", encoding_errors="ignore")
-        elif self.file_path.endswith("wmh-ad.csv"):
-            pd.read_csv(self.file_path, sep=",", encoding_errors="ignore")
-        elif self.file_path.endswith(".csv"):
+        if self.file_path.endswith(".csv"):
             return pd.read_csv(self.file_path)
         # back to general encodings
         elif self.file_path.endswith(".tsv"):
