@@ -64,8 +64,10 @@ docker run  -p 8000:80 ghcr.io/scai-bio/backend:latest
 
 ### Python
 
+#### Creating and using stored mappings
+
 A simple example how to initialize an in memory database and compute a similarity mapping is shown in 
-[index/scripts/mapping_example.py](index/scripts/mapping_example.py):
+[index/scripts/mapping_db_example.py](index/scripts/mapping_db_example.py):
 
 ```python
 # omit mode to create a permanent db file instead
@@ -101,6 +103,24 @@ Similarity: 0.20031612264852067 -> Concept ID: 73211009 : Hypertension (disorder
 You can also import data from file sources (csv, tsv, xlsx) or from a public API like OLS. An example script to
 download & compute embeddings for SNOMED from ebi OLS can be found in 
 [index/scripts/ols_snomed_retrieval.py](index/scripts/ols_snomed_retrieval.py).
+
+#### Harmonizing excel/csv resources
+
+You can directly import common data models, terminology sources or data dictionaries for harmonization directly from a
+csv, tsv or excel file. An example how to match two seperate variable descriptions is shown in
+[index/scripts/mapping_excel_example.py](index/scripts/mapping_excel_example.py):
+
+```python
+# Variable and description refer to the corresponding column names in your excel sheet
+source = DataDictionarySource("source.xlxs", variable_field="var", description_field="desc")
+target = DataDictionarySource("target.xlxs", variable_field="var", description_field="desc")
+
+df = map_dictionary_to_dictionary(source, target)
+df.to_excel("result.xlxs")
+```
+
+The resulting file contains the pairwise variable mapping based on the closest similarity for all possible matches 
+as well as a similarity measure per row.
 
 ## Configuration
 
