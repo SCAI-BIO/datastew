@@ -14,7 +14,7 @@ except FileNotFoundError:
     long_description = DESCRIPTION
 
 setup(
-    name='index',
+    name='intdex',
     version='0.0.2',
     packages=['index'],
     url='https://github.com/SCAI-BIO/index',
