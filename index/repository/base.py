@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from index.db.model import Mapping
+
 
 class BaseRepository(ABC):
     @abstractmethod
@@ -10,6 +12,11 @@ class BaseRepository(ABC):
     @abstractmethod
     def store_all(self, model_object_instances):
         """Store multiple model object instances."""
+        pass
+
+    @abstractmethod
+    def get_all_mappings(self, limit=1000) -> [Mapping]:
+        """Get all embeddings up to a limit"""
         pass
 
     @abstractmethod

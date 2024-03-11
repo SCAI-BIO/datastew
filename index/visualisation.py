@@ -11,6 +11,7 @@ import plotly.express as px
 
 from index.conf import COLORS_AD, COLORS_PD
 from index.mapping import MappingTable
+from index.repository.base import BaseRepository
 
 
 class PlotSide(Enum):
@@ -173,3 +174,42 @@ def scatter_plot_all_cohorts(tables1: [MappingTable], tables2: [MappingTable], l
     if store_html:
         fig.write_html(store_base_dir + "/tsne_all_cohorts.html")
     fig.show()
+
+
+def get_html_plot_for_current_database_state(repository: BaseRepository, perplexity: int = 5) -> str:
+    # get up to 1000 entries from db
+    mappings = repository.get_all_mappings()
+    # Extract embeddings
+    embeddings = np.array([mapping.embedding for mapping in mappings])
+    # Increase perplexity up to 30 if applicable
+    if embeddings.shape[0] > 30:
+        perplexity = 30
+    if embeddings.shape[0] > perplexity:
+        # Compute t-SNE embeddings
+        tsne_embeddings = TSNE(n_components=2, perplexity=perplexity).fit_transform(embeddings)
+        # Create Plotly scatter plot
+        scatter_plot = go.Scatter(
+            x=tsne_embeddings[:, 0],
+            y=tsne_embeddings[:, 1],
+            mode='markers',
+            marker=dict(
+                size=8,
+                color='blue',
+                opacity=0.5
+            ),
+            text=[str(mapping) for mapping in mappings],
+            hoverinfo='text'
+        )
+        layout = go.Layout(
+            title='t-SNE Embeddings of Database Mappings',
+            xaxis=dict(title='t-SNE Component 1'),
+            yaxis=dict(title='t-SNE Component 2'),
+        )
+        fig = go.Figure(data=[scatter_plot], layout=layout)
+        # Convert the Plotly figure to HTML
+        html_plot = fig.to_html(full_html=False)
+    else:
+        html_plot = '<b>Too few database entries to visualize</b>'
+    return html_plot
+
+

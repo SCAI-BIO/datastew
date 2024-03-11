@@ -1,3 +1,4 @@
+import random
 import numpy as np
 
 from typing import Union, List
@@ -10,9 +11,9 @@ from index.repository.base import BaseRepository
 
 class SQLLiteRepository(BaseRepository):
 
-    def __init__(self, mode="disk", name="index"):
+    def __init__(self, mode="disk", path="index/db/index.db"):
         if mode == "disk":
-            self.engine = create_engine(f'sqlite:///{name}.db')
+            self.engine = create_engine(f'sqlite:///{path}')
         # for tests
         elif mode == "memory":
             self.engine = create_engine('sqlite:///:memory:')
@@ -29,6 +30,15 @@ class SQLLiteRepository(BaseRepository):
     def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
         self.session.add_all(model_object_instances)
         self.session.commit()
+
+    def get_all_mappings(self, limit=1000):
+        # Determine the total count of mappings in the database
+        total_count = self.session.query(func.count(Mapping.id)).scalar()
+        # Generate random indices for the subset of embeddings
+        random_indices = random.sample(range(total_count), min(limit, total_count))
+        # Query for mappings corresponding to the random indices
+        mappings = self.session.query(Mapping).filter(Mapping.id.in_(random_indices)).all()
+        return mappings
 
     def get_closest_mappings(self, embedding: List[float], limit=5):
         mappings = self.session.query(Mapping).all()
