@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Dict
 
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
@@ -75,19 +76,16 @@ async def create_or_update_concept(id: str, terminology_id: str, name: str):
         raise HTTPException(status_code=400, detail=f"Failed to create or update concept: {str(e)}")
 
 
-@app.put("/mappings/{id}", tags=["mappings"])
-async def create_or_update_mapping(id: str, concept_id: str, text: str):
+@app.put("/mappings/", tags=["mappings"])
+async def create_or_update_mapping(concept_id: str, text: str):
     try:
         concept = repository.session.query(Concept).filter(Concept.id == concept_id).first()
         if not concept:
             raise HTTPException(status_code=404, detail=f"Concept with id {concept_id} not found")
         embedding = embedding_model.get_embedding(text)
-        # Convert embedding from numpy array to list
-        embedding_list = embedding.tolist()
-        print(embedding_list)
-        mapping = Mapping(concept=concept, text=text, embedding=json.dumps(embedding_list))
+        mapping = Mapping(concept=concept, text=text, embedding=embedding)
         repository.store(mapping)
-        return {"message": f"Mapping {id} created or updated successfully"}
+        return {"message": f"Mapping created or updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to create or update mapping: {str(e)}")
 
@@ -114,3 +112,6 @@ async def get_closest_mappings_for_text(text: str):
             "similarity": similarity
         })
     return response_data
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=5000)

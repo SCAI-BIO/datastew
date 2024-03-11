@@ -136,6 +136,5 @@ The API will default to use a local embedding model. You can adjust the model lo
 
 ### Database
 
-INDEX will by default store mappings in a file based db file in the 
-[following directory](https://github.com/SCAI-BIO/index/tree/main/index/db). All available database adapter 
+INDEX will by default store mappings in a file based db file in the root dir. All available database adapter 
 implementations are available in [index/repository](index/repository).
