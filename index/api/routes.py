@@ -1,20 +1,31 @@
-import json
 import logging
-from typing import Dict
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, HTMLResponse
 
 from index.db.model import Terminology, Concept, Mapping
 from index.repository.sqllite import SQLLiteRepository
 from index.embedding import MPNetAdapter
+from index.visualisation import get_html_plot_for_current_database_state
+
+logger = logging.getLogger("uvicorn.info")
+repository = SQLLiteRepository(path="../db/index.db")
+embedding_model = MPNetAdapter()
+db_plot_html = None
 
 app = FastAPI(
     title="INDEX",
-    description="Intelligent data steward toolbox using Large Language Model embeddings "
-                "for automated Data-Harmonization .",
+    description="<div id=info-text><h1>Introduction</h1>"
+    "INDEX uses vector embeddings from variable descriptions to suggest mappings for datasets based on "
+    "their semantic similarity. Mappings are stored with their vector representations in a knowledge "
+    "base, where they can be used for subsequent harmonisation tasks, potentially improving the following "
+    "suggestions with each iteration. Models for the computation as well as databases for storage are "
+    "meant to be configurable and extendable to adapt the tool for specific use-cases.</div>"
+    "<div id=db-plot><h1>Current DB state</h1>"
+    "<p>Showing 2D Visualization of DB entries up to a limit of 1000 entries</p>"
+    '<a href="/visualization">Click here to view visualization</a></div>',
     version="0.0.1",
     terms_of_service="https://www.scai.fraunhofer.de/",
     contact={
@@ -24,6 +35,14 @@ app = FastAPI(
     license_info={
         "name": "Apache 2.0",
         "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
+    },
+    openapi_extra={
+        "info": {
+            "x-logo": {
+                "url": "https://example.com/logo.png",
+                "altText": "Your API Logo"
+            }
+        }
     },
 )
 
@@ -37,10 +56,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logger = logging.getLogger("uvicorn.info")
-repository = SQLLiteRepository()
-embedding_model = MPNetAdapter()
-
 
 @app.get("/", include_in_schema=False)
 def swagger_redirect():
@@ -50,6 +65,14 @@ def swagger_redirect():
 @app.get("/version", tags=["info"])
 def get_current_version():
     return app.version
+
+
+@app.get("/visualization", response_class=HTMLResponse, tags=["visualization"])
+def serve_visualization():
+    global db_plot_html
+    if not db_plot_html:
+        db_plot_html = get_html_plot_for_current_database_state(repository)
+    return db_plot_html
 
 
 @app.put("/terminologies/{id}", tags=["terminologies"])
@@ -112,6 +135,7 @@ async def get_closest_mappings_for_text(text: str):
             "similarity": similarity
         })
     return response_data
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=5000)
