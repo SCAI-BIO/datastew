@@ -11,7 +11,7 @@ from index.embedding import MPNetAdapter
 from index.visualisation import get_html_plot_for_current_database_state
 
 logger = logging.getLogger("uvicorn.info")
-repository = SQLLiteRepository(path="../db/index.db")
+repository = SQLLiteRepository(path="index/db/index.db")
 embedding_model = MPNetAdapter()
 db_plot_html = None
 
