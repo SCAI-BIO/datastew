@@ -58,7 +58,7 @@ docker pull ghcr.io/scai-bio/index/backend:latest
 After build/download you will be able to start the container and access the INDEX API per default on [localhost:8000](http://localhost:8000):
 
 ```bash
-docker run  -p 8000:80 ghcr.io/scai-bio/backend:latest
+docker run  -p 8000:80 ghcr.io/index/scai-bio/backend:latest
 ```
 ## Usage
 
