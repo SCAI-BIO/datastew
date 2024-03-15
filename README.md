@@ -48,11 +48,11 @@ You can either build the docker container locally or download the latest build f
 
 
 ```bash
-docker build . -t ghcr.io/scai-bio/backend:latest
+docker build . -t ghcr.io/scai-bio/index/backend:latest
 ```
 
 ```bash
-docker pull ghcr.io/scai-bio/backend:latest
+docker pull ghcr.io/scai-bio/index/backend:latest
 ```
 
 After build/download you will be able to start the container and access the INDEX API per default on [localhost:8000](http://localhost:8000):
@@ -136,5 +136,10 @@ The API will default to use a local embedding model. You can adjust the model lo
 
 ### Database
 
-INDEX will by default store mappings in a file based db file in the root dir. All available database adapter 
-implementations are available in [index/repository](index/repository).
+INDEX will by default store mappings in a file based db file in the [index/db](index/db) dir. For testing purposes
+the initial SQLLite file based db contains a few of mappings to concepts in SNOMED CT. All available database adapter 
+implementations can be found in [index/repository](index/repository).
+
+To exchange the DB implementation, load your custom DB adapter or pre-saved file-based DB file on application startup
+[here](https://github.com/SCAI-BIO/index/blob/923601677fd62d50c3748b7f11666420e82df609/index/api/routes.py#L14). 
+The same can be done for any other embedding model.
