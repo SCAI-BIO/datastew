@@ -75,6 +75,13 @@ def serve_visualization():
     return db_plot_html
 
 
+@app.patch("/visualization", tags=["visualization"])
+def update_visualization():
+    global db_plot_html
+    db_plot_html = get_html_plot_for_current_database_state(repository)
+    return {"message": "DB visualization plot has been updated successfully"}
+
+
 @app.put("/terminologies/{id}", tags=["terminologies"])
 async def create_or_update_terminology(id: str, name: str):
     try:
@@ -94,6 +101,22 @@ async def create_or_update_concept(id: str, terminology_id: str, name: str):
 
         concept = Concept(terminology=terminology, name=name, id=id)
         repository.store(concept)
+        return {"message": f"Concept {id} created or updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create or update concept: {str(e)}")
+
+
+@app.put("/concepts/{id}/mappings", tags=["concepts", "mappings"])
+async def create_concept_and_attach_mapping(id: str, terminology_id: str, concept_name: str, text: str):
+    try:
+        terminology = repository.session.query(Terminology).filter(Terminology.id == terminology_id).first()
+        if not terminology:
+            raise HTTPException(status_code=404, detail=f"Terminology with id {terminology_id} not found")
+        concept = Concept(terminology=terminology, name=concept_name, id=id)
+        repository.store(concept)
+        embedding = embedding_model.get_embedding(text)
+        mapping = Mapping(concept=concept, text=text, embedding=embedding)
+        repository.store(mapping)
         return {"message": f"Concept {id} created or updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to create or update concept: {str(e)}")
