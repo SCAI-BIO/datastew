@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+from typing import List
 
-from index.db.model import Mapping
+from index.db.model import Mapping, Concept, Terminology
 
 
 class BaseRepository(ABC):
@@ -12,6 +13,16 @@ class BaseRepository(ABC):
     @abstractmethod
     def store_all(self, model_object_instances):
         """Store multiple model object instances."""
+        pass
+
+    @abstractmethod
+    def get_all_concepts(self) -> List[Concept]:
+        """ Retrieve all concepts from the database."""
+        pass
+
+    @abstractmethod
+    def get_all_terminologies(self) -> List[Terminology]:
+        """ Retrieve all terminologies from the database."""
         pass
 
     @abstractmethod
