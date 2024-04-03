@@ -6,8 +6,8 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse, HTMLResponse
 
 from index.db.model import Terminology, Concept, Mapping
-from index.repository.sqllite import SQLLiteRepository
 from index.embedding import MPNetAdapter
+from index.repository.sqllite import SQLLiteRepository
 from index.visualisation import get_html_plot_for_current_database_state
 
 logger = logging.getLogger("uvicorn.info")
@@ -18,15 +18,15 @@ db_plot_html = None
 app = FastAPI(
     title="INDEX",
     description="<div id=info-text><h1>Introduction</h1>"
-    "INDEX uses vector embeddings from variable descriptions to suggest mappings for datasets based on "
-    "their semantic similarity. Mappings are stored with their vector representations in a knowledge "
-    "base, where they can be used for subsequent harmonisation tasks, potentially improving the following "
-    "suggestions with each iteration. Models for the computation as well as databases for storage are "
-    "meant to be configurable and extendable to adapt the tool for specific use-cases.</div>"
-    "<div id=db-plot><h1>Current DB state</h1>"
-    "<p>Showing 2D Visualization of DB entries up to a limit of 1000 entries</p>"
-    '<a href="/visualization">Click here to view visualization</a></div>',
-    version="0.0.1",
+                "INDEX uses vector embeddings from variable descriptions to suggest mappings for datasets based on "
+                "their semantic similarity. Mappings are stored with their vector representations in a knowledge "
+                "base, where they can be used for subsequent harmonisation tasks, potentially improving the following "
+                "suggestions with each iteration. Models for the computation as well as databases for storage are "
+                "meant to be configurable and extendable to adapt the tool for specific use-cases.</div>"
+                "<div id=db-plot><h1>Current DB state</h1>"
+                "<p>Showing 2D Visualization of DB entries up to a limit of 1000 entries</p>"
+                '<a href="/visualization">Click here to view visualization</a></div>',
+    version="0.0.3",
     terms_of_service="https://www.scai.fraunhofer.de/",
     contact={
         "name": "Dr. Marc Jacobs",
@@ -82,6 +82,12 @@ def update_visualization():
     return {"message": "DB visualization plot has been updated successfully"}
 
 
+@app.get("/terminologies", tags=["terminologies"])
+async def get_all_terminologies():
+    terminologies = repository.get_all_terminologies()
+    return terminologies
+
+
 @app.put("/terminologies/{id}", tags=["terminologies"])
 async def create_or_update_terminology(id: str, name: str):
     try:
@@ -90,6 +96,12 @@ async def create_or_update_terminology(id: str, name: str):
         return {"message": f"Terminology {id} created or updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to create or update terminology: {str(e)}")
+
+
+@app.get("/concepts", tags=["concepts"])
+async def get_all_concepts():
+    concepts = repository.get_all_concepts()
+    return concepts
 
 
 @app.put("/concepts/{id}", tags=["concepts"])
@@ -104,6 +116,12 @@ async def create_or_update_concept(id: str, terminology_id: str, name: str):
         return {"message": f"Concept {id} created or updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to create or update concept: {str(e)}")
+
+
+@app.get("/mappings", tags=["mappings"])
+async def get_all_mappings():
+    mappings = repository.get_all_mappings()
+    return mappings
 
 
 @app.put("/concepts/{id}/mappings", tags=["concepts", "mappings"])

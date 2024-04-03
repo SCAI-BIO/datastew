@@ -31,6 +31,12 @@ class SQLLiteRepository(BaseRepository):
         self.session.add_all(model_object_instances)
         self.session.commit()
 
+    def get_all_concepts(self) -> List[Concept]:
+        return self.session.query(Concept).all()
+
+    def get_all_terminologies(self) -> List[Terminology]:
+        return self.session.query(Terminology).all()
+
     def get_all_mappings(self, limit=1000):
         # Determine the total count of mappings in the database
         total_count = self.session.query(func.count(Mapping.id)).scalar()
