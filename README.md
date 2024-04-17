@@ -1,6 +1,6 @@
 # INDEX – the Intelligent Data Steward Toolbox
 
-![example workflow](https://github.com/SCAI-BIO/index/actions/workflows/python-package.yml/badge.svg) ![GitHub Release](https://img.shields.io/github/v/release/SCAI-BIO/index)
+![example workflow](https://github.com/SCAI-BIO/index/actions/workflows/tests.yml/badge.svg) ![GitHub Release](https://img.shields.io/github/v/release/SCAI-BIO/index)
 
 INDEX is an intelligent data steward toolbox that leverages Large Language Model embeddings for automated Data-Harmonization. 
 
