@@ -1,4 +1,6 @@
 import random
+import sqlite3
+
 import numpy as np
 
 from typing import Union, List
@@ -20,12 +22,16 @@ class SQLLiteRepository(BaseRepository):
         else:
             raise ValueError(f'DB mode {mode} is not defined. Use either disk or memory.')
         Base.metadata.create_all(self.engine)
-        Session = sessionmaker(bind=self.engine)
+        Session = sessionmaker(bind=self.engine, autoflush=False)
         self.session = Session()
 
     def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
-        self.session.add(model_object_instance)
-        self.session.commit()
+        try:
+            self.session.add(model_object_instance)
+            self.session.commit()
+        except Exception as e:
+            self.session.rollback()
+            raise IOError(e)
 
     def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
         self.session.add_all(model_object_instances)
