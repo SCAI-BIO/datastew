@@ -1,4 +1,4 @@
-from index.db.model import Terminology, Concept, Mapping
+from index.repository.model import Terminology, Concept, Mapping
 from index.embedding import MPNetAdapter
 from index.repository.sqllite import SQLLiteRepository
 
