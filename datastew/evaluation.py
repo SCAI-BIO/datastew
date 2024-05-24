@@ -6,7 +6,7 @@ import numpy as np
 from scipy.spatial import distance
 from sklearn.metrics.pairwise import cosine_distances
 
-from index.mapping import MappingTable
+from datastew.mapping import MappingTable
 
 
 class MatchingMethod(Enum):

@@ -1,7 +1,7 @@
 import unittest
 
-from index.repository.model import Terminology, Concept, Mapping
-from index.repository.sqllite import SQLLiteRepository
+from datastew.repository.model import Terminology, Concept, Mapping
+from datastew.repository.sqllite import SQLLiteRepository
 
 
 class TestGetClosestEmbedding(unittest.TestCase):

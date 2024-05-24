@@ -9,9 +9,9 @@ from sklearn.manifold import TSNE
 import plotly.graph_objects as go
 import plotly.express as px
 
-from index.conf import COLORS_AD, COLORS_PD
-from index.mapping import MappingTable
-from index.repository.base import BaseRepository
+from datastew.conf import COLORS_AD, COLORS_PD
+from datastew.mapping import MappingTable
+from datastew.repository.base import BaseRepository
 
 
 class PlotSide(Enum):

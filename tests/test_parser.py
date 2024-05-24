@@ -1,8 +1,8 @@
 import os
 from unittest import TestCase
 
-from index.mapping import MappingTable
-from index.process.parsing import MappingSource, DataDictionarySource
+from datastew.mapping import MappingTable
+from datastew.process.parsing import MappingSource, DataDictionarySource
 
 
 class Test(TestCase):

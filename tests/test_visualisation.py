@@ -4,9 +4,9 @@ from unittest import TestCase
 import numpy as np
 import pandas as pd
 
-from index.mapping import MappingTable
-from index.process.parsing import MappingSource, DataDictionarySource
-from index.visualisation import scatter_plot_two_distributions, enrichment_plot, scatter_plot_all_cohorts, \
+from datastew.mapping import MappingTable
+from datastew.process.parsing import MappingSource, DataDictionarySource
+from datastew.visualisation import scatter_plot_two_distributions, enrichment_plot, scatter_plot_all_cohorts, \
     bar_chart_average_acc_two_distributions
 
 

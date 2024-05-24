@@ -1,5 +1,5 @@
-from index.process.mapping import map_dictionary_to_dictionary
-from index.process.parsing import DataDictionarySource
+from datastew.process.mapping import map_dictionary_to_dictionary
+from datastew.process.parsing import DataDictionarySource
 
 # Variable and description refer to the corresponding column names in your excel sheet
 source = DataDictionarySource("source.xlxs", variable_field="var", description_field="desc")

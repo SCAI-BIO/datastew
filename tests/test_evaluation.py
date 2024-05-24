@@ -3,9 +3,9 @@ from unittest import TestCase
 
 import numpy as np
 
-from index.evaluation import match_closest_descriptions, MatchingMethod, enrichment_analysis, score_mappings
-from index.mapping import MappingTable
-from index.process.parsing import MappingSource, DataDictionarySource
+from datastew.evaluation import match_closest_descriptions, MatchingMethod, enrichment_analysis, score_mappings
+from datastew.mapping import MappingTable
+from datastew.process.parsing import MappingSource, DataDictionarySource
 
 
 class Test(TestCase):

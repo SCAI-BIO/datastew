@@ -1,10 +1,10 @@
 import os
 import unittest
-from index.embedding import MPNetAdapter, TextEmbedding
+from datastew.embedding import MPNetAdapter, TextEmbedding
 import numpy as np
 
-from index.process.mapping import map_dictionary_to_dictionary
-from index.process.parsing import DataDictionarySource
+from datastew.process.mapping import map_dictionary_to_dictionary
+from datastew.process.parsing import DataDictionarySource
 
 
 class TestEmbedding(unittest.TestCase):

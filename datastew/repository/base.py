@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from index.repository.model import Mapping, Concept, Terminology
+from datastew.repository.model import Mapping, Concept, Terminology
 
 
 class BaseRepository(ABC):

@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
-from index.embedding import EmbeddingModel, MPNetAdapter
-from index.process.parsing import DataDictionarySource
+from datastew.embedding import EmbeddingModel, MPNetAdapter
+from datastew.process.parsing import DataDictionarySource
 
 
 def map_dictionary_to_dictionary(source: DataDictionarySource,
