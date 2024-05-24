@@ -1,5 +1,5 @@
 import unittest
-from index.embedding import MPNetAdapter, TextEmbedding
+from datastew.embedding import MPNetAdapter, TextEmbedding
 import numpy as np
 
 class TestEmbedding(unittest.TestCase):

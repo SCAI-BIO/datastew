@@ -7,8 +7,8 @@ from typing import Union, List
 
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
-from index.repository.model import Base, Terminology, Concept, Mapping
-from index.repository.base import BaseRepository
+from datastew.repository.model import Base, Terminology, Concept, Mapping
+from datastew.repository.base import BaseRepository
 
 
 class SQLLiteRepository(BaseRepository):

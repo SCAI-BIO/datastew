@@ -1,6 +1,6 @@
-from index.embedding import MPNetAdapter
-from index.process.ols import OLSTerminologyImportTask
-from index.repository.sqllite import SQLLiteRepository
+from datastew.embedding import MPNetAdapter
+from datastew.process.ols import OLSTerminologyImportTask
+from datastew.repository.sqllite import SQLLiteRepository
 
 repository = SQLLiteRepository(name="snomed")
 embedding_model = MPNetAdapter()

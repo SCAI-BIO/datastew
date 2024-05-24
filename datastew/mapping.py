@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 
-from index.embedding import EmbeddingModel
-from index.process.parsing import MappingSource, DataDictionarySource, EmbeddingSource
+from datastew.embedding import EmbeddingModel
+from datastew.process.parsing import MappingSource, DataDictionarySource, EmbeddingSource
 
 
 class Terminology:

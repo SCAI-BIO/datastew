@@ -2,9 +2,9 @@ import logging
 
 import requests
 
-from index.repository.model import Terminology, Concept, Mapping
-from index.embedding import EmbeddingModel
-from index.repository.base import BaseRepository
+from datastew.repository.model import Terminology, Concept, Mapping
+from datastew.embedding import EmbeddingModel
+from datastew.repository.base import BaseRepository
 
 
 class OLSTerminologyImportTask:
