@@ -14,9 +14,9 @@ except FileNotFoundError:
     long_description = DESCRIPTION
 
 setup(
-    name='intdex',
-    version='0.0.2',
-    packages=['index'],
+    name='datastew',
+    version='0.1.0',
+    packages=['datastew'],
     url='https://github.com/SCAI-BIO/index',
     license='Apache-2.0 license"',
     author='Tim Adams',
