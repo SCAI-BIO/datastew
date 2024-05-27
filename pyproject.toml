@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "index"
-version = "0.0.1"
+name = "datastew"
+version = "0.1.0"
 description = "Intelligent data steward toolbox using Large Language Model embeddings for automated Data-Harmonization"
 authors = ["TimAdams84 <tim-adams@gmx.net>"]
 license = "Apache-2.0 license"
