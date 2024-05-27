@@ -2,9 +2,9 @@
 FROM python:3.9
 
 # Create a folder and copy the folder structure from local
-RUN mkdir -p /index
+RUN mkdir -p /datastew
 
-COPY /index /index
+COPY /datastew /datastew
 
 # Install API requirements
 COPY requirements.txt /tmp/
