@@ -8,4 +8,4 @@ from datastew.process import parsing
 
 from datastew.repository import base
 from datastew.repository import model
-from from datastew.repository import sqllite
+from datastew.repository import sqllite
