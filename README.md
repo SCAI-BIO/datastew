@@ -78,7 +78,7 @@ docker run  -p 8000:80 ghcr.io/datastew/scai-bio/backend:latest
 #### Creating and using stored mappings
 
 A simple example how to initialize an in memory database and compute a similarity mapping is shown in 
-[index/scripts/mapping_db_example.py](datastew/scripts/mapping_db_example.py):
+[datastew/scripts/mapping_db_example.py](datastew/scripts/mapping_db_example.py):
 
 ```python
 from datastew.repository.sqllite import SQLLiteRepository
@@ -117,13 +117,13 @@ Similarity: 0.20031612264852067 -> Concept ID: 73211009 : Hypertension (disorder
 
 You can also import data from file sources (csv, tsv, xlsx) or from a public API like OLS. An example script to
 download & compute embeddings for SNOMED from ebi OLS can be found in 
-[index/scripts/ols_snomed_retrieval.py](datastew/scripts/ols_snomed_retrieval.py).
+[datastew/scripts/ols_snomed_retrieval.py](datastew/scripts/ols_snomed_retrieval.py).
 
 #### Harmonizing excel/csv resources
 
 You can directly import common data models, terminology sources or data dictionaries for harmonization directly from a
 csv, tsv or excel file. An example how to match two seperate variable descriptions is shown in
-[index/scripts/mapping_excel_example.py](datastew/scripts/mapping_excel_example.py):
+[datastew/scripts/mapping_excel_example.py](datastew/scripts/mapping_excel_example.py):
 
 ```python
 from datastew.mapping import DataDictionarySource

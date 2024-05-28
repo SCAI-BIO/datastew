@@ -13,4 +13,4 @@ RUN pip install --requirement /tmp/requirements.txt
 EXPOSE 80
 
 # API entry point
-CMD ["uvicorn", "index.api.routes:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "datastew.api.routes:app", "--host", "0.0.0.0", "--port", "80"]
