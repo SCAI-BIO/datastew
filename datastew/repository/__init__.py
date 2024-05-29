@@ -1,2 +1,2 @@
-from model import *
-from sqllite import *
+from .model import *
+from .sqllite import *
