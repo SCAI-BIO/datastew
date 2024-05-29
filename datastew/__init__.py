@@ -4,5 +4,5 @@ from datastew import mapping
 from datastew import embedding
 
 # packages
-from . import process
-from . import repository
+from process import mapping, ols, parsing
+from repository import model, sqllite
