@@ -32,7 +32,7 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/SCAI-BIO/index
-cd datastew
+cd index
 ```
 
 Install python requirements:
