@@ -4,5 +4,5 @@ from datastew import mapping
 from datastew import embedding
 
 # packages
-from datastew import process
-from datastew import repository
+from . import process
+from . import repository
