@@ -82,8 +82,8 @@ A simple example how to initialize an in memory database and compute a similarit
 
 ```python
 from datastew.repository.sqllite import SQLLiteRepository
+from datastew.repository.model import Terminology, Concept, Mapping
 from datastew.embedding import MPNetAdapter
-from datastew.db.model import Terminology, Concept, Mapping
 
 # omit mode to create a permanent db file instead
 repository = SQLLiteRepository(mode="memory")
@@ -126,7 +126,7 @@ csv, tsv or excel file. An example how to match two seperate variable descriptio
 [datastew/scripts/mapping_excel_example.py](datastew/scripts/mapping_excel_example.py):
 
 ```python
-from datastew.mapping import DataDictionarySource
+from datastew.process.parsing import DataDictionarySource
 from datastew.process.mapping import map_dictionary_to_dictionary
 
 # Variable and description refer to the corresponding column names in your excel sheet
