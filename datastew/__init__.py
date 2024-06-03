@@ -1,11 +1,14 @@
-# root dir files 
-from datastew import visualisation
-from datastew import mapping
-from datastew import embedding
+from .visualisation import *
+from .mapping import *
+from .embedding import *
 
-# packages
-from .process.mapping import map_dictionary_to_dictionary
-from .process.parsing import DataDictionarySource
+# Importing submodules to expose their attributes if needed
+from .process import mapping, parsing
+from .repository import model, sqllite
 
-from .repository.model import Terminology, Concept, Mapping
-from .repository.sqllite import SQLLiteRepository
+__all__ = [
+    "mapping",
+    "parsing",
+    "model",
+    "sqllite"
+]
