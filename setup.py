@@ -12,16 +12,6 @@ try:
 except FileNotFoundError:
     long_description = DESCRIPTION
 
-
-# Function to parse requirements.txt
-def parse_requirements(filename):
-    with open(filename, 'r') as file:
-        lines = file.read().splitlines()
-        return [line for line in lines if line and not line.startswith("#")]
-
-
-requirements = parse_requirements(os.path.join(here, 'requirements.txt'))
-
 setup(
     name='datastew',
     version='0.1.0',
@@ -33,7 +23,35 @@ setup(
     description=DESCRIPTION,
     long_description=long_description,
     long_description_content_type='text/markdown',
-    install_requires=requirements,
+    install_requires=[
+        'matplotlib~=3.8.1',
+        'numpy==1.25.2',
+        'openai~=0.28.0',
+        'openpyxl',
+        'pandas==2.1.0',
+        'pip==21.3.1',
+        'plotly~=5.17.0',
+        'python-dateutil==2.8.2',
+        'python-dotenv~=1.0.0',
+        'pytz==2023.3',
+        'seaborn~=0.13.0',
+        'sentence-transformers==2.3.1',
+        'setuptools==60.2.0',
+        'scikit-learn==1.3.2',
+        'six==1.16.0',
+        'thefuzz~=0.20.0',
+        'tzdata==2023.3',
+        'wheel==0.37.1',
+        'aiofiles~=0.7.0',
+        'uvicorn>=0.15.0',
+        'python-multipart',
+        'fastapi~=0.87.0',
+        'SQLAlchemy~=2.0.27',
+        'starlette~=0.21.0',
+        'scipy~=1.11.4',
+        'requests~=2.31.0',
+        'pydantic~=1.10.14'
+    ],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
@@ -43,5 +61,4 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
     ],
-    keywords=["data stewardship", "Large language models"],
 )
