@@ -32,17 +32,16 @@ class GPT4Adapter(EmbeddingModel):
             logging.error(f"Error getting embedding for {text}: {e}")
             return None
 
-    def get_embeddings(self, messages: [str], model="text-embedding-ada-002", max_chunk_length=2048):
+    def get_embeddings(self, messages: [str], model="text-embedding-ada-002", max_length=2048):
         embeddings = []
-        for message in messages:
-            if len(message) <= max_chunk_length:
-                embeddings.append(self.get_embedding(message, model))
-            else:
-                # Split message into chunks
-                chunks = [message[i:i+max_chunk_length] for i in range(0, len(message), max_chunk_length)]
-                for idx, chunk in enumerate(chunks):
-                    logging.info(f'Processing chunk {idx}/{len(chunks)}')
-                    embeddings.append(self.get_embedding(chunk, model))
+        total_chunks = (len(messages) + max_length - 1) // max_length
+        current_chunk = 0
+        for i in range(0, len(messages), max_length):
+            current_chunk += 1
+            chunk = messages[i:i + max_length]
+            response = openai.Embedding.create(input=chunk, model=model)
+            embeddings.extend([item["embedding"] for item in response["data"]])
+            logging.info("Processed chunk %d/%d", current_chunk, total_chunks)
         return embeddings
 
 
