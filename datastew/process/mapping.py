@@ -37,7 +37,7 @@ def map_dictionary_to_dictionary(source: DataDictionarySource,
     # Compute cosine similarities
     similarities = cosine_similarity(embeddings_source, embeddings_target)
 
-    if limit is 1:
+    if limit == 1:
         # Find the closest matches
         max_similarities = np.max(similarities, axis=1)
         closest_match_indices = np.argmax(similarities, axis=1)
