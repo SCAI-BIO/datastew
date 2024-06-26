@@ -15,5 +15,5 @@ class TestEmbedding(unittest.TestCase):
                                                   "VAR_1", "DESC")
 
     def test_map_dictionary_to_dictionary(self):
-        df = map_dictionary_to_dictionary(self.data_dictionary_source, self.data_dictionary_source)
+        df = map_dictionary_to_dictionary(self.data_dictionary_source, self.data_dictionary_source, limit=2)
         print(df)
