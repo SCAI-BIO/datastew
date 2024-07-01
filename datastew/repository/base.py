@@ -5,6 +5,7 @@ from datastew.repository.model import Mapping, Concept, Terminology
 
 
 class BaseRepository(ABC):
+
     @abstractmethod
     def store(self, model_object_instance):
         """Store a single model object instance."""

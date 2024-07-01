@@ -14,7 +14,7 @@ except FileNotFoundError:
 
 setup(
     name='datastew',
-    version='0.1.0',
+    version='0.1.0',  # will be substituted in publish workflow
     packages=find_packages(),  # This will automatically find all packages and sub-packages
     url='https://github.com/SCAI-BIO/index',
     license='Apache-2.0 license',
