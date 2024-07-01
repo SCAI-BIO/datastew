@@ -26,3 +26,12 @@ class TestEmbedding(unittest.TestCase):
         text_embedding = TextEmbedding(text, embedding)
         self.assertEqual(text_embedding.text, text)
         self.assertEqual(text_embedding.embedding, embedding)
+
+    def test_sanitization(self):
+        text1 = " Test"
+        text2 = "test "
+        embedding1 = self.mpnet_adapter.get_embedding(text1)
+        embedding2 = self.mpnet_adapter.get_embedding(text2)
+        self.assertListEqual(embedding1.tolist(), embedding2.tolist())
+
+

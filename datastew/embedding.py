@@ -12,6 +12,9 @@ class EmbeddingModel(ABC):
     def get_embeddings(self, messages: [str]) -> [[float]]:
         pass
 
+    def sanitize(self, message: str) -> str:
+        return message.strip().lower()
+
 
 class GPT4Adapter(EmbeddingModel):
     def __init__(self, api_key: str):
@@ -27,18 +30,20 @@ class GPT4Adapter(EmbeddingModel):
                 return None
             if isinstance(text, str):
                 text = text.replace("\n", " ")
+                text = self.sanitize(text)
             return openai.Embedding.create(input=[text], model=model)["data"][0]["embedding"]
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
             return None
 
     def get_embeddings(self, messages: [str], model="text-embedding-ada-002", max_length=2048):
+        sanitized_messages = [self.sanitize(message) for message in messages]
         embeddings = []
-        total_chunks = (len(messages) + max_length - 1) // max_length
+        total_chunks = (len(sanitized_messages) + max_length - 1) // max_length
         current_chunk = 0
-        for i in range(0, len(messages), max_length):
+        for i in range(0, len(sanitized_messages), max_length):
             current_chunk += 1
-            chunk = messages[i:i + max_length]
+            chunk = sanitized_messages[i:i + max_length]
             response = openai.Embedding.create(input=chunk, model=model)
             embeddings.extend([item["embedding"] for item in response["data"]])
             logging.info("Processed chunk %d/%d", current_chunk, total_chunks)
@@ -58,16 +63,18 @@ class MPNetAdapter(EmbeddingModel):
                 return None
             if isinstance(text, str):
                 text = text.replace("\n", " ")
+                text = self.sanitize(text)
             return self.mpnet_model.encode(text)
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
             return None
 
     def get_embeddings(self, messages: [str]) -> [[float]]:
+        sanitized_messages = [self.sanitize(message) for message in messages]
         try:
-            embeddings = self.mpnet_model.encode(messages)
+            embeddings = self.mpnet_model.encode(sanitized_messages)
         except Exception as e:
-            logging.error(f"Failed for messages {messages}")
+            logging.error(f"Failed for messages {sanitized_messages}")
         flattened_embeddings = [[float(element) for element in row] for row in embeddings]
         return flattened_embeddings
 
