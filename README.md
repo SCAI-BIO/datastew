@@ -2,6 +2,7 @@
 
 ![tests](https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml/badge.svg) ![GitHub Release](https://img.shields.io/github/v/release/SCAI-BIO/datastew)
 
+Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings. 
 ## Installation
 
 ```bash
