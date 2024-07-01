@@ -43,13 +43,9 @@ setup(
         'tzdata==2023.3',
         'wheel==0.37.1',
         'aiofiles~=0.7.0',
-        'uvicorn>=0.15.0',
         'python-multipart',
-        'fastapi~=0.87.0',
         'SQLAlchemy~=2.0.27',
-        'starlette~=0.21.0',
         'scipy~=1.11.4',
-        'requests~=2.31.0',
         'pydantic~=1.10.14'
     ],
     classifiers=[
