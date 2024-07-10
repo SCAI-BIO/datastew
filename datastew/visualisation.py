@@ -39,7 +39,7 @@ def get_cohort_specific_color_code(cohort_name: str):
 def enrichment_plot(acc_gpt, acc_mpnet, acc_fuzzy, title, save_plot=False, save_dir="resources/results/plots"):
     if not (len(acc_gpt) == len(acc_fuzzy) == len(acc_mpnet)):
         raise ValueError("acc_gpt, acc_mpnet and acc_fuzzy should be of the same length!")
-    data = {"Maximum Considered Rank": list(range(1, len(acc_gpt) + 1)), "GPT": acc_gpt, 
+    data = {"Maximum Considered Rank": list(range(1, len(acc_gpt) + 1)), "GPT": acc_gpt,
             "MPNet": acc_mpnet, "Fuzzy": acc_fuzzy}
     df = pd.DataFrame(data)
     sns.set(style="whitegrid")
@@ -112,7 +112,7 @@ def bar_chart_average_acc_two_distributions(dist1_fuzzy: pd.DataFrame, dist1_gpt
 
 
 def scatter_plot_two_distributions(tables1: [MappingTable], tables2: [MappingTable], label1: str, label2: str,
-                                   store_html: bool = True, legend_font_size: int = 16, 
+                                   store_html: bool = True, legend_font_size: int = 16,
                                    store_destination: str = "resources/results/plots/ad_vs_pd.html"):
     vectors_tables1 = np.concatenate([table.get_embeddings_numpy() for table in tables1])
     vectors_tables2 = np.concatenate([table.get_embeddings_numpy() for table in tables2])
@@ -157,18 +157,18 @@ def scatter_plot_all_cohorts(tables1: [MappingTable], tables2: [MappingTable], l
     boundaries = np.insert(boundaries, 0, 0)
     for idx in range(len(tables1)):
         if labels1[idx]:
-            fig.add_trace(go.Scatter(x=tsne_result[boundaries[idx] : boundaries[idx + 1], 0],
-                                     y=tsne_result[boundaries[idx] : boundaries[idx + 1], 1],
+            fig.add_trace(go.Scatter(x=tsne_result[boundaries[idx]: boundaries[idx + 1], 0],
+                                     y=tsne_result[boundaries[idx]: boundaries[idx + 1], 1],
                                      mode="markers", name=labels1[idx],
-                                     text=descriptions[boundaries[idx] : boundaries[idx + 1]],
+                                     text=descriptions[boundaries[idx]: boundaries[idx + 1]],
                                      # line=dict(color=get_cohort_specific_color_code(labels1[idx]))
                                      ))
     for idy in range(len(tables1), len(boundaries) - 1):
-        fig.add_trace(go.Scatter(x=tsne_result[boundaries[idy] : boundaries[idy + 1], 0],
-                                 y=tsne_result[boundaries[idy] : boundaries[idy + 1], 1],
+        fig.add_trace(go.Scatter(x=tsne_result[boundaries[idy]: boundaries[idy + 1], 0],
+                                 y=tsne_result[boundaries[idy]: boundaries[idy + 1], 1],
                                  mode="markers",
                                  name=labels2[idy - len(tables1)],
-                                 text=descriptions[boundaries[idy] : boundaries[idy + 1]],
+                                 text=descriptions[boundaries[idy]: boundaries[idy + 1]],
                                  # line=dict(color=get_cohort_specific_color_code(labels2[idy - len(tables1)]))
                                  ))
     if store_html:
@@ -176,7 +176,7 @@ def scatter_plot_all_cohorts(tables1: [MappingTable], tables2: [MappingTable], l
     fig.show()
 
 
-def get_html_plot_for_current_database_state(repository: BaseRepository, perplexity: int = 5) -> str:
+def get_plot_for_current_database_state(repository: BaseRepository, perplexity: int = 5, return_type="html") -> str:
     # get up to 1000 entries from db
     mappings = repository.get_all_mappings()
     # Extract embeddings
@@ -206,10 +206,12 @@ def get_html_plot_for_current_database_state(repository: BaseRepository, perplex
             yaxis=dict(title='t-SNE Component 2'),
         )
         fig = go.Figure(data=[scatter_plot], layout=layout)
-        # Convert the Plotly figure to HTML
-        html_plot = fig.to_html(full_html=False)
+        if return_type == "html":
+            plot = fig.to_html(full_html=False)
+        elif return_type == "json":
+            plot = fig.to_json()
+        else:
+            raise ValueError(f'Return type {return_type} is not viable. Use either "html" or "json".')
     else:
-        html_plot = '<b>Too few database entries to visualize</b>'
-    return html_plot
-
-
+        plot = '<b>Too few database entries to visualize</b>'
+    return plot
