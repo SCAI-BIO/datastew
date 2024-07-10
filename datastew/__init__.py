@@ -10,5 +10,6 @@ __all__ = [
     "mapping",
     "parsing",
     "model",
-    "sqllite"
+    "sqllite",
+    "DataDictionarySource",
 ]
