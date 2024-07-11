@@ -20,21 +20,21 @@ class Terminology(Base):
 
 class Concept(Base):
     __tablename__ = 'concept'
-    id = Column(String, primary_key=True)
-    name = Column(String)
+    concept_id = Column(String, primary_key=True)
+    pref_label = Column(String)
     terminology_id = Column(String, ForeignKey('terminology.id'))
     terminology = relationship("Terminology")
 
     def __init__(self, terminology: Terminology, name: str, id: str) -> object:
         self.terminology = terminology
-        self.name = name
-        self.id = id
+        self.pref_label = name
+        self.concept_id = id
 
 
 class Mapping(Base):
     __tablename__ = 'mapping'
     id = Column(Integer, primary_key=True, autoincrement=True)  # Auto-incrementing primary key
-    concept_id = Column(String, ForeignKey('concept.id'))
+    concept_id = Column(String, ForeignKey('concept.concept_id'))
     concept = relationship("Concept")
     text = Column(Text)
     embedding_json = Column(Text)
@@ -47,7 +47,7 @@ class Mapping(Base):
         self.embedding_json = json.dumps(embedding)  # Store embedding as JSON
 
     def __str__(self):
-        return f"{self.concept.terminology.name} > {self.concept_id} : {self.concept.name} | {self.text}"
+        return f"{self.concept.terminology.name} > {self.concept_id} : {self.concept.pref_label} | {self.text}"
 
     @property
     def embedding(self):
