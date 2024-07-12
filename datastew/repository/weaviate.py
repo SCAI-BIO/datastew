@@ -8,7 +8,6 @@ from weaviate.classes.config import Property, DataType, ReferenceProperty
 
 from datastew import BaseRepository
 from datastew.repository import Mapping, Terminology, Concept
-from datastew.repository.weaviate_schema import terminology_schema, concept_schema, mapping_schema
 
 
 class WeaviateRepository(BaseRepository):
