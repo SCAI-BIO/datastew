@@ -12,3 +12,4 @@ scipy~=1.11.4
 requests~=2.31.0
 uuid~=1.30
 weaviate-client~=4.6.5
+sentence-transformers==2.3.1
