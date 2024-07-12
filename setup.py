@@ -46,7 +46,7 @@ setup(
         'python-multipart',
         'SQLAlchemy~=2.0.27',  # Updated version
         'scipy~=1.11.4',  # Updated version
-        'pydantic~=1.10.14',
+        'pydantic~=2.5.0',
         'requests~=2.31.0',  # Added new requirement
         'uuid~=1.30',  # Added new requirement
         'weaviate-client~=4.6.5'  # Added new requirement
