@@ -9,7 +9,7 @@ class Test(TestCase):
 
     def test_repository(self):
 
-        repository = WeaviateRepository(mode="memory")
+        repository = WeaviateRepository(mode="disk", path="db")
 
         embedding_model = MPNetAdapter()
 
@@ -72,10 +72,8 @@ class Test(TestCase):
         self.assertEqual(len(closest_mappings), 5)
         self.assertEqual(closest_mappings[0].text, "Influenza")
 
-        repository.shut_down()
-
         # check if it crashed (due to schema re-creation) after restart
-        repository = WeaviateRepository(mode="memory")
+        repository = WeaviateRepository(mode="disk", path="db")
 
         # try to store all again (should not create new entries since they already exist)
         repository.store_all([
