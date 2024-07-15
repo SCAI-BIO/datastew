@@ -46,7 +46,7 @@ class Mapping:
         self.source = source
 
     def __eq__(self, other):
-        return self.concept.identifier == other.concept.identifier and self.variable.name == other.variable.name
+        return self.concept.identifier == other.concept.identifier and self.variable.name == other.variable.pref_label
 
     def __hash__(self):
         return hash((self.concept.identifier, self.variable.name))

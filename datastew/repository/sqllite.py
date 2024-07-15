@@ -13,7 +13,7 @@ from datastew.repository.base import BaseRepository
 
 class SQLLiteRepository(BaseRepository):
 
-    def __init__(self, mode="memory", path="index/db/index.db"):
+    def __init__(self, mode="memory", path=None):
         if mode == "disk":
             self.engine = create_engine(f'sqlite:///{path}')
         # for tests
