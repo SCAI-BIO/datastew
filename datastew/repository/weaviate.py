@@ -6,8 +6,8 @@ import weaviate
 
 from weaviate.embedded import EmbeddedOptions
 
-from datastew import BaseRepository
 from datastew.repository import Mapping, Terminology, Concept
+from datastew.repository.base import BaseRepository
 from datastew.repository.weaviate_schema import terminology_schema, concept_schema, mapping_schema
 
 
