@@ -4,7 +4,7 @@ from .embedding import *
 
 # Importing submodules to expose their attributes if needed
 from .process import mapping, parsing
-from .repository import model, sqllite, base
+from .repository import model, sqllite, base, weaviate
 
 __all__ = [
     "mapping",
@@ -12,8 +12,8 @@ __all__ = [
     "model",
     "base",
     "sqllite",
+    "weaviate",
     "DataDictionarySource",
-    "BaseRepository",
     "MPNetAdapter",
     "Terminology",
     "Concept",
