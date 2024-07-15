@@ -14,7 +14,7 @@ class TestGetClosestEmbedding(unittest.TestCase):
 
     def test_get_closest_mappings(self):
         terminology = Terminology(name="Terminology 1", id="1")
-        concept = Concept(terminology=terminology, pref_label="Concept 1", id="1")
+        concept = Concept(terminology=terminology, pref_label="Concept 1", concept_identifier="1")
         mapping_1 = Mapping(concept=concept, text="Text 1", embedding=[0.1, 0.2, 0.3])
         mapping_2 = Mapping(concept=concept, text="Text 2", embedding=[0.2, 0.3, 0.4])
         mapping_3 = Mapping(concept=concept, text="Text 3", embedding=[1.2, 2.3, 3.4])
