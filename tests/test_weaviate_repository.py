@@ -68,9 +68,16 @@ class Test(TestCase):
         terminologies = repository.get_all_terminologies()
         self.assertEqual(len(terminologies), 1)
 
-        closest_mappings = repository.get_closest_mappings(embedding_model.get_embedding(text10))
+        test_embedding = embedding_model.get_embedding(text10)
+
+        closest_mappings = repository.get_closest_mappings(test_embedding)
         self.assertEqual(len(closest_mappings), 5)
         self.assertEqual(closest_mappings[0].text, "Influenza")
+
+        closest_mappings_with_similarities = repository.get_closest_mappings_with_similarities(test_embedding)
+        self.assertEqual(len(closest_mappings_with_similarities), 5)
+        self.assertEqual(closest_mappings_with_similarities[0][0].text, "Influenza")
+        self.assertEqual(closest_mappings_with_similarities[0][1], 0.86187172)
 
         # check if it crashed (due to schema re-creation) after restart
         repository = WeaviateRepository(mode="disk", path="db")
@@ -81,9 +88,4 @@ class Test(TestCase):
             concept4, mapping4, concept5, mapping5, concept6, mapping6, concept7, mapping7,
             concept8, mapping8, concept9, mapping9
         ])
-
-
-
-
-
 

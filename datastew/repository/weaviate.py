@@ -1,6 +1,6 @@
 import logging
 import shutil
-from typing import List, Union
+from typing import List, Union, Tuple
 import uuid as uuid
 import weaviate
 from weaviate.embedded import EmbeddedOptions
@@ -11,7 +11,6 @@ from datastew.repository.weaviate_schema import terminology_schema, concept_sche
 
 
 class WeaviateRepository(BaseRepository):
-
     logger = logging.getLogger(__name__)
 
     def __init__(self, mode="memory", path=None):
@@ -101,7 +100,8 @@ class WeaviateRepository(BaseRepository):
         try:
             result = self.client.query.get(
                 "Mapping",
-                ["text", "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+                ["text",
+                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
             ).with_additional("vector").with_limit(limit).do()
             for item in result['data']['Get']['Mapping']:
                 embedding_vector = item["_additional"]["vector"]
@@ -132,7 +132,8 @@ class WeaviateRepository(BaseRepository):
         try:
             result = self.client.query.get(
                 "Mapping",
-                ["text", "_additional { distance }", "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+                ["text", "_additional { distance }",
+                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
             ).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
             for item in result['data']['Get']['Mapping']:
                 embedding_vector = item["_additional"]["vector"]
@@ -157,6 +158,39 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to fetch closest mappings: {e}")
         return mappings
+
+    def get_closest_mappings_with_similarities(self, embedding, limit=5) -> List[Tuple[Mapping, float]]:
+        mappings_with_similarities = []
+        try:
+            result = self.client.query.get(
+                "Mapping",
+                ["text", "_additional { distance }",
+                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+            ).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
+            for item in result['data']['Get']['Mapping']:
+                similarity = 1 - item["_additional"]["distance"]
+                embedding_vector = item["_additional"]["vector"]
+                concept_data = item["hasConcept"][0]  # Assuming it has only one concept
+                terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
+                terminology = Terminology(
+                    name=terminology_data["name"],
+                    id=terminology_data["_additional"]["id"]
+                )
+                concept = Concept(
+                    concept_identifier=concept_data["conceptID"],
+                    pref_label=concept_data["prefLabel"],
+                    terminology=terminology,
+                    id=concept_data["_additional"]["id"]
+                )
+                mapping = Mapping(
+                    text=item["text"],
+                    concept=concept,
+                    embedding=embedding_vector
+                )
+                mappings_with_similarities.append((mapping, similarity))
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch closest mappings with similarities: {e}")
+        return mappings_with_similarities
 
     def shut_down(self):
         if self.mode == "memory":
