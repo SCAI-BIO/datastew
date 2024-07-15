@@ -51,7 +51,7 @@ class Mapping(Base):
         self.embedding_json = json.dumps(embedding)  # Store embedding as JSON
 
     def __str__(self):
-        return f"{self.concept.terminology.name} > {self.concept_identifier} : {self.concept.pref_label} | {self.text}"
+        return f"{self.concept.terminology.name} > {self.concept.concept_identifier} : {self.concept.pref_label} | {self.text}"
 
     @property
     def embedding(self):

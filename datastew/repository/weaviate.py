@@ -48,12 +48,20 @@ class WeaviateRepository(BaseRepository):
     def get_all_concepts(self) -> List[Concept]:
         concepts = []
         try:
-            result = self.client.query.get("Concept", ["conceptID", "prefLabel", "hasTerminology"]).do()
+            result = self.client.query.get(
+                "Concept",
+                ["conceptID", "prefLabel", "hasTerminology { ... on Terminology { _additional { id } name } }"]
+            ).with_additional("vector").do()
             for item in result['data']['Get']['Concept']:
+                terminology_data = item["hasTerminology"][0]  # Assuming it has only one terminology
+                terminology = Terminology(
+                    name=terminology_data["name"],
+                    id=terminology_data["_additional"]["id"]
+                )
                 concept = Concept(
-                    concept_id=uuid.UUID(item["conceptID"]),
+                    concept_identifier=item["conceptID"],
                     pref_label=item["prefLabel"],
-                    terminology=Terminology(id=uuid.UUID(item["hasTerminology"][0]['uuid']))  # Assuming it has only one terminology
+                    terminology=terminology,
                 )
                 concepts.append(concept)
         except Exception as e:
@@ -63,11 +71,11 @@ class WeaviateRepository(BaseRepository):
     def get_all_terminologies(self) -> List[Terminology]:
         terminologies = []
         try:
-            result = self.client.query.get("Terminology", ["name"]).do()
+            result = self.client.query.get("Terminology", ["name", "_additional { id }"]).do()
             for item in result['data']['Get']['Terminology']:
                 terminology = Terminology(
                     name=item["name"],
-                    id=uuid.UUID(item["_additional"]["id"])
+                    id=item["_additional"]["id"]
                 )
                 terminologies.append(terminology)
         except Exception as e:
@@ -108,11 +116,28 @@ class WeaviateRepository(BaseRepository):
     def get_closest_mappings(self, embedding, limit=5) -> List[Mapping]:
         mappings = []
         try:
-            result = self.client.query.get("Mapping", ["text", "_additional { distance }"]).with_near_vector({"vector": embedding}).with_limit(limit).do()
+            result = self.client.query.get(
+                "Mapping",
+                ["text", "_additional { distance }", "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+            ).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
             for item in result['data']['Get']['Mapping']:
+                embedding_vector = item["_additional"]["vector"]
+                concept_data = item["hasConcept"][0]  # Assuming it has only one concept
+                terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
+                terminology = Terminology(
+                    name=terminology_data["name"],
+                    id=terminology_data["_additional"]["id"]
+                )
+                concept = Concept(
+                    concept_identifier=concept_data["conceptID"],
+                    pref_label=concept_data["prefLabel"],
+                    terminology=terminology,
+                    id=concept_data["_additional"]["id"]
+                )
                 mapping = Mapping(
                     text=item["text"],
-                    distance=item["_additional"]["distance"]
+                    concept=concept,
+                    embedding=embedding_vector
                 )
                 mappings.append(mapping)
         except Exception as e:
@@ -122,7 +147,6 @@ class WeaviateRepository(BaseRepository):
     def shut_down(self):
         if self.mode == "memory":
             shutil.rmtree("db")
-        self.client.close()
 
     def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
         random_uuid = uuid.uuid4()

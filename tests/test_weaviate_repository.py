@@ -7,7 +7,7 @@ from datastew.repository.weaviate import WeaviateRepository
 
 class Test(TestCase):
 
-    def test_add_objects(self):
+    def test_repository(self):
 
         repository = WeaviateRepository(mode="memory")
 
@@ -60,7 +60,17 @@ class Test(TestCase):
         ])
 
         mappings = repository.get_all_mappings(limit=5)
-        print(mappings)
+        self.assertEqual(len(mappings), 5)
+
+        concepts = repository.get_all_concepts()
+        self.assertEqual(len(concepts), 9)
+
+        terminologies = repository.get_all_terminologies()
+        self.assertEqual(len(terminologies), 1)
+
+        closest_mappings = repository.get_closest_mappings(embedding_model.get_embedding(text10))
+        self.assertEqual(len(closest_mappings), 5)
+        self.assertEqual(closest_mappings[0].text, "Influenza")
 
         repository.shut_down()
 
