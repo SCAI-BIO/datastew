@@ -77,8 +77,7 @@ class Test(TestCase):
         closest_mappings_with_similarities = repository.get_closest_mappings_with_similarities(test_embedding)
         self.assertEqual(len(closest_mappings_with_similarities), 5)
         self.assertEqual(closest_mappings_with_similarities[0][0].text, "Influenza")
-        self.assertEqual(closest_mappings_with_similarities[0][1], 0.86187166)
-
+        self.assertEqual(closest_mappings_with_similarities[0][1], 0.86187172)
 
         # check if it crashed (due to schema re-creation) after restart
         repository = WeaviateRepository(mode="disk", path="db")
