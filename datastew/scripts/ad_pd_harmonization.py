@@ -271,8 +271,6 @@ if EVAL_AD:
     vita_mpnet.add_descriptions(DataDictionarySource(VITA_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     vita_mpnet.compute_embeddings(mpnet)
 
-    wmh_ad = MappingTable(MappingSource(AD_CDM_SRC, "VITA", "CURIE"))
-
     ad_datasets_gpt = [a4_gpt, abvib_gpt, adni_gpt, aibl_gpt, arwibo_gpt, dod_adni_gpt, edsd_gpt, emif_gpt, iadni_gpt, jadni_gpt,
                        pharmacog_gpt, prevent_ad_gpt, vita_gpt, cdm_ad_gpt]
     ad_datasets_mpnet = [a4_mpnet, abvib_mpnet, adni_mpnet, aibl_mpnet, arwibo_mpnet, dod_adni_mpnet, edsd_mpnet, emif_mpnet,
