@@ -33,11 +33,8 @@ PHARMACOG_DICT_CSV = "resources/dictionaries/ad/pharmacog.csv"
 PREVENT_AD_DICT_CSV = "resources/dictionaries/ad/prevent-ad.csv"
 VITA_DICT_CSV = "resources/dictionaries/ad/vita.csv"
 PPMI_DICT_SRC = "resources/dictionaries/pd/ppmi.csv"
-PPMI_EMBEDDINGS_SRC = "resources/embeddings/ppmi.csv"
 LUXPARK_DICT_SRC = "resources/dictionaries/pd/luxpark.xlsx"
-LUXPARK_EMBEDDINGS_SRC = "resources/embeddings/luxpark.csv"
 BIOFIND_DICT_SRC = "resources/dictionaries/pd/biofind.csv"
-BIOFIND_EMBEDDINGS_SRC = "resources/embeddings/biofind.csv"
 
 load_dotenv()
 gpt4 = GPT4Adapter(api_key=os.getenv("GPT_KEY"))
