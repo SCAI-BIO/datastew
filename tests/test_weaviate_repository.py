@@ -7,7 +7,7 @@ from datastew.repository.weaviate import WeaviateRepository
 
 
 class Test(TestCase):
-    @unittest.skip("currently broken on github workflows")
+
     def test_repository(self):
 
         repository = WeaviateRepository(mode="disk", path="db")
