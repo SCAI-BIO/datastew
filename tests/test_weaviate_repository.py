@@ -90,3 +90,17 @@ class Test(TestCase):
             concept8, mapping8, concept9, mapping9
         ])
 
+        # should not create additional mappings
+        mappings = repository.get_all_mappings(limit=100)
+        self.assertEqual(len(mappings), 8)
+
+        # try to store all again (should not create new entries since they already exist)
+        repository.store_all([
+            terminology, concept1, mapping1, concept2, mapping2, concept3, mapping3,
+            concept4, mapping4, concept5, mapping5, concept6, mapping6, concept7, mapping7,
+            concept8, mapping8, concept9, mapping9
+        ])
+
+        # should not create additional mappings
+        mappings = repository.get_all_mappings(limit=100)
+        self.assertEqual(len(mappings), 8)
