@@ -34,7 +34,7 @@ include = "datastew"
 
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
+python = ">=3.9,<3.12"
 matplotlib = "~3.8.1"
 numpy = "1.25.2"
 openai = "~0.28.0"
