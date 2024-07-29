@@ -267,7 +267,10 @@ class WeaviateRepository(BaseRepository):
                 "operator": "Equal",
                 "valueText": name
             }).do()
-            return len(result['data']['Get']['Terminology']) > 0
+            if result['data']['Get']['Terminology'] is not None:
+                return len(result['data']['Get']['Terminology']) > 0
+            else:
+                return False
         except Exception as e:
             raise RuntimeError(f"Failed to check if terminology exists: {e}")
 
@@ -278,7 +281,10 @@ class WeaviateRepository(BaseRepository):
                 "operator": "Equal",
                 "valueText": concept_id
             }).do()
-            return len(result['data']['Get']['Concept']) > 0
+            if result['data']['Get']['Concept'] is not None:
+                return len(result['data']['Get']['Concept']) > 0
+            else:
+                return False
         except Exception as e:
             raise RuntimeError(f"Failed to check if concept exists: {e}")
 
@@ -288,6 +294,9 @@ class WeaviateRepository(BaseRepository):
                 "vector": embedding,
                 "distance": float(0)  # Ensure distance is explicitly casted to float
             }).do()
-            return len(result['data']['Get']['Mapping']) > 0
+            if result['data']['Get']['Mapping'] is not None:
+                return len(result['data']['Get']['Mapping']) > 0
+            else:
+                return False
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")
