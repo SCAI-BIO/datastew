@@ -59,3 +59,7 @@ pydantic = "~2.5.0"
 requests = "~2.31.0"
 uuid = "~1.30"
 weaviate-client = "~4.6.5"
+
+[tool.poetry.dev-dependencies]
+flake8 = "^6.0.0"
+pytest = "^7.4.0"
