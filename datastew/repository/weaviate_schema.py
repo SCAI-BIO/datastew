@@ -1,3 +1,14 @@
+sentence_embedder_schema = {
+    "class": "SentenceEmbedder",
+    "description": "A sentence embedder model entry",
+    "properties": [
+        {
+            "name": "name",
+            "dataType": ["string"]
+        }
+    ]
+}
+
 terminology_schema = {
     "class": "Terminology",
     "description": "A terminology entry",
@@ -43,6 +54,10 @@ mapping_schema = {
         {
             "name": "hasConcept",
             "dataType": ["Concept"]
+        },
+        {
+            "name": "hasSentenceEmbedder",
+            "dataType": ["SentenceEmbedder"]
         }
     ]
 }

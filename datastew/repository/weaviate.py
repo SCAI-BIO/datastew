@@ -5,9 +5,9 @@ import uuid as uuid
 import weaviate
 from weaviate.embedded import EmbeddedOptions
 
-from datastew.repository import Mapping, Terminology, Concept
+from datastew.repository import Mapping, Terminology, Concept, SentenceEmbedder
 from datastew.repository.base import BaseRepository
-from datastew.repository.weaviate_schema import terminology_schema, concept_schema, mapping_schema
+from datastew.repository.weaviate_schema import terminology_schema, concept_schema, mapping_schema, sentence_embedder_schema
 
 
 class WeaviateRepository(BaseRepository):
@@ -38,6 +38,7 @@ class WeaviateRepository(BaseRepository):
             raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
 
         try:
+            self._create_schema_if_not_exists(sentence_embedder_schema)
             self._create_schema_if_not_exists(terminology_schema)
             self._create_schema_if_not_exists(concept_schema)
             self._create_schema_if_not_exists(mapping_schema)
@@ -57,6 +58,17 @@ class WeaviateRepository(BaseRepository):
     def store_all(self, model_object_instances):
         for instance in model_object_instances:
             self.store(instance)
+
+    def get_all_sentence_embedders(self) -> List[SentenceEmbedder]:
+        sentence_embedders = []
+        try:
+            result = self.client.query.get("SentenceEmbedders", ["name"]).do()
+            for item in result['data']['Get']['SentenceEmbedders']:
+                sentence_embedder = SentenceEmbedder(item["name"])
+                sentence_embedders.append(sentence_embedder)
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch terminologies: {e}")
+        return sentence_embedder
 
     def get_all_concepts(self) -> List[Concept]:
         concepts = []
@@ -101,10 +113,12 @@ class WeaviateRepository(BaseRepository):
             result = self.client.query.get(
                 "Mapping",
                 ["text",
-                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                 "hasSentenceEmbedder { ... on SentenceEmbedder { name } }"]
             ).with_additional("vector").with_limit(limit).do()
             for item in result['data']['Get']['Mapping']:
                 embedding_vector = item["_additional"]["vector"]
+                sentence_embedder_data = item["hasSentenceEmbedder"][0]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
                 terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
                 terminology = Terminology(
@@ -117,10 +131,14 @@ class WeaviateRepository(BaseRepository):
                     terminology=terminology,
                     id=concept_data["_additional"]["id"]
                 )
+                sentence_embedder = SentenceEmbedder(
+                    name=sentence_embedder_data["name"]
+                )
                 mapping = Mapping(
                     text=item["text"],
                     concept=concept,
-                    embedding=embedding_vector
+                    embedding=embedding_vector,
+                    sentence_embedder=sentence_embedder
                 )
                 mappings.append(mapping)
         except Exception as e:
@@ -133,10 +151,12 @@ class WeaviateRepository(BaseRepository):
             result = self.client.query.get(
                 "Mapping",
                 ["text", "_additional { distance }",
-                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                 "hasSentenceEmbedder { ... on SentenceEmbedder { name } }"]
             ).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
             for item in result['data']['Get']['Mapping']:
                 embedding_vector = item["_additional"]["vector"]
+                sentence_embedder_data = item["hasSentenceEmbedder"][0]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
                 terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
                 terminology = Terminology(
@@ -149,10 +169,14 @@ class WeaviateRepository(BaseRepository):
                     terminology=terminology,
                     id=concept_data["_additional"]["id"]
                 )
+                sentence_embedder = SentenceEmbedder(
+                    name=sentence_embedder_data["name"]
+                )
                 mapping = Mapping(
                     text=item["text"],
                     concept=concept,
-                    embedding=embedding_vector
+                    embedding=embedding_vector,
+                    sentence_embedder=sentence_embedder
                 )
                 mappings.append(mapping)
         except Exception as e:
@@ -165,11 +189,13 @@ class WeaviateRepository(BaseRepository):
             result = self.client.query.get(
                 "Mapping",
                 ["text", "_additional { distance }",
-                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                 "hasSentenceEmbedder { ... on SentenceEmbedder { name } }"]
             ).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
             for item in result['data']['Get']['Mapping']:
                 similarity = 1 - item["_additional"]["distance"]
                 embedding_vector = item["_additional"]["vector"]
+                sentence_embedder_data = item["hasSentenceEmbedder"][0]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
                 terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
                 terminology = Terminology(
@@ -182,10 +208,14 @@ class WeaviateRepository(BaseRepository):
                     terminology=terminology,
                     id=concept_data["_additional"]["id"]
                 )
+                sentence_embedder = SentenceEmbedder(
+                    name=sentence_embedder_data["name"]
+                )
                 mapping = Mapping(
                     text=item["text"],
                     concept=concept,
-                    embedding=embedding_vector
+                    embedding=embedding_vector,
+                    sentence_embedder=sentence_embedder
                 )
                 mappings_with_similarities.append((mapping, similarity))
         except Exception as e:
@@ -196,10 +226,20 @@ class WeaviateRepository(BaseRepository):
         if self.mode == "memory":
             shutil.rmtree("db")
 
-    def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
+    def store(self, model_object_instance: Union[Terminology, Concept, Mapping, SentenceEmbedder]):
         random_uuid = uuid.uuid4()
         model_object_instance.id = random_uuid
         try:
+            if isinstance(model_object_instance, SentenceEmbedder):
+                if not self._sentence_embedder_exists(model_object_instance.name):
+                    properties = {
+                        "name": model_object_instance.name
+                    }
+                    self.client.data_object.create(
+                        class_name="SentenceEmbedder",
+                        data_object=properties,
+                        uuid=random_uuid
+                    )
             if isinstance(model_object_instance, Terminology):
                 if not self._terminology_exists(model_object_instance.name):
                     properties = {
@@ -252,6 +292,13 @@ class WeaviateRepository(BaseRepository):
                         to_class_name="Concept",
                         to_uuid=model_object_instance.concept.uuid,
                     )
+                    self.client.data_object.reference.add(
+                        from_class_name="Mapping",
+                        from_uuid=random_uuid,
+                        from_property_name="hasSentenceEmbedder",
+                        to_class_name="SentenceEmbedder",
+                        to_uuid=model_object_instance.sentence_embedder.uuid,
+                    )
                 else:
                     self.logger.info(f'Mapping with same embedding already exists. Skipping.')
             else:
@@ -259,6 +306,17 @@ class WeaviateRepository(BaseRepository):
 
         except Exception as e:
             raise RuntimeError(f"Failed to store object in Weaviate: {e}")
+        
+    def _sentence_embedder_exists(self, name: str) -> bool:
+        try:
+            result = self.client.query.get("SentenceEmbedder", ["name"]).with_where({
+                "path": ["name"],
+                "operator": "Equal",
+                "valueText": name
+            }).do()
+            return len(result['data']['Get']['SentenceEmbedder']) > 0
+        except Exception as e:
+            raise RuntimeError(f"Failed to check if sentence embedder exists: {e}")
 
     def _terminology_exists(self, name: str) -> bool:
         try:

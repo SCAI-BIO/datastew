@@ -13,9 +13,18 @@ class Terminology(Base):
     id = Column(String, primary_key=True)
     name = Column(String)
 
-    def __init__(self, name: str, id: str) -> object:
+    def __init__(self, name: str, id: str) -> None:
         self.name = name
         self.id = id
+
+
+class SentenceEmbedder(Base):
+    __tablename__ = 'sentence_embedder'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String)
+
+    def __init__(self, name: str) -> None:
+        self.name = name
 
 
 class Concept(Base):
@@ -26,7 +35,7 @@ class Concept(Base):
     terminology = relationship("Terminology")
     uuid = Column(String)
 
-    def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: str = None) -> object:
+    def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: str | None = None) -> None:
         self.terminology = terminology
         self.pref_label = pref_label
         # should be unique
@@ -42,13 +51,16 @@ class Mapping(Base):
     concept = relationship("Concept")
     text = Column(Text)
     embedding_json = Column(Text)
+    sentence_embedder_id = Column(String, ForeignKey('sentence_embedder.id'))
+    sentence_embedder = relationship("SentenceEmbedder")
 
-    def __init__(self, concept: Concept, text: str, embedding: list) -> object:
+    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: SentenceEmbedder) -> None:
         self.concept = concept
         self.text = text
         if isinstance(embedding, np.ndarray):
             embedding = embedding.tolist()
         self.embedding_json = json.dumps(embedding)  # Store embedding as JSON
+        self.sentence_embedder = sentence_embedder
 
     def __str__(self):
         return f"{self.concept.terminology.name} > {self.concept.concept_identifier} : {self.concept.pref_label} | {self.text}"
