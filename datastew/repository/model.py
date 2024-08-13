@@ -2,8 +2,7 @@ import json
 
 import numpy as np
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
 
@@ -13,7 +12,7 @@ class Terminology(Base):
     id = Column(String, primary_key=True)
     name = Column(String)
 
-    def __init__(self, name: str, id: str) -> None:
+    def __init__(self, name: str, id: str) -> object:
         self.name = name
         self.id = id
 
@@ -23,7 +22,7 @@ class SentenceEmbedder(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String)
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str) -> object:
         self.name = name
 
 
@@ -35,7 +34,7 @@ class Concept(Base):
     terminology = relationship("Terminology")
     uuid = Column(String)
 
-    def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: str | None = None) -> None:
+    def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: str = None) -> object:
         self.terminology = terminology
         self.pref_label = pref_label
         # should be unique
@@ -54,7 +53,7 @@ class Mapping(Base):
     sentence_embedder_id = Column(String, ForeignKey('sentence_embedder.id'))
     sentence_embedder = relationship("SentenceEmbedder")
 
-    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: SentenceEmbedder) -> None:
+    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: SentenceEmbedder) -> object:
         self.concept = concept
         self.text = text
         if isinstance(embedding, np.ndarray):
