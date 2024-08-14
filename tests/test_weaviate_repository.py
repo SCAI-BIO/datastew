@@ -13,9 +13,10 @@ class Test(TestCase):
         repository = WeaviateRepository(mode="disk", path="db")
 
         embedding_model = MPNetAdapter()
+        model_name = embedding_model.get_model_name()
+        sentence_embedder = SentenceEmbedder(model_name)
 
         terminology = Terminology("snomed CT", "SNOMED")
-        sentence_embedder = SentenceEmbedder("sentence-transformers/all-mpnet-base-v2")
 
         text1 = "Diabetes mellitus (disorder)"
         concept1 = Concept(terminology, text1, "Concept ID: 11893007")
@@ -56,7 +57,7 @@ class Test(TestCase):
         text10 = "The flu"
 
         repository.store_all([
-            terminology, concept1, mapping1, concept2, mapping2, concept3, mapping3,
+            sentence_embedder, terminology, concept1, mapping1, concept2, mapping2, concept3, mapping3,
             concept4, mapping4, concept5, mapping5, concept6, mapping6, concept7, mapping7,
             concept8, mapping8, concept9, mapping9
         ])
@@ -90,7 +91,7 @@ class Test(TestCase):
 
         # try to store all again (should not create new entries since they already exist)
         repository.store_all([
-            terminology, concept1, mapping1, concept2, mapping2, concept3, mapping3,
+            sentence_embedder, terminology, concept1, mapping1, concept2, mapping2, concept3, mapping3,
             concept4, mapping4, concept5, mapping5, concept6, mapping6, concept7, mapping7,
             concept8, mapping8, concept9, mapping9
         ])

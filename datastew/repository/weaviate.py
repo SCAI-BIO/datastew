@@ -62,13 +62,13 @@ class WeaviateRepository(BaseRepository):
     def get_all_sentence_embedders(self) -> List[SentenceEmbedder]:
         sentence_embedders = []
         try:
-            result = self.client.query.get("SentenceEmbedders", ["name"]).do()
-            for item in result['data']['Get']['SentenceEmbedders']:
+            result = self.client.query.get("SentenceEmbedder", ["name"]).do()
+            for item in result['data']['Get']['SentenceEmbedder']:
                 sentence_embedder = SentenceEmbedder(item["name"])
                 sentence_embedders.append(sentence_embedder)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch terminologies: {e}")
-        return sentence_embedder
+        return sentence_embedders
 
     def get_all_concepts(self) -> List[Concept]:
         concepts = []
@@ -240,7 +240,7 @@ class WeaviateRepository(BaseRepository):
                         data_object=properties,
                         uuid=random_uuid
                     )
-            if isinstance(model_object_instance, Terminology):
+            elif isinstance(model_object_instance, Terminology):
                 if not self._terminology_exists(model_object_instance.name):
                     properties = {
                         "name": model_object_instance.name
@@ -297,7 +297,7 @@ class WeaviateRepository(BaseRepository):
                         from_uuid=random_uuid,
                         from_property_name="hasSentenceEmbedder",
                         to_class_name="SentenceEmbedder",
-                        to_uuid=model_object_instance.sentence_embedder.uuid,
+                        to_uuid=model_object_instance.sentence_embedder.id,
                     )
                 else:
                     self.logger.info(f'Mapping with same embedding already exists. Skipping.')
