@@ -6,7 +6,7 @@ from typing import Union, List
 
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
-from datastew.repository.model import Base, SentenceEmbedder, Terminology, Concept, Mapping
+from datastew.repository.model import Base, Terminology, Concept, Mapping
 from datastew.repository.base import BaseRepository
 
 
@@ -51,8 +51,8 @@ class SQLLiteRepository(BaseRepository):
         mappings = self.session.query(Mapping).filter(Mapping.id.in_(random_indices)).all()
         return mappings
     
-    def get_all_sentence_embedders(self) -> List[SentenceEmbedder]:
-        return self.session.query(SentenceEmbedder).all()
+    def get_all_sentence_embedders(self) -> List[str]:
+        return [embedder for embedder, in self.session.query(Mapping.sentence_embedder).distinct().all()]
 
     def get_closest_mappings(self, embedding: List[float], limit=5):
         mappings = self.session.query(Mapping).all()

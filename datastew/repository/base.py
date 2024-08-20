@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from datastew.repository.model import Mapping, Concept, Terminology, SentenceEmbedder
+from datastew.repository.model import Mapping, Concept, Terminology
 
 
 class BaseRepository(ABC):
@@ -32,7 +32,7 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def get_all_sentence_embedders(self) -> List[SentenceEmbedder]:
+    def get_all_sentence_embedders(self) -> List[str]:
         pass
 
     @abstractmethod

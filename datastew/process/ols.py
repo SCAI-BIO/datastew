@@ -2,7 +2,7 @@ import logging
 
 import requests
 
-from datastew.repository.model import SentenceEmbedder, Terminology, Concept, Mapping
+from datastew.repository.model import Terminology, Concept, Mapping
 from datastew.embedding import EmbeddingModel
 from datastew.repository.base import BaseRepository
 
@@ -53,10 +53,9 @@ class OLSTerminologyImportTask:
                         descriptions.append(term["label"])
                 embeddings = self.embedding_model.get_embeddings(descriptions)
                 model_name = self.embedding_model.get_model_name()
-                sentence_embedder = SentenceEmbedder(model_name)
                 for identifier, label, description, embedding in zip(identifiers, labels, descriptions, embeddings):
                     concept = Concept(self.terminology, label, identifier)
-                    mapping = Mapping(concept, description, embedding, sentence_embedder)
+                    mapping = Mapping(concept, description, embedding, model_name)
                     self.repository.store(concept)
                     self.repository.store(mapping)
             except Exception as e:

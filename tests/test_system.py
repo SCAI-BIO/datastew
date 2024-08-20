@@ -1,6 +1,6 @@
 import unittest
 
-from datastew.repository.model import Terminology, Concept, Mapping, SentenceEmbedder
+from datastew.repository.model import Terminology, Concept, Mapping
 from datastew.embedding import MPNetAdapter
 from datastew.repository.sqllite import SQLLiteRepository
 
@@ -19,7 +19,7 @@ class TestGetClosestEmbedding(unittest.TestCase):
         terminology = Terminology("test", "test")
         concept1 = Concept(terminology, "cat", "TEST:1")
         concept1_description = "The cat is sitting on the mat."
-        sentence_embedder = SentenceEmbedder("test")
+        sentence_embedder = "test"
         mapping1 = Mapping(concept1, concept1_description, self.embedding_model.get_embedding(concept1_description), sentence_embedder=sentence_embedder)
         concept2 = Concept(terminology, "sunrise", "TEST:2")
         concept2_description = "The sun rises in the east."

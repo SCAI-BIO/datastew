@@ -17,15 +17,6 @@ class Terminology(Base):
         self.id = id
 
 
-class SentenceEmbedder(Base):
-    __tablename__ = 'sentence_embedder'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String)
-
-    def __init__(self, name: str) -> object:
-        self.name = name
-
-
 class Concept(Base):
     __tablename__ = 'concept'
     concept_identifier = Column(String, primary_key=True)
@@ -50,10 +41,9 @@ class Mapping(Base):
     concept = relationship("Concept")
     text = Column(Text)
     embedding_json = Column(Text)
-    sentence_embedder_id = Column(String, ForeignKey('sentence_embedder.id'))
-    sentence_embedder = relationship("SentenceEmbedder")
+    sentence_embedder = Column(Text)
 
-    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: SentenceEmbedder) -> object:
+    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: str) -> object:
         self.concept = concept
         self.text = text
         if isinstance(embedding, np.ndarray):
