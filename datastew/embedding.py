@@ -20,10 +20,10 @@ class EmbeddingModel(ABC):
 
 
 class GPT4Adapter(EmbeddingModel):
-    def __init__(self, api_key: str, model: str = "text-embedding-ada-002"):
+    def __init__(self, api_key: str, model_name: str = "text-embedding-ada-002"):
         self.api_key = api_key
         openai.api_key = api_key
-        self.model = model
+        self.model_name = model_name
         logging.getLogger().setLevel(logging.INFO)
 
     def get_embedding(self, text: str):
@@ -35,7 +35,7 @@ class GPT4Adapter(EmbeddingModel):
             if isinstance(text, str):
                 text = text.replace("\n", " ")
                 text = self.sanitize(text)
-            return openai.Embedding.create(input=[text], model=self.model)["data"][0]["embedding"]
+            return openai.Embedding.create(input=[text], model=self.model_name)["data"][0]["embedding"]
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
             return None
@@ -48,20 +48,20 @@ class GPT4Adapter(EmbeddingModel):
         for i in range(0, len(sanitized_messages), max_length):
             current_chunk += 1
             chunk = sanitized_messages[i:i + max_length]
-            response = openai.Embedding.create(input=chunk, model=self.model)
+            response = openai.Embedding.create(input=chunk, model=self.model_name)
             embeddings.extend([item["embedding"] for item in response["data"]])
             logging.info("Processed chunk %d/%d", current_chunk, total_chunks)
         return embeddings
     
     def get_model_name(self) -> str:
-        return self.model
+        return self.model_name
 
 
 class MPNetAdapter(EmbeddingModel):
-    def __init__(self, model="sentence-transformers/all-mpnet-base-v2"):
+    def __init__(self, model_name="sentence-transformers/all-mpnet-base-v2"):
         logging.getLogger().setLevel(logging.INFO)
-        self.model = SentenceTransformer(model)
-        self.model_name = model # For Weaviate
+        self.model = SentenceTransformer(model_name)
+        self.model_name = model_name # For Weaviate
 
     def get_embedding(self, text: str):
         logging.info(f"Getting embedding for {text}")
