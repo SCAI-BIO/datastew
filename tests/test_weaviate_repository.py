@@ -7,10 +7,10 @@ from datastew.repository.weaviate import WeaviateRepository
 
 
 class Test(TestCase):
-    #@unittest.skip("currently broken on github workflows")
+    @unittest.skip("currently broken on github workflows")
     def test_repository(self):
 
-        repository = WeaviateRepository(mode="remote", path="http://localhost:8080")
+        repository = WeaviateRepository(mode="disk", path="db")
 
         embedding_model1 = MPNetAdapter()
         embedding_model2 = MPNetAdapter("FremyCompany/BioLORD-2023")
@@ -102,7 +102,7 @@ class Test(TestCase):
         self.assertEqual(closest_mappings_with_similarities[0][1], 0.6747197)
 
         # check if it crashed (due to schema re-creation) after restart
-        repository = WeaviateRepository(mode="remote", path="http://localhost:8080")
+        repository = WeaviateRepository(mode="disk", path="db")
 
         # try to store all again (should not create new entries since they already exist)
         repository.store_all([
