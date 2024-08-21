@@ -66,7 +66,7 @@ class WeaviateRepository(BaseRepository):
             for item in result['data']['Get']['Mapping']:
                 sentence_embedders.add(item["hasSentenceEmbedder"])
         except Exception as e:
-            raise RuntimeError(f"Failed to fetch terminologies: {e}")
+            raise RuntimeError(f"Failed to fetch sentence embedders: {e}")
         return list(sentence_embedders)
 
     def get_all_concepts(self) -> List[Concept]:
