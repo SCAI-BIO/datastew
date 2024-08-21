@@ -27,8 +27,12 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def get_all_mappings(self, limit=1000) -> [Mapping]:
+    def get_all_mappings(self, limit=1000) -> List[Mapping]:
         """Get all embeddings up to a limit"""
+        pass
+
+    @abstractmethod
+    def get_all_sentence_embedders(self) -> List[str]:
         pass
 
     @abstractmethod

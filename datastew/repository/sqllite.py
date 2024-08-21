@@ -1,5 +1,4 @@
 import random
-import sqlite3
 
 import numpy as np
 
@@ -51,6 +50,9 @@ class SQLLiteRepository(BaseRepository):
         # Query for mappings corresponding to the random indices
         mappings = self.session.query(Mapping).filter(Mapping.id.in_(random_indices)).all()
         return mappings
+    
+    def get_all_sentence_embedders(self) -> List[str]:
+        return [embedder for embedder, in self.session.query(Mapping.sentence_embedder).distinct().all()]
 
     def get_closest_mappings(self, embedding: List[float], limit=5):
         mappings = self.session.query(Mapping).all()

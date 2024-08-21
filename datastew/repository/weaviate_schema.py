@@ -37,6 +37,10 @@ mapping_schema = {
             "dataType": ["string"]
         },
         {
+            "name": "hasSentenceEmbedder",
+            "dataType": ["string"]
+        },
+        {
             "name": "vector",
             "dataType": ["number[]"]
         },

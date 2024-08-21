@@ -2,8 +2,7 @@ import json
 
 import numpy as np
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
 
@@ -42,13 +41,15 @@ class Mapping(Base):
     concept = relationship("Concept")
     text = Column(Text)
     embedding_json = Column(Text)
+    sentence_embedder = Column(Text)
 
-    def __init__(self, concept: Concept, text: str, embedding: list) -> object:
+    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: str) -> object:
         self.concept = concept
         self.text = text
         if isinstance(embedding, np.ndarray):
             embedding = embedding.tolist()
         self.embedding_json = json.dumps(embedding)  # Store embedding as JSON
+        self.sentence_embedder = sentence_embedder
 
     def __str__(self):
         return f"{self.concept.terminology.name} > {self.concept.concept_identifier} : {self.concept.pref_label} | {self.text}"

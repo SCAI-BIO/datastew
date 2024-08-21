@@ -52,9 +52,10 @@ class OLSTerminologyImportTask:
                     else:
                         descriptions.append(term["label"])
                 embeddings = self.embedding_model.get_embeddings(descriptions)
+                model_name = self.embedding_model.get_model_name()
                 for identifier, label, description, embedding in zip(identifiers, labels, descriptions, embeddings):
                     concept = Concept(self.terminology, label, identifier)
-                    mapping = Mapping(concept, description, embedding)
+                    mapping = Mapping(concept, description, embedding, model_name)
                     self.repository.store(concept)
                     self.repository.store(mapping)
             except Exception as e:
