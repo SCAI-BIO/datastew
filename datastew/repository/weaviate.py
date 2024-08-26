@@ -68,13 +68,43 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to fetch sentence embedders: {e}")
         return list(sentence_embedders)
+    
+    def get_concept(self, concept_id: str) -> Concept:
+        try:
+            if not self._concept_exists(concept_id):
+                raise RuntimeError(f"Concept {concept_id} does not exists")
+            result = self.client.query.get(
+                "Concept",
+                ["conceptID",
+                 "prefLabel",
+                 "_additional { id }",
+                 "hasTerminology { ... on Terminology { _additional { id } name } }"]
+            ).with_where({
+                "path": "conceptID",
+                "operator": "Equal",
+                "valueText": concept_id
+            }).do()
+            concept_data = result["data"]["Get"]["Concept"][0]
+            terminology_data = concept_data["hasTerminology"][0]
+            terminology_name = terminology_data["name"]
+            terminology_id = terminology_data["_additional"]["id"]
+            terminology = Terminology(terminology_name, terminology_id)
+            id = concept_data["_additional"]["id"]
+            concept_name = result["data"]["Get"]["Concept"][0]["prefLabel"]
+            concept = Concept(terminology, concept_name, concept_id, id)
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch concept {concept_id}: {e}")
+        return concept
 
     def get_all_concepts(self) -> List[Concept]:
         concepts = []
         try:
             result = self.client.query.get(
                 "Concept",
-                ["conceptID", "prefLabel", "hasTerminology { ... on Terminology { _additional { id } name } }"]
+                ["conceptID",
+                 "prefLabel",
+                 "_additional { id }",
+                 "hasTerminology { ... on Terminology { _additional { id } name } }"]
             ).with_additional("vector").do()
             for item in result['data']['Get']['Concept']:
                 terminology_data = item["hasTerminology"][0]  # Assuming it has only one terminology
@@ -86,11 +116,31 @@ class WeaviateRepository(BaseRepository):
                     concept_identifier=item["conceptID"],
                     pref_label=item["prefLabel"],
                     terminology=terminology,
+                    id=item["_additional"]["id"]
                 )
                 concepts.append(concept)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch concepts: {e}")
         return concepts
+    
+    def get_terminology(self, terminology_name: str) -> Terminology:
+        try:
+            if not self._terminology_exists(terminology_name):
+                raise RuntimeError(f"Terminology {terminology_name} does not exists")
+            result = self.client.query.get(
+                "Terminology",
+                ["name", "_additional { id }"]
+            ).with_where({
+                "path": "name",
+                "operator": "Equal",
+                "valueText": terminology_name
+            }).do()
+            terminology_data = result["data"]["Get"]["Terminology"][0]
+            terminology_id = terminology_data["_additional"]["id"]
+            terminology = Terminology(terminology_name, terminology_id)
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch terminology {terminology_name}: {e}")
+        return terminology
 
     def get_all_terminologies(self) -> List[Terminology]:
         terminologies = []
