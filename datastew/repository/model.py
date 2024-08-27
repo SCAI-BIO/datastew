@@ -2,13 +2,13 @@ import json
 
 import numpy as np
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
 
 class Terminology(Base):
-    __tablename__ = 'terminology'
+    __tablename__ = "terminology"
     id = Column(String, primary_key=True)
     name = Column(String)
 
@@ -18,10 +18,10 @@ class Terminology(Base):
 
 
 class Concept(Base):
-    __tablename__ = 'concept'
+    __tablename__ = "concept"
     concept_identifier = Column(String, primary_key=True)
     pref_label = Column(String)
-    terminology_id = Column(String, ForeignKey('terminology.id'))
+    terminology_id = Column(String, ForeignKey("terminology.id"))
     terminology = relationship("Terminology")
     uuid = Column(String)
 
@@ -35,9 +35,9 @@ class Concept(Base):
 
 
 class Mapping(Base):
-    __tablename__ = 'mapping'
+    __tablename__ = "mapping"
     id = Column(Integer, primary_key=True, autoincrement=True)  # Auto-incrementing primary key
-    concept_identifier = Column(String, ForeignKey('concept.concept_identifier'))
+    concept_identifier = Column(String, ForeignKey("concept.concept_identifier"))
     concept = relationship("Concept")
     text = Column(Text)
     embedding_json = Column(Text)

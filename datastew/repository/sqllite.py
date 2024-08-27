@@ -1,25 +1,24 @@
 import random
+from typing import List, Union
 
 import numpy as np
-
-from typing import Union, List
-
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
-from datastew.repository.model import Base, Terminology, Concept, Mapping
+
 from datastew.repository.base import BaseRepository
+from datastew.repository.model import Base, Concept, Mapping, Terminology
 
 
 class SQLLiteRepository(BaseRepository):
 
     def __init__(self, mode="memory", path=None):
         if mode == "disk":
-            self.engine = create_engine(f'sqlite:///{path}')
+            self.engine = create_engine(f"sqlite:///{path}")
         # for tests
         elif mode == "memory":
-            self.engine = create_engine('sqlite:///:memory:')
+            self.engine = create_engine("sqlite:///:memory:")
         else:
-            raise ValueError(f'DB mode {mode} is not defined. Use either disk or memory.')
+            raise ValueError(f"DB mode {mode} is not defined. Use either disk or memory.")
         Base.metadata.create_all(self.engine)
         Session = sessionmaker(bind=self.engine, autoflush=False)
         self.session = Session()

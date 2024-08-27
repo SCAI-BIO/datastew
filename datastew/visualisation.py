@@ -1,13 +1,13 @@
+import copy
 from enum import Enum
 
-import numpy as np
-import copy
-import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
-import plotly.graph_objects as go
+import numpy as np
+import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+import seaborn as sns
+from sklearn.manifold import TSNE
 
 from datastew.conf import COLORS_AD, COLORS_PD
 from datastew.mapping import MappingTable
@@ -191,19 +191,19 @@ def get_plot_for_current_database_state(repository: BaseRepository, perplexity: 
         scatter_plot = go.Scatter(
             x=tsne_embeddings[:, 0],
             y=tsne_embeddings[:, 1],
-            mode='markers',
+            mode="markers",
             marker=dict(
                 size=8,
-                color='blue',
+                color="blue",
                 opacity=0.5
             ),
             text=[str(mapping) for mapping in mappings],
-            hoverinfo='text'
+            hoverinfo="text"
         )
         layout = go.Layout(
-            title='t-SNE Embeddings of Database Mappings',
-            xaxis=dict(title='t-SNE Component 1'),
-            yaxis=dict(title='t-SNE Component 2'),
+            title="t-SNE Embeddings of Database Mappings",
+            xaxis=dict(title="t-SNE Component 1"),
+            yaxis=dict(title="t-SNE Component 2"),
         )
         fig = go.Figure(data=[scatter_plot], layout=layout)
         if return_type == "html":
@@ -213,5 +213,5 @@ def get_plot_for_current_database_state(repository: BaseRepository, perplexity: 
         else:
             raise ValueError(f'Return type {return_type} is not viable. Use either "html" or "json".')
     else:
-        plot = '<b>Too few database entries to visualize</b>'
+        plot = "<b>Too few database entries to visualize</b>"
     return plot

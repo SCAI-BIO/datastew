@@ -5,9 +5,13 @@ import numpy as np
 import pandas as pd
 
 from datastew.mapping import MappingTable
-from datastew.process.parsing import MappingSource, DataDictionarySource
-from datastew.visualisation import scatter_plot_two_distributions, enrichment_plot, scatter_plot_all_cohorts, \
-    bar_chart_average_acc_two_distributions
+from datastew.process.parsing import DataDictionarySource, MappingSource
+from datastew.visualisation import (
+    bar_chart_average_acc_two_distributions,
+    enrichment_plot,
+    scatter_plot_all_cohorts,
+    scatter_plot_two_distributions,
+)
 
 
 class Test(TestCase):
