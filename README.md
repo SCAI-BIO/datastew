@@ -2,7 +2,8 @@
 
 ![tests](https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml/badge.svg) ![GitHub Release](https://img.shields.io/github/v/release/SCAI-BIO/datastew)
 
-Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings. 
+Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings.
+
 ## Installation
 
 ```bash
@@ -29,11 +30,11 @@ df = map_dictionary_to_dictionary(source, target)
 df.to_excel("result.xlxs")
 ```
 
-The resulting file contains the pairwise variable mapping based on the closest similarity for all possible matches 
+The resulting file contains the pairwise variable mapping based on the closest similarity for all possible matches
 as well as a similarity measure per row.
 
-Per default this will use the local MPNet model, which may not yield the optimal performance. If you got an OpenAI API 
-key it is possible to use their embedding API instead. To use your key, create an OpenAIAdapter model and pass it to the 
+Per default this will use the local MPNet model, which may not yield the optimal performance. If you got an OpenAI API
+key it is possible to use their embedding API instead. To use your key, create an OpenAIAdapter model and pass it to the
 function:
 
 ```python
@@ -45,7 +46,7 @@ df = map_dictionary_to_dictionary(source, target, embedding_model=embedding_mode
 
 ### Creating and using stored mappings
 
-A simple example how to initialize an in memory database and compute a similarity mapping is shown in 
+A simple example how to initialize an in memory database and compute a similarity mapping is shown in
 [datastew/scripts/mapping_db_example.py](datastew/scripts/mapping_db_example.py):
 
 ```python
@@ -84,5 +85,5 @@ Similarity: 0.20031612264852067 -> Concept ID: 73211009 : Hypertension (disorder
 ```
 
 You can also import data from file sources (csv, tsv, xlsx) or from a public API like OLS. An example script to
-download & compute embeddings for SNOMED from ebi OLS can be found in 
+download & compute embeddings for SNOMED from ebi OLS can be found in
 [datastew/scripts/ols_snomed_retrieval.py](datastew/scripts/ols_snomed_retrieval.py).
