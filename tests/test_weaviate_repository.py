@@ -94,18 +94,24 @@ class Test(TestCase):
         self.assertEqual(closest_mappings[0].text, "Common cold")
         self.assertEqual(closest_mappings[0].sentence_embedder, model_name1)
 
+        terminology_and_model_specific_closest_mappings = repository.get_terminology_and_model_specific_closest_mappings(test_embedding, "snomed CT", model_name1)
+        self.assertEqual(len(terminology_and_model_specific_closest_mappings), 2)
+        self.assertEqual(terminology_and_model_specific_closest_mappings[0].text, "Asthma")
+        self.assertEqual(terminology_and_model_specific_closest_mappings[0].concept.terminology.name, "snomed CT")
+        self.assertEqual(terminology_and_model_specific_closest_mappings[0].sentence_embedder, model_name1)
+
         closest_mappings_with_similarities = repository.get_closest_mappings_with_similarities(test_embedding)
         self.assertEqual(len(closest_mappings_with_similarities), 5)
         self.assertEqual(closest_mappings_with_similarities[0][0].text, "Common cold")
         self.assertEqual(closest_mappings_with_similarities[0][0].sentence_embedder, model_name1)
         self.assertAlmostEqual(closest_mappings_with_similarities[0][1], 0.6747197, 3)
 
-        terminology_and_model_specific_closest_mappings = repository.get_terminology_and_model_specific_closest_mappings(test_embedding, "snomed CT", model_name1)
-        self.assertEqual(len(terminology_and_model_specific_closest_mappings), 2)
-        self.assertEqual(closest_mappings_with_similarities[0][0].text, "Common cold")
-        self.assertEqual(terminology_and_model_specific_closest_mappings[0][0].concept.terminology.name, "snomed CT")
-        self.assertEqual(terminology_and_model_specific_closest_mappings[0][0].sentence_embedder, model_name1)
-        self.assertAlmostEqual(closest_mappings_with_similarities[0][1], 0.6747197, 3)
+        terminology_and_model_specific_closest_mappings_with_similarities = repository.get_terminology_and_model_specific_closest_mappings_with_similarities(test_embedding, "snomed CT", model_name1)
+        self.assertEqual(len(terminology_and_model_specific_closest_mappings_with_similarities), 2)
+        self.assertEqual(terminology_and_model_specific_closest_mappings_with_similarities[0][0].text, "Asthma")
+        self.assertEqual(terminology_and_model_specific_closest_mappings_with_similarities[0][0].concept.terminology.name, "snomed CT")
+        self.assertEqual(terminology_and_model_specific_closest_mappings_with_similarities[0][0].sentence_embedder, model_name1)
+        self.assertAlmostEqual(terminology_and_model_specific_closest_mappings_with_similarities[0][1], 0.3947341, 3)
 
         # check if it crashed (due to schema re-creation) after restart
         repository = WeaviateRepository(mode="disk", path="db")
