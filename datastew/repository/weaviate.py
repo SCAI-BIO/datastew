@@ -259,7 +259,7 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch closest mappings with similarities: {e}")
         return mappings_with_similarities
     
-    def get_terminology_and_model_specific_closest_mappings(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Tuple[Mapping, float]]:
+    def get_terminology_and_model_specific_closest_mappings(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Mapping]:
         mappings = []
         try:
             if not self._terminology_exists(terminology_name):
