@@ -1,10 +1,10 @@
 from enum import Enum
-from thefuzz import fuzz
-from thefuzz import process
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from scipy.spatial import distance
 from sklearn.metrics.pairwise import cosine_distances
+from thefuzz import fuzz, process
 
 from datastew.mapping import MappingTable
 

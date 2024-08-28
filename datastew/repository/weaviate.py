@@ -34,7 +34,7 @@ class WeaviateRepository(BaseRepository):
                     url=path
                 )
             else:
-                raise ValueError(f'Repository mode {mode} is not defined. Use either memory, disk or remote.')
+                raise ValueError(f"Repository mode {mode} is not defined. Use either memory, disk or remote.")
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
 
@@ -46,7 +46,7 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to create schema: {e}")
 
     def _create_schema_if_not_exists(self, schema):
-        class_name = schema['class']
+        class_name = schema["class"]
         try:
             if not self.client.schema.exists(class_name):
                 self.client.schema.create_class(schema)
@@ -63,7 +63,7 @@ class WeaviateRepository(BaseRepository):
         sentence_embedders = set()
         try:
             result = self.client.query.get("Mapping", ["hasSentenceEmbedder"]).do()
-            for item in result['data']['Get']['Mapping']:
+            for item in result["data"]["Get"]["Mapping"]:
                 sentence_embedders.add(item["hasSentenceEmbedder"])
         except Exception as e:
             raise RuntimeError(f"Failed to fetch sentence embedders: {e}")
@@ -106,7 +106,7 @@ class WeaviateRepository(BaseRepository):
                  "_additional { id }",
                  "hasTerminology { ... on Terminology { _additional { id } name } }"]
             ).with_additional("vector").do()
-            for item in result['data']['Get']['Concept']:
+            for item in result["data"]["Get"]["Concept"]:
                 terminology_data = item["hasTerminology"][0]  # Assuming it has only one terminology
                 terminology = Terminology(
                     name=terminology_data["name"],
@@ -146,7 +146,7 @@ class WeaviateRepository(BaseRepository):
         terminologies = []
         try:
             result = self.client.query.get("Terminology", ["name", "_additional { id }"]).do()
-            for item in result['data']['Get']['Terminology']:
+            for item in result["data"]["Get"]["Terminology"]:
                 terminology = Terminology(
                     name=item["name"],
                     id=item["_additional"]["id"]
@@ -165,7 +165,7 @@ class WeaviateRepository(BaseRepository):
                  "hasSentenceEmbedder",
                  "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
             ).with_additional("vector").with_limit(limit).do()
-            for item in result['data']['Get']['Mapping']:
+            for item in result["data"]["Get"]["Mapping"]:
                 embedding_vector = item["_additional"]["vector"]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
                 terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
@@ -199,7 +199,7 @@ class WeaviateRepository(BaseRepository):
                  "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
                  "hasSentenceEmbedder"]
             ).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
-            for item in result['data']['Get']['Mapping']:
+            for item in result["data"]["Get"]["Mapping"]:
                 embedding_vector = item["_additional"]["vector"]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
                 terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
@@ -233,7 +233,7 @@ class WeaviateRepository(BaseRepository):
                  "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
                  "hasSentenceEmbedder"]
             ).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
-            for item in result['data']['Get']['Mapping']:
+            for item in result["data"]["Get"]["Mapping"]:
                 similarity = 1 - item["_additional"]["distance"]
                 embedding_vector = item["_additional"]["vector"]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
@@ -259,9 +259,13 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch closest mappings with similarities: {e}")
         return mappings_with_similarities
     
-    def get_terminology_and_model_specific_closest_mappings(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Tuple[Mapping, float]]:
-        mappings_with_similarities = []
+    def get_terminology_and_model_specific_closest_mappings(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Mapping]:
+        mappings = []
         try:
+            if not self._terminology_exists(terminology_name):
+                raise RuntimeError(f"Terminology {terminology_name} does not exists")
+            if not self._sentence_embedder_exists(sentence_embedder_name):
+                raise RuntimeError(f"Sentence Embedder {sentence_embedder_name} does not exists")
             result = self.client.query.get(
                 "Mapping",
                 ["text",
@@ -283,7 +287,60 @@ class WeaviateRepository(BaseRepository):
                     }
                 ]
             }).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
-            for item in result['data']['Get']['Mapping']:
+            for item in result["data"]["Get"]["Mapping"]:
+                embedding_vector = item["_additional"]["vector"]
+                concept_data = item["hasConcept"][0] # Assuming it has only one concept
+                terminology_data = concept_data["hasTerminology"][0]
+                terminology = Terminology(
+                    name=terminology_data["name"],
+                    id=terminology_data["_additional"]["id"]
+                )
+                concept = Concept(
+                    concept_identifier=concept_data["conceptID"],
+                    pref_label=concept_data["prefLabel"],
+                    terminology=terminology,
+                    id=concept_data["_additional"]["id"]
+                )
+                mapping = Mapping(
+                    text=item["text"],
+                    concept=concept,
+                    embedding=embedding_vector,
+                    sentence_embedder=item["hasSentenceEmbedder"]
+                )
+                mappings.append(mapping)
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch the closest mappings for terminology {terminology_name} and model {sentence_embedder_name}: {e}")
+        return mappings
+    
+    def get_terminology_and_model_specific_closest_mappings_with_similarities(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Tuple[Mapping, float]]:
+        mappings_with_similarities = []
+        try:
+            if not self._terminology_exists(terminology_name):
+                raise RuntimeError(f"Terminology {terminology_name} does not exists")
+            if not self._sentence_embedder_exists(sentence_embedder_name):
+                raise RuntimeError(f"Sentence Embedder {sentence_embedder_name} does not exists")
+            result = self.client.query.get(
+                "Mapping",
+                ["text",
+                 "_additional { distance }",
+                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                 "hasSentenceEmbedder"]
+            ).with_where({
+                "operator": "And",
+                "operands": [
+                    {
+                        "path": ["hasSentenceEmbedder"],
+                        "operator": "Equal",
+                        "valueText": sentence_embedder_name
+                    },
+                    {
+                        "path": ["hasConcept", "Concept", "hasTerminology", "Terminology", "name"],
+                        "operator": "Equal",
+                        "valueText": terminology_name
+                    }
+                ]
+            }).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
+            for item in result["data"]["Get"]["Mapping"]:
                 similarity = 1 - item["_additional"]["distance"]
                 embedding_vector = item["_additional"]["vector"]
                 concept_data = item["hasConcept"][0] # Assuming it has only one concept
@@ -328,7 +385,7 @@ class WeaviateRepository(BaseRepository):
                         uuid=random_uuid
                     )
                 else:
-                    self.logger.info(f'Terminology with name {model_object_instance.name} already exists. Skipping.')
+                    self.logger.info(f"Terminology with name {model_object_instance.name} already exists. Skipping.")
             elif isinstance(model_object_instance, Concept):
                 model_object_instance.uuid = random_uuid
                 if not self._concept_exists(model_object_instance.concept_identifier):
@@ -349,8 +406,8 @@ class WeaviateRepository(BaseRepository):
                         to_uuid=model_object_instance.terminology.id,
                     )
                 else:
-                    self.logger.info(f'Concept with identifier {model_object_instance.concept_identifier} '
-                                     f'already exists. Skipping.')
+                    self.logger.info(f"Concept with identifier {model_object_instance.concept_identifier} "
+                                     f"already exists. Skipping.")
             elif isinstance(model_object_instance, Mapping):
                 if not self._mapping_exists(model_object_instance.embedding):
                     properties = {
@@ -371,12 +428,26 @@ class WeaviateRepository(BaseRepository):
                         to_uuid=model_object_instance.concept.uuid,
                     )
                 else:
-                    self.logger.info(f'Mapping with same embedding already exists. Skipping.')
+                    self.logger.info("Mapping with same embedding already exists. Skipping.")
             else:
                 raise ValueError("Unsupported model object instance type.")
 
         except Exception as e:
             raise RuntimeError(f"Failed to store object in Weaviate: {e}")
+
+    def _sentence_embedder_exists(self, name: str) -> bool:
+        try:
+            result = self.client.query.get(
+                "Mapping",
+                ["hasSentenceEmbedder"]
+            ).with_where({
+                "path": ["hasSentenceEmbedder"],
+                "operator": "Equal",
+                "valueText": name
+            }).do()
+            return len(result["data"]["Get"]["Mapping"]) > 0
+        except Exception as e:
+            raise RuntimeError(f"Failed to check if sentence embedder exists: {e}")
 
     def _terminology_exists(self, name: str) -> bool:
         try:
@@ -385,7 +456,7 @@ class WeaviateRepository(BaseRepository):
                 "operator": "Equal",
                 "valueText": name
             }).do()
-            return len(result['data']['Get']['Terminology']) > 0
+            return len(result["data"]["Get"]["Terminology"]) > 0
         except Exception as e:
             raise RuntimeError(f"Failed to check if terminology exists: {e}")
 
@@ -396,7 +467,7 @@ class WeaviateRepository(BaseRepository):
                 "operator": "Equal",
                 "valueText": concept_id
             }).do()
-            return len(result['data']['Get']['Concept']) > 0
+            return len(result["data"]["Get"]["Concept"]) > 0
         except Exception as e:
             raise RuntimeError(f"Failed to check if concept exists: {e}")
 
@@ -406,6 +477,6 @@ class WeaviateRepository(BaseRepository):
                 "vector": embedding,
                 "distance": float(0)  # Ensure distance is explicitly casted to float
             }).do()
-            return len(result['data']['Get']['Mapping']) > 0
+            return len(result["data"]["Get"]["Mapping"]) > 0
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")

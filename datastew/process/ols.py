@@ -2,15 +2,15 @@ import logging
 
 import requests
 
-from datastew.repository.model import Terminology, Concept, Mapping
 from datastew.embedding import EmbeddingModel
 from datastew.repository.base import BaseRepository
+from datastew.repository.model import Concept, Mapping, Terminology
 
 
 class OLSTerminologyImportTask:
 
     def __init__(self, repository: BaseRepository, embedding_model: EmbeddingModel, ontology_name: str,
-                 ontology_id: str, ols_api_base_url:str = 'https://www.ebi.ac.uk/ols4/api/', page_size:int = 200):
+                 ontology_id: str, ols_api_base_url:str = "https://www.ebi.ac.uk/ols4/api/", page_size:int = 200):
         logging.getLogger().setLevel(logging.INFO)
         self.repository = repository
         self.embedding_model = embedding_model
@@ -29,7 +29,7 @@ class OLSTerminologyImportTask:
             response = requests.get(url)
             response.raise_for_status()
             data = response.json()
-            return data['page']['totalPages']
+            return data["page"]["totalPages"]
         except Exception as e:
             logging.error(f"Failed to fetch concepts and descriptions from OLS: {str(e)}")
 

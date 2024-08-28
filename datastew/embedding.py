@@ -1,5 +1,6 @@
 import logging
 from abc import ABC
+
 import numpy as np
 import openai
 from sentence_transformers import SentenceTransformer
