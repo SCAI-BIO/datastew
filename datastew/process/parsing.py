@@ -5,7 +5,7 @@ import numpy as np
 
 
 class Source(ABC):
-    def __int__(self, file_path: str):
+    def __init__(self, file_path: str):
         self.file_path = file_path
 
     def to_dataframe(self) -> pd.DataFrame:
@@ -15,8 +15,8 @@ class Source(ABC):
         elif self.file_path.endswith(".tsv"):
             return pd.read_csv(self.file_path, sep="\t")
         elif self.file_path.endswith(".xlsx"):
-            xls = pd.ExcelFile(self.file_path)
-            dfs = [pd.read_excel(xls, sheet_name=sheet_name) for sheet_name in xls.sheet_names]
+            with pd.ExcelFile(self.file_path) as xls:
+                dfs = [pd.read_excel(xls, sheet_name=sheet_name) for sheet_name in xls.sheet_names]
             for df in dfs:
                 # Replace control sequences in string columns / headers & remove trailing whitespaces
                 df.columns = df.columns.str.replace("\r", "", regex=True).str.strip()
