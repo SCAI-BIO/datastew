@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import seaborn as sns
 from sklearn.manifold import TSNE
+from typing import Optional
 
 from datastew.conf import COLORS_AD, COLORS_PD
 from datastew.mapping import MappingTable
@@ -176,9 +177,11 @@ def scatter_plot_all_cohorts(tables1: [MappingTable], tables2: [MappingTable], l
     fig.show()
 
 
-def get_plot_for_current_database_state(repository: BaseRepository, perplexity: int = 5, return_type="html") -> str:
-    # get up to 1000 entries from db
-    mappings = repository.get_all_mappings()
+def get_plot_for_current_database_state(repository: BaseRepository, terminology: Optional[str] = None, perplexity: int = 5, return_type="html") -> str:
+    if not terminology:
+        mappings = repository.get_mappings()
+    else:
+        mappings = repository.get_mappings(terminology_name=terminology)
     # Extract embeddings
     embeddings = np.array([mapping.embedding for mapping in mappings])
     # Increase perplexity up to 30 if applicable

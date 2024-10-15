@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from datastew.repository.model import Mapping, Concept, Terminology
 
@@ -27,7 +27,7 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def get_all_mappings(self, limit=1000) -> List[Mapping]:
+    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
         """Get all embeddings up to a limit"""
         pass
 

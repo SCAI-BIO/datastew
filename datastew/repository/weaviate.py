@@ -1,7 +1,7 @@
 import logging
 import shutil
 import uuid as uuid
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 
 import weaviate
 from weaviate.embedded import EmbeddedOptions
@@ -156,15 +156,29 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch terminologies: {e}")
         return terminologies
 
-    def get_all_mappings(self, limit=1000) -> List[Mapping]:
+    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
         mappings = []
         try:
-            result = self.client.query.get(
-                "Mapping",
-                ["text",
-                 "hasSentenceEmbedder",
-                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
-            ).with_additional("vector").with_limit(limit).do()
+            if not terminology_name:
+                result = self.client.query.get(
+                    "Mapping",
+                    ["text",
+                    "hasSentenceEmbedder",
+                    "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+                ).with_additional("vector").with_limit(limit).do()
+            else:
+                if not self._terminology_exists(terminology_name):
+                    raise RuntimeError(f"Terminology {terminology_name} does not exists")
+                result = self.client.query.get(
+                    "Mapping",
+                    ["text",
+                    "hasSentenceEmbedder",
+                    "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+                ).with_where({
+                    "path": ["hasConcept", "Concept", "hasTerminology", "Terminology", "name"],
+                    "operator": "Equal",
+                    "valueText": terminology_name
+                }).with_additional("vector").with_limit(limit).do()
             for item in result["data"]["Get"]["Mapping"]:
                 embedding_vector = item["_additional"]["vector"]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept

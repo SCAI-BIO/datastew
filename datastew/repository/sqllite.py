@@ -1,5 +1,5 @@
 import random
-from typing import List, Union
+from typing import List, Union, Optional
 
 import numpy as np
 from sqlalchemy import create_engine, func
@@ -41,13 +41,28 @@ class SQLLiteRepository(BaseRepository):
     def get_all_terminologies(self) -> List[Terminology]:
         return self.session.query(Terminology).all()
 
-    def get_all_mappings(self, limit=1000):
-        # Determine the total count of mappings in the database
-        total_count = self.session.query(func.count(Mapping.id)).scalar()
-        # Generate random indices for the subset of embeddings
-        random_indices = random.sample(range(total_count), min(limit, total_count))
-        # Query for mappings corresponding to the random indices
-        mappings = self.session.query(Mapping).filter(Mapping.id.in_(random_indices)).all()
+    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
+        if not terminology_name:
+            # Determine the total count of mappings in the database
+            total_count = self.session.query(func.count(Mapping.id)).scalar()
+            # Generate random indices for the subset of embeddings
+            random_indices = random.sample(range(total_count), min(limit, total_count))
+            # Query for mappings corresponding to the random indices
+            mappings = self.session.query(Mapping).filter(Mapping.id.in_(random_indices)).all()
+        else:
+            query = (
+            self.session.query(Mapping)
+            .join(Concept)
+            .join(Terminology)
+            .filter(Terminology.name == terminology_name)
+            )
+
+            total_count = query.count()
+            if total_count == 0:
+                return []
+            
+            mappings = query.all()
+            mappings = random.sample(mappings, min(limit, len(mappings))) if mappings else []
         return mappings
     
     def get_all_sentence_embedders(self) -> List[str]:

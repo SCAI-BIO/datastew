@@ -64,7 +64,7 @@ class Test(TestCase):
             mapping9
         ])
 
-        mappings = repository.get_all_mappings(limit=5)
+        mappings = repository.get_mappings(limit=5)
         self.assertEqual(len(mappings), 5)
 
         concepts = repository.get_all_concepts()
