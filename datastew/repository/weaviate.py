@@ -403,6 +403,9 @@ class WeaviateRepository(BaseRepository):
             elif isinstance(model_object_instance, Concept):
                 model_object_instance.uuid = random_uuid
                 if not self._concept_exists(model_object_instance.concept_identifier):
+                    # recursion: create terminology if not existing
+                    if not self._terminology_exists(model_object_instance.terminology.name):
+                        self.store(model_object_instance.terminology)
                     properties = {
                         "conceptID": model_object_instance.concept_identifier,
                         "prefLabel": model_object_instance.pref_label,
@@ -424,6 +427,8 @@ class WeaviateRepository(BaseRepository):
                                      f"already exists. Skipping.")
             elif isinstance(model_object_instance, Mapping):
                 if not self._mapping_exists(model_object_instance.embedding):
+                    if not self._concept_exists(model_object_instance.concept.concept_identifier):
+                        self.store(model_object_instance.concept)
                     properties = {
                         "text": model_object_instance.text,
                         "hasSentenceEmbedder": model_object_instance.sentence_embedder
