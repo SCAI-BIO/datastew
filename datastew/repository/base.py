@@ -32,6 +32,11 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
+    def get_terminology_specific_mappings(self, terminology_name, limit=1000) -> List[Mapping]:
+        """Get all embeddings from a specified terminology up to a limit"""
+        pass
+
+    @abstractmethod
     def get_all_sentence_embedders(self) -> List[str]:
         pass
 

@@ -50,6 +50,22 @@ class SQLLiteRepository(BaseRepository):
         mappings = self.session.query(Mapping).filter(Mapping.id.in_(random_indices)).all()
         return mappings
     
+    def get_terminology_specific_mappings(self, terminology_name: str, limit=1000) -> List[Mapping]:
+        query = (
+            self.session.query(Mapping)
+            .join(Concept)
+            .join(Terminology)
+            .filter(Terminology.name == terminology_name)
+        )
+
+        total_count = query.count()
+        if total_count == 0:
+            return []
+        
+        mappings = query.all()
+        selected_mappings = random.sample(mappings, min(limit, len(mappings))) if mappings else []
+        return selected_mappings
+    
     def get_all_sentence_embedders(self) -> List[str]:
         return [embedder for embedder, in self.session.query(Mapping.sentence_embedder).distinct().all()]
 
