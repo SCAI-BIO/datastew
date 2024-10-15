@@ -22,8 +22,8 @@ class TestGetClosestEmbedding(unittest.TestCase):
         mapping_2 = Mapping(concept=concept2, text="Text 2", embedding=[0.2, 0.3, 0.4], sentence_embedder=model_name)
         mapping_3 = Mapping(concept=concept1, text="Text 3", embedding=[1.2, 2.3, 3.4], sentence_embedder=model_name)
         self.repository.store_all([terminology1, terminology2, concept1, concept2, mapping_1, mapping_2, mapping_3])
-        filtered_mappings1 = self.repository.get_terminology_specific_mappings(terminology_name="Terminology 1")
-        filtered_mappings2 = self.repository.get_terminology_specific_mappings(terminology_name="Terminology 2")
+        filtered_mappings1 = self.repository.get_mappings(terminology_name="Terminology 1")
+        filtered_mappings2 = self.repository.get_mappings(terminology_name="Terminology 2")
         self.assertEqual(len(filtered_mappings1), 2)
         self.assertEqual(len(filtered_mappings2), 1)
 

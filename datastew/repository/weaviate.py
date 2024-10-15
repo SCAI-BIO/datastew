@@ -1,7 +1,7 @@
 import logging
 import shutil
 import uuid as uuid
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 
 import weaviate
 from weaviate.embedded import EmbeddedOptions
@@ -156,15 +156,29 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch terminologies: {e}")
         return terminologies
 
-    def get_all_mappings(self, limit=1000) -> List[Mapping]:
+    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
         mappings = []
         try:
-            result = self.client.query.get(
-                "Mapping",
-                ["text",
-                 "hasSentenceEmbedder",
-                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
-            ).with_additional("vector").with_limit(limit).do()
+            if not terminology_name:
+                result = self.client.query.get(
+                    "Mapping",
+                    ["text",
+                    "hasSentenceEmbedder",
+                    "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+                ).with_additional("vector").with_limit(limit).do()
+            else:
+                if not self._terminology_exists(terminology_name):
+                    raise RuntimeError(f"Terminology {terminology_name} does not exists")
+                result = self.client.query.get(
+                    "Mapping",
+                    ["text",
+                    "hasSentenceEmbedder",
+                    "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
+                ).with_where({
+                    "path": ["hasConcept", "Concept", "hasTerminology", "Terminology", "name"],
+                    "operator": "Equal",
+                    "valueText": terminology_name
+                }).with_additional("vector").with_limit(limit).do()
             for item in result["data"]["Get"]["Mapping"]:
                 embedding_vector = item["_additional"]["vector"]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
@@ -258,46 +272,6 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to fetch closest mappings with similarities: {e}")
         return mappings_with_similarities
-    
-    def get_terminology_specific_mappings(self, terminology_name: str, limit=1000) -> List[Mapping]:
-        mappings = []
-        try:
-            if not self._terminology_exists(terminology_name):
-                raise RuntimeError(f"Terminology {terminology_name} does not exists")
-            result = self.client.query.get(
-                "Mapping",
-                ["text",
-                "hasSentenceEmbedder",
-                "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
-            ).with_where({
-                "path": ["hasConcept", "Concept", "hasTerminology", "Terminology", "name"],
-                "operator": "Equal",
-                "valueText": terminology_name
-            }).with_additional("vector").with_limit(limit).do()
-            for item in result["data"]["Get"]["Mapping"]:
-                embedding_vector = item["_additional"]["vector"]
-                concept_data = item["hasConcept"][0]  # Assuming it has only one concept
-                terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
-                terminology = Terminology(
-                    name=terminology_data["name"],
-                    id=terminology_data["_additional"]["id"]
-                )
-                concept = Concept(
-                    concept_identifier=concept_data["conceptID"],
-                    pref_label=concept_data["prefLabel"],
-                    terminology=terminology,
-                    id=concept_data["_additional"]["id"]
-                )
-                mapping = Mapping(
-                    text=item["text"],
-                    concept=concept,
-                    embedding=embedding_vector,
-                    sentence_embedder=item["hasSentenceEmbedder"]
-                )
-                mappings.append(mapping)
-        except Exception as e:
-            raise RuntimeError(f"Failed to fetch mappings: {e}")
-        return mappings
     
     def get_terminology_and_model_specific_closest_mappings(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Mapping]:
         mappings = []

@@ -179,9 +179,9 @@ def scatter_plot_all_cohorts(tables1: [MappingTable], tables2: [MappingTable], l
 
 def get_plot_for_current_database_state(repository: BaseRepository, terminology: Optional[str] = None, perplexity: int = 5, return_type="html") -> str:
     if not terminology:
-        mappings = repository.get_all_mappings()
+        mappings = repository.get_mappings()
     else:
-        mappings = repository.get_terminology_specific_mappings(terminology_name=terminology)
+        mappings = repository.get_mappings(terminology_name=terminology)
     # Extract embeddings
     embeddings = np.array([mapping.embedding for mapping in mappings])
     # Increase perplexity up to 30 if applicable
