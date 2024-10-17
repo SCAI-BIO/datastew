@@ -1,6 +1,6 @@
 from abc import ABC
 from typing import Dict
-from embedding import EmbeddingModel, MPNetAdapter
+from datastew.embedding import EmbeddingModel, MPNetAdapter
 
 import pandas as pd
 import numpy as np
@@ -109,7 +109,7 @@ class DataDictionarySource(Source):
         # Compute vectors for all descriptions
         df: pd.DataFrame = self.to_dataframe()
         descriptions: list[str] = df["description"].tolist()
-        embeddings: list = embedding_model.encode(descriptions)
+        embeddings: list = embedding_model.get_embeddings(messages=descriptions)
         # variable identfy descriptins -> variable to embedding
         variable_to_embedding: Dict[str, list] = dict(zip(df["variable"], embeddings))
         return variable_to_embedding
