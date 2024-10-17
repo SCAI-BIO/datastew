@@ -39,3 +39,8 @@ class Test(TestCase):
         mapping_table.add_descriptions(data_dictionary_source)
         mappings = mapping_table.get_mappings()
         self.assertEqual(11, len(mappings))
+
+    def test_get_embeddings(self):
+        vectors = self.data_dictionary_source.get_embeddings()
+        self.assertEqual(len(vectors), 11)
+        self.assertIn("Q_8", vectors)
