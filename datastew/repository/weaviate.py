@@ -403,6 +403,9 @@ class WeaviateRepository(BaseRepository):
             elif isinstance(model_object_instance, Concept):
                 model_object_instance.uuid = random_uuid
                 if not self._concept_exists(model_object_instance.concept_identifier):
+                    # recursion: create terminology if not existing
+                    if not self._terminology_exists(model_object_instance.terminology.name):
+                        self.store(model_object_instance.terminology)
                     properties = {
                         "conceptID": model_object_instance.concept_identifier,
                         "prefLabel": model_object_instance.pref_label,
@@ -424,6 +427,8 @@ class WeaviateRepository(BaseRepository):
                                      f"already exists. Skipping.")
             elif isinstance(model_object_instance, Mapping):
                 if not self._mapping_exists(model_object_instance.embedding):
+                    if not self._concept_exists(model_object_instance.concept.concept_identifier):
+                        self.store(model_object_instance.concept)
                     properties = {
                         "text": model_object_instance.text,
                         "hasSentenceEmbedder": model_object_instance.sentence_embedder
@@ -459,7 +464,11 @@ class WeaviateRepository(BaseRepository):
                 "operator": "Equal",
                 "valueText": name
             }).do()
-            return len(result["data"]["Get"]["Mapping"]) > 0
+            result_data = result["data"]["Get"]["Mapping"]
+            if result_data is not None:
+                return len(result_data) > 0
+            else:
+                return False
         except Exception as e:
             raise RuntimeError(f"Failed to check if sentence embedder exists: {e}")
 
@@ -470,7 +479,11 @@ class WeaviateRepository(BaseRepository):
                 "operator": "Equal",
                 "valueText": name
             }).do()
-            return len(result["data"]["Get"]["Terminology"]) > 0
+            result_data = result["data"]["Get"]["Terminology"]
+            if result_data is not None:
+                return len(result_data) > 0
+            else:
+                return False
         except Exception as e:
             raise RuntimeError(f"Failed to check if terminology exists: {e}")
 
@@ -481,7 +494,11 @@ class WeaviateRepository(BaseRepository):
                 "operator": "Equal",
                 "valueText": concept_id
             }).do()
-            return len(result["data"]["Get"]["Concept"]) > 0
+            result_data = result["data"]["Get"]["Concept"]
+            if result_data is not None:
+                return len(result_data) > 0
+            else:
+                return False
         except Exception as e:
             raise RuntimeError(f"Failed to check if concept exists: {e}")
 
@@ -491,6 +508,10 @@ class WeaviateRepository(BaseRepository):
                 "vector": embedding,
                 "distance": float(0)  # Ensure distance is explicitly casted to float
             }).do()
-            return len(result["data"]["Get"]["Mapping"]) > 0
+            result_data = result["data"]["Get"]["Mapping"]
+            if result_data is not None:
+                return len(result_data) > 0
+            else:
+                return False
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")
