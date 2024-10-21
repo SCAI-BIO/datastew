@@ -1,4 +1,6 @@
 from abc import ABC
+from typing import Dict
+from datastew.embedding import EmbeddingModel, MPNetAdapter
 
 import pandas as pd
 import numpy as np
@@ -52,16 +54,34 @@ class MappingSource(Source):
 
 
 class DataDictionarySource(Source):
-    """
-    Contains mapping of variable -> description
-    """
 
     def __init__(self, file_path: str, variable_field: str, description_field: str):
-        self.file_path = file_path
-        self.variable_field = variable_field
-        self.description_field = description_field
+        """
+        Initialize the DataDictionarySource with the path to the data dictionary file
+        and the fields that represent the variables and their descriptions.
 
-    def to_dataframe(self) -> pd.DataFrame:
+        :param file_path: Path to the data dictionary file.
+        :param variable_field: The column that contains the variable names.
+        :param description_field: The column that contains the variable descriptions.
+        """
+        self.file_path: str = file_path
+        self.variable_field: str = variable_field
+        self.description_field: str = description_field
+
+    def to_dataframe(self, dropna: bool = True) -> pd.DataFrame:
+        """
+        Load the data dictionary file into a pandas DataFrame, select the variable and 
+        description fields, and ensure they exist. Optionally remove rows with missing 
+        variables or descriptions based on the 'dropna' parameter.
+
+        :param dropna: If True, rows with missing 'variable' or 'description' values are 
+                       dropped. Defaults to True.
+        :return: A DataFrame containing two columns:
+                 - 'variable': The variable names from the data dictionary.
+                 - 'description': The descriptions corresponding to each variable.
+        :raises ValueError: If either the variable field or the description field is not 
+                            found in the data dictionary file.
+        """
         df = super().to_dataframe()
         # sanity check
         if self.variable_field not in df.columns:
@@ -70,9 +90,32 @@ class DataDictionarySource(Source):
             raise ValueError(f"Description field {self.description_field} not found in {self.file_path}")
         df = df[[self.variable_field, self.description_field]]
         df = df.rename(columns={self.variable_field: "variable", self.description_field: "description"})
-        df.dropna(subset=["variable", "description"], inplace=True)
+        if dropna:
+            df.dropna(subset=["variable", "description"], inplace=True)
         return df
+    
+    def get_embeddings(self, embedding_model: EmbeddingModel = None) -> Dict[str, list]:
+        """
+        Compute embedding vectors for each description in the data dictionary. The 
+        resulting vectors are mapped to their respective variables and returned as a 
+        dictionary.
 
+        :param embedding_model: The embedding model used to compute embeddings for the descriptions.
+                                Defaults to MPNetAdapter.
+        :return: A dictionary where each key is a variable name and the value is the 
+                 embedding vector for the corresponding description.
+        :rtype: Dict[str, list]
+        """
+        # Compute vectors for all descriptions
+        df: pd.DataFrame = self.to_dataframe()
+        descriptions: list[str] = df["description"].tolist()
+        if embedding_model is None:
+            embedding_model = MPNetAdapter()
+        embeddings = embedding_model.get_embeddings(descriptions)
+        # variable identify descriptions -> variable to embedding
+        variable_to_embedding: Dict[str, list] = dict(zip(df["variable"], embeddings))
+        return variable_to_embedding
+        
 
 class EmbeddingSource:
     def __init__(self, source_path: str):
