@@ -44,6 +44,20 @@ embedding_model = GPT4Adapter(key="your_api_key")
 df = map_dictionary_to_dictionary(source, target, embedding_model=embedding_model)
 ```
 
+You can also retrieve embeddings from data dictionaries and visualize them in form of an interactive scatterplot to 
+explore sematic neighborhoods:
+
+```python
+from datastew.visualisation import plot_embeddings
+
+# Get embedding vectors for your dictionaries
+source_embeddings = source.get_embeddings()
+
+# plot embedding neighborhoods for several dictionaries
+plot_embeddings(data_dictionaries=[source, target])
+
+```
+
 ### Creating and using stored mappings
 
 A simple example how to initialize an in memory database and compute a similarity mapping is shown in
