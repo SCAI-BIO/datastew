@@ -4,11 +4,15 @@ import uuid as uuid
 from typing import List, Tuple, Union, Optional
 
 import weaviate
-from weaviate.embedded import EmbeddedOptions
+from weaviate.classes.query import Filter
 
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
-from datastew.repository.weaviate_schema import concept_schema, mapping_schema, terminology_schema
+from datastew.repository.weaviate_schema import (
+    concept_schema,
+    mapping_schema,
+    terminology_schema,
+)
 
 
 class WeaviateRepository(BaseRepository):
@@ -18,23 +22,26 @@ class WeaviateRepository(BaseRepository):
         self.mode = mode
         try:
             if mode == "memory":
-                self.client = weaviate.Client(embedded_options=EmbeddedOptions(
-                    persistence_data_path="db"
-                ))
+                self.client = weaviate.connect_to_embedded(persistence_data_path="db")
             elif mode == "disk":
                 if path is None:
                     raise ValueError("Path must be provided for disk mode.")
-                self.client = weaviate.Client(embedded_options=EmbeddedOptions(
-                    persistence_data_path=path
-                ))
+                self.client = weaviate.connect_to_embedded(persistence_data_path="db")
             elif mode == "remote":
                 if path is None:
                     raise ValueError("Remote URL must be provided for remote mode.")
-                self.client = weaviate.Client(
-                    url=path
+                self.client = weaviate.connect_to_custom(
+                    http_host=path,
+                    http_port=80,
+                    http_secure=False,
+                    grpc_host=path,
+                    grpc_port=50051,
+                    grpc_secure=False,
                 )
             else:
-                raise ValueError(f"Repository mode {mode} is not defined. Use either memory, disk or remote.")
+                raise ValueError(
+                    f"Repository mode {mode} is not defined. Use either memory, disk or remote."
+                )
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
 
@@ -46,10 +53,20 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to create schema: {e}")
 
     def _create_schema_if_not_exists(self, schema):
+        references = None
         class_name = schema["class"]
         try:
-            if not self.client.schema.exists(class_name):
-                self.client.schema.create_class(schema)
+            if not self.client.collections.exists(class_name):
+                description = schema["description"]
+                properties = schema["properties"]
+                if "references" in schema:
+                    references = schema["references"]
+                self.client.collections.create(
+                    name=class_name,
+                    description=description,
+                    properties=properties,
+                    references=references,
+                )
             else:
                 self.logger.info(f"Schema for {class_name} already exists. Skipping.")
         except Exception as e:
@@ -62,29 +79,24 @@ class WeaviateRepository(BaseRepository):
     def get_all_sentence_embedders(self) -> List[str]:
         sentence_embedders = set()
         try:
-            result = self.client.query.get("Mapping", ["hasSentenceEmbedder"]).do()
-            for item in result["data"]["Get"]["Mapping"]:
-                sentence_embedders.add(item["hasSentenceEmbedder"])
+            mapping = self.client.collections.get("Mapping")
+            response = mapping.query.fetch_objects()
+            for o in response.objects:
+                sentence_embedders.add(o.properties["hasSentenceEmbedder"])
         except Exception as e:
             raise RuntimeError(f"Failed to fetch sentence embedders: {e}")
         return list(sentence_embedders)
-    
+
     def get_concept(self, concept_id: str) -> Concept:
         try:
             if not self._concept_exists(concept_id):
                 raise RuntimeError(f"Concept {concept_id} does not exists")
-            result = self.client.query.get(
-                "Concept",
-                ["conceptID",
-                 "prefLabel",
-                 "_additional { id }",
-                 "hasTerminology { ... on Terminology { _additional { id } name } }"]
-            ).with_where({
-                "path": "conceptID",
-                "operator": "Equal",
-                "valueText": concept_id
-            }).do()
-            concept_data = result["data"]["Get"]["Concept"][0]
+            concept = self.client.collections.get("Concept")
+            response = concept.query.fetch_objects(
+                filters=Filter.by_property("conceptID").equal(concept_id)
+            )
+
+            concept_data = response.objects[0]
             terminology_data = concept_data["hasTerminology"][0]
             terminology_name = terminology_data["name"]
             terminology_id = terminology_data["_additional"]["id"]
@@ -96,289 +108,417 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch concept {concept_id}: {e}")
         return concept
 
+
+    # TODO: Migrate it to v4
     def get_all_concepts(self) -> List[Concept]:
         concepts = []
         try:
-            result = self.client.query.get(
-                "Concept",
-                ["conceptID",
-                 "prefLabel",
-                 "_additional { id }",
-                 "hasTerminology { ... on Terminology { _additional { id } name } }"]
-            ).with_additional("vector").do()
+            result = (
+                self.client.query.get(
+                    "Concept",
+                    [
+                        "conceptID",
+                        "prefLabel",
+                        "_additional { id }",
+                        "hasTerminology { ... on Terminology { _additional { id } name } }",
+                    ],
+                )
+                .with_additional("vector")
+                .do()
+            )
             for item in result["data"]["Get"]["Concept"]:
-                terminology_data = item["hasTerminology"][0]  # Assuming it has only one terminology
+                terminology_data = item["hasTerminology"][
+                    0
+                ]  # Assuming it has only one terminology
                 terminology = Terminology(
                     name=terminology_data["name"],
-                    id=terminology_data["_additional"]["id"]
+                    id=terminology_data["_additional"]["id"],
                 )
                 concept = Concept(
                     concept_identifier=item["conceptID"],
                     pref_label=item["prefLabel"],
                     terminology=terminology,
-                    id=item["_additional"]["id"]
+                    id=item["_additional"]["id"],
                 )
                 concepts.append(concept)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch concepts: {e}")
         return concepts
-    
+
+    # TODO: Migrate it to v4
     def get_terminology(self, terminology_name: str) -> Terminology:
         try:
             if not self._terminology_exists(terminology_name):
                 raise RuntimeError(f"Terminology {terminology_name} does not exists")
-            result = self.client.query.get(
-                "Terminology",
-                ["name", "_additional { id }"]
-            ).with_where({
-                "path": "name",
-                "operator": "Equal",
-                "valueText": terminology_name
-            }).do()
+            result = (
+                self.client.query.get("Terminology", ["name", "_additional { id }"])
+                .with_where(
+                    {"path": "name", "operator": "Equal", "valueText": terminology_name}
+                )
+                .do()
+            )
             terminology_data = result["data"]["Get"]["Terminology"][0]
             terminology_id = terminology_data["_additional"]["id"]
             terminology = Terminology(terminology_name, terminology_id)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch terminology {terminology_name}: {e}")
         return terminology
-
+    
+    # TODO: Migrate it to v4
     def get_all_terminologies(self) -> List[Terminology]:
         terminologies = []
         try:
-            result = self.client.query.get("Terminology", ["name", "_additional { id }"]).do()
+            result = self.client.query.get(
+                "Terminology", ["name", "_additional { id }"]
+            ).do()
             for item in result["data"]["Get"]["Terminology"]:
                 terminology = Terminology(
-                    name=item["name"],
-                    id=item["_additional"]["id"]
+                    name=item["name"], id=item["_additional"]["id"]
                 )
                 terminologies.append(terminology)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch terminologies: {e}")
         return terminologies
 
-    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
+    def get_mappings(
+        self, terminology_name: Optional[str] = None, limit=1000
+    ) -> List[Mapping]:
         mappings = []
         try:
             if not terminology_name:
-                result = self.client.query.get(
-                    "Mapping",
-                    ["text",
-                    "hasSentenceEmbedder",
-                    "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
-                ).with_additional("vector").with_limit(limit).do()
+                result = (
+                    self.client.query.get(
+                        "Mapping",
+                        [
+                            "text",
+                            "hasSentenceEmbedder",
+                            "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                        ],
+                    )
+                    .with_additional("vector")
+                    .with_limit(limit)
+                    .do()
+                )
             else:
                 if not self._terminology_exists(terminology_name):
-                    raise RuntimeError(f"Terminology {terminology_name} does not exists")
-                result = self.client.query.get(
-                    "Mapping",
-                    ["text",
-                    "hasSentenceEmbedder",
-                    "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }"]
-                ).with_where({
-                    "path": ["hasConcept", "Concept", "hasTerminology", "Terminology", "name"],
-                    "operator": "Equal",
-                    "valueText": terminology_name
-                }).with_additional("vector").with_limit(limit).do()
+                    raise RuntimeError(
+                        f"Terminology {terminology_name} does not exists"
+                    )
+                result = (
+                    self.client.query.get(
+                        "Mapping",
+                        [
+                            "text",
+                            "hasSentenceEmbedder",
+                            "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                        ],
+                    )
+                    .with_where(
+                        {
+                            "path": [
+                                "hasConcept",
+                                "Concept",
+                                "hasTerminology",
+                                "Terminology",
+                                "name",
+                            ],
+                            "operator": "Equal",
+                            "valueText": terminology_name,
+                        }
+                    )
+                    .with_additional("vector")
+                    .with_limit(limit)
+                    .do()
+                )
             for item in result["data"]["Get"]["Mapping"]:
                 embedding_vector = item["_additional"]["vector"]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
-                terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
+                terminology_data = concept_data["hasTerminology"][
+                    0
+                ]  # Assuming it has only one terminology
                 terminology = Terminology(
                     name=terminology_data["name"],
-                    id=terminology_data["_additional"]["id"]
+                    id=terminology_data["_additional"]["id"],
                 )
                 concept = Concept(
                     concept_identifier=concept_data["conceptID"],
                     pref_label=concept_data["prefLabel"],
                     terminology=terminology,
-                    id=concept_data["_additional"]["id"]
+                    id=concept_data["_additional"]["id"],
                 )
                 mapping = Mapping(
                     text=item["text"],
                     concept=concept,
                     embedding=embedding_vector,
-                    sentence_embedder=item["hasSentenceEmbedder"]
+                    sentence_embedder=item["hasSentenceEmbedder"],
                 )
                 mappings.append(mapping)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch mappings: {e}")
         return mappings
 
+    # TODO: Migrate it to v4
     def get_closest_mappings(self, embedding, limit=5) -> List[Mapping]:
         mappings = []
         try:
-            result = self.client.query.get(
-                "Mapping",
-                ["text", "_additional { distance }",
-                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
-                 "hasSentenceEmbedder"]
-            ).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
+            result = (
+                self.client.query.get(
+                    "Mapping",
+                    [
+                        "text",
+                        "_additional { distance }",
+                        "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                        "hasSentenceEmbedder",
+                    ],
+                )
+                .with_additional("vector")
+                .with_near_vector({"vector": embedding})
+                .with_limit(limit)
+                .do()
+            )
             for item in result["data"]["Get"]["Mapping"]:
                 embedding_vector = item["_additional"]["vector"]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
-                terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
+                terminology_data = concept_data["hasTerminology"][
+                    0
+                ]  # Assuming it has only one terminology
                 terminology = Terminology(
                     name=terminology_data["name"],
-                    id=terminology_data["_additional"]["id"]
+                    id=terminology_data["_additional"]["id"],
                 )
                 concept = Concept(
                     concept_identifier=concept_data["conceptID"],
                     pref_label=concept_data["prefLabel"],
                     terminology=terminology,
-                    id=concept_data["_additional"]["id"]
+                    id=concept_data["_additional"]["id"],
                 )
                 mapping = Mapping(
                     text=item["text"],
                     concept=concept,
                     embedding=embedding_vector,
-                    sentence_embedder=item["hasSentenceEmbedder"]
+                    sentence_embedder=item["hasSentenceEmbedder"],
                 )
                 mappings.append(mapping)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch closest mappings: {e}")
         return mappings
-
-    def get_closest_mappings_with_similarities(self, embedding, limit=5) -> List[Tuple[Mapping, float]]:
+    
+    # TODO: Migrate it to v4
+    def get_closest_mappings_with_similarities(
+        self, embedding, limit=5
+    ) -> List[Tuple[Mapping, float]]:
         mappings_with_similarities = []
         try:
-            result = self.client.query.get(
-                "Mapping",
-                ["text", "_additional { distance }",
-                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
-                 "hasSentenceEmbedder"]
-            ).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
+            result = (
+                self.client.query.get(
+                    "Mapping",
+                    [
+                        "text",
+                        "_additional { distance }",
+                        "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                        "hasSentenceEmbedder",
+                    ],
+                )
+                .with_additional("vector")
+                .with_near_vector({"vector": embedding})
+                .with_limit(limit)
+                .do()
+            )
             for item in result["data"]["Get"]["Mapping"]:
                 similarity = 1 - item["_additional"]["distance"]
                 embedding_vector = item["_additional"]["vector"]
                 concept_data = item["hasConcept"][0]  # Assuming it has only one concept
-                terminology_data = concept_data["hasTerminology"][0]  # Assuming it has only one terminology
+                terminology_data = concept_data["hasTerminology"][
+                    0
+                ]  # Assuming it has only one terminology
                 terminology = Terminology(
                     name=terminology_data["name"],
-                    id=terminology_data["_additional"]["id"]
+                    id=terminology_data["_additional"]["id"],
                 )
                 concept = Concept(
                     concept_identifier=concept_data["conceptID"],
                     pref_label=concept_data["prefLabel"],
                     terminology=terminology,
-                    id=concept_data["_additional"]["id"]
+                    id=concept_data["_additional"]["id"],
                 )
                 mapping = Mapping(
                     text=item["text"],
                     concept=concept,
                     embedding=embedding_vector,
-                    sentence_embedder=item["hasSentenceEmbedder"]
+                    sentence_embedder=item["hasSentenceEmbedder"],
                 )
                 mappings_with_similarities.append((mapping, similarity))
         except Exception as e:
-            raise RuntimeError(f"Failed to fetch closest mappings with similarities: {e}")
+            raise RuntimeError(
+                f"Failed to fetch closest mappings with similarities: {e}"
+            )
         return mappings_with_similarities
-    
-    def get_terminology_and_model_specific_closest_mappings(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Mapping]:
+
+    # TODO: Migrate it to v4
+    def get_terminology_and_model_specific_closest_mappings(
+        self,
+        embedding,
+        terminology_name: str,
+        sentence_embedder_name: str,
+        limit: int = 5,
+    ) -> List[Mapping]:
         mappings = []
         try:
             if not self._terminology_exists(terminology_name):
                 raise RuntimeError(f"Terminology {terminology_name} does not exists")
             if not self._sentence_embedder_exists(sentence_embedder_name):
-                raise RuntimeError(f"Sentence Embedder {sentence_embedder_name} does not exists")
-            result = self.client.query.get(
-                "Mapping",
-                ["text",
-                 "_additional { distance }",
-                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
-                 "hasSentenceEmbedder"]
-            ).with_where({
-                "operator": "And",
-                "operands": [
+                raise RuntimeError(
+                    f"Sentence Embedder {sentence_embedder_name} does not exists"
+                )
+            result = (
+                self.client.query.get(
+                    "Mapping",
+                    [
+                        "text",
+                        "_additional { distance }",
+                        "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                        "hasSentenceEmbedder",
+                    ],
+                )
+                .with_where(
                     {
-                        "path": ["hasSentenceEmbedder"],
-                        "operator": "Equal",
-                        "valueText": sentence_embedder_name
-                    },
-                    {
-                        "path": ["hasConcept", "Concept", "hasTerminology", "Terminology", "name"],
-                        "operator": "Equal",
-                        "valueText": terminology_name
+                        "operator": "And",
+                        "operands": [
+                            {
+                                "path": ["hasSentenceEmbedder"],
+                                "operator": "Equal",
+                                "valueText": sentence_embedder_name,
+                            },
+                            {
+                                "path": [
+                                    "hasConcept",
+                                    "Concept",
+                                    "hasTerminology",
+                                    "Terminology",
+                                    "name",
+                                ],
+                                "operator": "Equal",
+                                "valueText": terminology_name,
+                            },
+                        ],
                     }
-                ]
-            }).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
+                )
+                .with_additional("vector")
+                .with_near_vector({"vector": embedding})
+                .with_limit(limit)
+                .do()
+            )
             for item in result["data"]["Get"]["Mapping"]:
                 embedding_vector = item["_additional"]["vector"]
-                concept_data = item["hasConcept"][0] # Assuming it has only one concept
+                concept_data = item["hasConcept"][0]  # Assuming it has only one concept
                 terminology_data = concept_data["hasTerminology"][0]
                 terminology = Terminology(
                     name=terminology_data["name"],
-                    id=terminology_data["_additional"]["id"]
+                    id=terminology_data["_additional"]["id"],
                 )
                 concept = Concept(
                     concept_identifier=concept_data["conceptID"],
                     pref_label=concept_data["prefLabel"],
                     terminology=terminology,
-                    id=concept_data["_additional"]["id"]
+                    id=concept_data["_additional"]["id"],
                 )
                 mapping = Mapping(
                     text=item["text"],
                     concept=concept,
                     embedding=embedding_vector,
-                    sentence_embedder=item["hasSentenceEmbedder"]
+                    sentence_embedder=item["hasSentenceEmbedder"],
                 )
                 mappings.append(mapping)
         except Exception as e:
-            raise RuntimeError(f"Failed to fetch the closest mappings for terminology {terminology_name} and model {sentence_embedder_name}: {e}")
+            raise RuntimeError(
+                f"Failed to fetch the closest mappings for terminology {terminology_name} and model {sentence_embedder_name}: {e}"
+            )
         return mappings
-    
-    def get_terminology_and_model_specific_closest_mappings_with_similarities(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Tuple[Mapping, float]]:
+
+    # TODO: Migrate it to v4
+    def get_terminology_and_model_specific_closest_mappings_with_similarities(
+        self,
+        embedding,
+        terminology_name: str,
+        sentence_embedder_name: str,
+        limit: int = 5,
+    ) -> List[Tuple[Mapping, float]]:
         mappings_with_similarities = []
         try:
             if not self._terminology_exists(terminology_name):
                 raise RuntimeError(f"Terminology {terminology_name} does not exists")
             if not self._sentence_embedder_exists(sentence_embedder_name):
-                raise RuntimeError(f"Sentence Embedder {sentence_embedder_name} does not exists")
-            result = self.client.query.get(
-                "Mapping",
-                ["text",
-                 "_additional { distance }",
-                 "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
-                 "hasSentenceEmbedder"]
-            ).with_where({
-                "operator": "And",
-                "operands": [
+                raise RuntimeError(
+                    f"Sentence Embedder {sentence_embedder_name} does not exists"
+                )
+            result = (
+                self.client.query.get(
+                    "Mapping",
+                    [
+                        "text",
+                        "_additional { distance }",
+                        "hasConcept { ... on Concept { _additional { id } conceptID prefLabel hasTerminology { ... on Terminology { _additional { id } name } } } }",
+                        "hasSentenceEmbedder",
+                    ],
+                )
+                .with_where(
                     {
-                        "path": ["hasSentenceEmbedder"],
-                        "operator": "Equal",
-                        "valueText": sentence_embedder_name
-                    },
-                    {
-                        "path": ["hasConcept", "Concept", "hasTerminology", "Terminology", "name"],
-                        "operator": "Equal",
-                        "valueText": terminology_name
+                        "operator": "And",
+                        "operands": [
+                            {
+                                "path": ["hasSentenceEmbedder"],
+                                "operator": "Equal",
+                                "valueText": sentence_embedder_name,
+                            },
+                            {
+                                "path": [
+                                    "hasConcept",
+                                    "Concept",
+                                    "hasTerminology",
+                                    "Terminology",
+                                    "name",
+                                ],
+                                "operator": "Equal",
+                                "valueText": terminology_name,
+                            },
+                        ],
                     }
-                ]
-            }).with_additional("vector").with_near_vector({"vector": embedding}).with_limit(limit).do()
+                )
+                .with_additional("vector")
+                .with_near_vector({"vector": embedding})
+                .with_limit(limit)
+                .do()
+            )
             for item in result["data"]["Get"]["Mapping"]:
                 similarity = 1 - item["_additional"]["distance"]
                 embedding_vector = item["_additional"]["vector"]
-                concept_data = item["hasConcept"][0] # Assuming it has only one concept
+                concept_data = item["hasConcept"][0]  # Assuming it has only one concept
                 terminology_data = concept_data["hasTerminology"][0]
                 terminology = Terminology(
                     name=terminology_data["name"],
-                    id=terminology_data["_additional"]["id"]
+                    id=terminology_data["_additional"]["id"],
                 )
                 concept = Concept(
                     concept_identifier=concept_data["conceptID"],
                     pref_label=concept_data["prefLabel"],
                     terminology=terminology,
-                    id=concept_data["_additional"]["id"]
+                    id=concept_data["_additional"]["id"],
                 )
                 mapping = Mapping(
                     text=item["text"],
                     concept=concept,
                     embedding=embedding_vector,
-                    sentence_embedder=item["hasSentenceEmbedder"]
+                    sentence_embedder=item["hasSentenceEmbedder"],
                 )
                 mappings_with_similarities.append((mapping, similarity))
         except Exception as e:
-            raise RuntimeError(f"Failed to fetch the closest mappings for terminology {terminology_name} and model {sentence_embedder_name}: {e}")
+            raise RuntimeError(
+                f"Failed to fetch the closest mappings for terminology {terminology_name} and model {sentence_embedder_name}: {e}"
+            )
         return mappings_with_similarities
+
+    def close(self):
+        self.client.close()
 
     def shut_down(self):
         if self.mode == "memory":
@@ -390,64 +530,59 @@ class WeaviateRepository(BaseRepository):
         try:
             if isinstance(model_object_instance, Terminology):
                 if not self._terminology_exists(model_object_instance.name):
-                    properties = {
-                        "name": model_object_instance.name
-                    }
-                    self.client.data_object.create(
-                        class_name="Terminology",
-                        data_object=properties,
-                        uuid=random_uuid
-                    )
+                    properties = {"name": model_object_instance.name}
+                    terminology = self.client.collections.get("Terminology")
+                    terminology.data.insert(properties=properties, uuid=random_uuid)
                 else:
-                    self.logger.info(f"Terminology with name {model_object_instance.name} already exists. Skipping.")
+                    self.logger.info(
+                        f"Terminology with name {model_object_instance.name} already exists. Skipping."
+                    )
             elif isinstance(model_object_instance, Concept):
                 model_object_instance.uuid = random_uuid
                 if not self._concept_exists(model_object_instance.concept_identifier):
                     # recursion: create terminology if not existing
-                    if not self._terminology_exists(model_object_instance.terminology.name):
+                    if not self._terminology_exists(
+                        model_object_instance.terminology.name
+                    ):
                         self.store(model_object_instance.terminology)
                     properties = {
                         "conceptID": model_object_instance.concept_identifier,
                         "prefLabel": model_object_instance.pref_label,
                     }
-                    self.client.data_object.create(
-                        class_name="Concept",
-                        data_object=properties,
-                        uuid=random_uuid
-                    )
-                    self.client.data_object.reference.add(
-                        from_class_name="Concept",
-                        from_uuid=random_uuid,
-                        from_property_name="hasTerminology",
-                        to_class_name="Terminology",
-                        to_uuid=model_object_instance.terminology.id,
+                    concept = self.client.collections.get("Concept")
+                    concept.data.insert(
+                        properties=properties,
+                        uuid=random_uuid,
+                        references={
+                            "hasTerminology": model_object_instance.terminology.id
+                        },
                     )
                 else:
-                    self.logger.info(f"Concept with identifier {model_object_instance.concept_identifier} "
-                                     f"already exists. Skipping.")
+                    self.logger.info(
+                        f"Concept with identifier {model_object_instance.concept_identifier} "
+                        f"already exists. Skipping."
+                    )
             elif isinstance(model_object_instance, Mapping):
                 if not self._mapping_exists(model_object_instance.embedding):
-                    if not self._concept_exists(model_object_instance.concept.concept_identifier):
+                    if not self._concept_exists(
+                        model_object_instance.concept.concept_identifier
+                    ):
                         self.store(model_object_instance.concept)
                     properties = {
                         "text": model_object_instance.text,
-                        "hasSentenceEmbedder": model_object_instance.sentence_embedder
+                        "hasSentenceEmbedder": model_object_instance.sentence_embedder,
                     }
-                    self.client.data_object.create(
-                        class_name="Mapping",
-                        data_object=properties,
+                    mapping = self.client.collections.get("Mapping")
+                    mapping.data.insert(
+                        properties=properties,
                         uuid=random_uuid,
-                        vector=model_object_instance.embedding
-                    )
-                    self.client.data_object.reference.add(
-                        from_class_name="Mapping",
-                        from_uuid=random_uuid,
-                        from_property_name="hasConcept",
-                        to_class_name="Concept",
-                        to_uuid=model_object_instance.concept.uuid,
+                        vector=model_object_instance.embedding,
+                        references={"hasConcept": model_object_instance.concept.uuid},
                     )
                 else:
-                    self.logger.info("Mapping with same embedding already exists. Skipping.")
+                    self.logger.info(
+                        "Mapping with same embedding already exists. Skipping."
+                    )
             else:
                 raise ValueError("Unsupported model object instance type.")
 
@@ -456,17 +591,12 @@ class WeaviateRepository(BaseRepository):
 
     def _sentence_embedder_exists(self, name: str) -> bool:
         try:
-            result = self.client.query.get(
-                "Mapping",
-                ["hasSentenceEmbedder"]
-            ).with_where({
-                "path": ["hasSentenceEmbedder"],
-                "operator": "Equal",
-                "valueText": name
-            }).do()
-            result_data = result["data"]["Get"]["Mapping"]
-            if result_data is not None:
-                return len(result_data) > 0
+            mapping = self.client.collections.get("Mapping")
+            response = mapping.query.fetch_objects(
+                filters=Filter.by_property("hasSentenceEmbedder").equal(name)
+            )
+            if response.objects is not None:
+                return len(response.objects) > 0
             else:
                 return False
         except Exception as e:
@@ -474,14 +604,12 @@ class WeaviateRepository(BaseRepository):
 
     def _terminology_exists(self, name: str) -> bool:
         try:
-            result = self.client.query.get("Terminology", ["name"]).with_where({
-                "path": ["name"],
-                "operator": "Equal",
-                "valueText": name
-            }).do()
-            result_data = result["data"]["Get"]["Terminology"]
-            if result_data is not None:
-                return len(result_data) > 0
+            terminology = self.client.collections.get("Terminology")
+            response = terminology.query.fetch_objects(
+                filters=Filter.by_property("name").equal(name)
+            )
+            if response.objects is not None:
+                return len(response.objects) > 0
             else:
                 return False
         except Exception as e:
@@ -489,14 +617,12 @@ class WeaviateRepository(BaseRepository):
 
     def _concept_exists(self, concept_id: str) -> bool:
         try:
-            result = self.client.query.get("Concept", ["conceptID"]).with_where({
-                "path": ["conceptID"],
-                "operator": "Equal",
-                "valueText": concept_id
-            }).do()
-            result_data = result["data"]["Get"]["Concept"]
-            if result_data is not None:
-                return len(result_data) > 0
+            concept = self.client.collections.get("Concept")
+            response = concept.query.fetch_objects(
+                filters=Filter.by_property("conceptID").equal(concept_id)
+            )
+            if response.objects is not None:
+                return len(response.objects) > 0
             else:
                 return False
         except Exception as e:
@@ -504,13 +630,13 @@ class WeaviateRepository(BaseRepository):
 
     def _mapping_exists(self, embedding) -> bool:
         try:
-            result = self.client.query.get("Mapping", ["_additional { vector }"]).with_near_vector({
-                "vector": embedding,
-                "distance": float(0)  # Ensure distance is explicitly casted to float
-            }).do()
-            result_data = result["data"]["Get"]["Mapping"]
-            if result_data is not None:
-                return len(result_data) > 0
+            mapping = self.client.collections.get("Mapping")
+            response = mapping.query.near_vector(
+                near_vector=embedding,
+                distance=float(0),  # Ensure distance is explicitly casted to float
+            )
+            if response.objects is not None:
+                return len(response.objects) > 0
             else:
                 return False
         except Exception as e:
