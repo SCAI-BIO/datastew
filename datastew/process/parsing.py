@@ -94,7 +94,7 @@ class DataDictionarySource(Source):
             df.dropna(subset=["variable", "description"], inplace=True)
         return df
     
-    def get_embeddings(self, embedding_model: EmbeddingModel = MPNetAdapter) -> Dict[str, list]:
+    def get_embeddings(self, embedding_model: EmbeddingModel = None) -> Dict[str, list]:
         """
         Compute embedding vectors for each description in the data dictionary. The 
         resulting vectors are mapped to their respective variables and returned as a 
@@ -109,8 +109,10 @@ class DataDictionarySource(Source):
         # Compute vectors for all descriptions
         df: pd.DataFrame = self.to_dataframe()
         descriptions: list[str] = df["description"].tolist()
-        embeddings: list = embedding_model.get_embeddings(messages=descriptions)
-        # variable identfy descriptins -> variable to embedding
+        if embedding_model is None:
+            embedding_model = MPNetAdapter()
+        embeddings = embedding_model.get_embeddings(descriptions)
+        # variable identify descriptions -> variable to embedding
         variable_to_embedding: Dict[str, list] = dict(zip(df["variable"], embeddings))
         return variable_to_embedding
         
