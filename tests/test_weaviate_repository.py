@@ -112,7 +112,6 @@ class TestWeaviateRepository(TestCase):
         self.assertEqual(specific_mappings_with_similarities[0][0].sentence_embedder, self.model_name1)
         self.assertAlmostEqual(specific_mappings_with_similarities[0][1], 0.3947341, 3)
 
-    @unittest.skip("currently broken on github workflows")
     def test_repository_restart(self):
         """Test the repository restart functionality to ensure no data is lost or corrupted."""
         # Re-initialize repository
