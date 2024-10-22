@@ -1,6 +1,7 @@
 import logging
 import shutil
 
+from urllib.parse import urlparse
 from typing import List, Tuple, Union, Optional
 
 import weaviate
@@ -15,7 +16,7 @@ from datastew.repository.weaviate_schema import concept_schema, mapping_schema, 
 class WeaviateRepository(BaseRepository):
     logger = logging.getLogger(__name__)
 
-    def __init__(self, mode="memory", path=None):
+    def __init__(self, mode="memory", path=None, port=80):
         self.mode = mode
         try:
             if mode == "memory":
@@ -23,18 +24,11 @@ class WeaviateRepository(BaseRepository):
             elif mode == "disk":
                 if path is None:
                     raise ValueError("Path must be provided for disk mode.")
-                self.client = weaviate.connect_to_embedded(persistence_data_path="db")
+                self.client = weaviate.connect_to_embedded(persistence_data_path=path)
             elif mode == "remote":
                 if path is None:
                     raise ValueError("Remote URL must be provided for remote mode.")
-                self.client = weaviate.connect_to_custom(
-                    http_host=path,
-                    http_port=80,
-                    http_secure=False,
-                    grpc_host=path,
-                    grpc_port=50051,
-                    grpc_secure=False,
-                )
+                self.client = weaviate.connect_to_local(host=path, port=port)
             else:
                 raise ValueError(
                     f"Repository mode {mode} is not defined. Use either memory, disk or remote."
