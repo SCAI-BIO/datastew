@@ -1,7 +1,6 @@
 import logging
 import shutil
 
-from urllib.parse import urlparse
 from typing import List, Tuple, Union, Optional
 
 import weaviate
