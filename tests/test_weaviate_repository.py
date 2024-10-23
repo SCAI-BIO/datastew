@@ -114,15 +114,16 @@ class TestWeaviateRepository(TestCase):
 
     def test_repository_restart(self):
         """Test the repository restart functionality to ensure no data is lost or corrupted."""
-        self.repository.close()
-        self.repository.client.connect()
+        self.repository.shut_down()
+        # Re-initialize repository
+        repository = WeaviateRepository(mode="disk", path="db")
         
         # Try storing the same data again (should not create duplicates)
-        self.repository.store_all([self.terminology1, self.terminology2] + [item[0] for item in self.concepts_mappings] + [item[1] for item in self.concepts_mappings])
+        repository.store_all([self.terminology1, self.terminology2] + [item[0] for item in self.concepts_mappings] + [item[1] for item in self.concepts_mappings])
         
         # Check if mappings and concepts are intact
-        mappings = self.repository.get_mappings(limit=5)
+        mappings = repository.get_mappings(limit=5)
         self.assertEqual(len(mappings), 5)
 
-        concepts = self.repository.get_all_concepts()
+        concepts = repository.get_all_concepts()
         self.assertEqual(len(concepts), 9)
