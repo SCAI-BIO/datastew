@@ -186,9 +186,7 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch terminologies: {e}")
         return terminologies
 
-    def get_mappings(
-        self, terminology_name: Optional[str] = None, limit=1000
-    ) -> List[Mapping]:
+    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
         mappings = []
         try:
             mapping_collection = self.client.collections.get("Mapping")
@@ -206,9 +204,7 @@ class WeaviateRepository(BaseRepository):
                         f"Terminology {terminology_name} does not exists"
                     )
                 response = mapping_collection.query.fetch_objects(
-                    filters=Filter.by_ref(link_on="hasTerminology")
-                    .by_property("name")
-                    .equal(terminology_name),
+                    filters=Filter.by_ref(link_on="hasConcept").by_ref(link_on="hasTerminology").by_property("name").equal(terminology_name),
                     return_references=QueryReference(
                         link_on="hasConcept",
                         return_references=QueryReference(link_on="hasTerminology"),
