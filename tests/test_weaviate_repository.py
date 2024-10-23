@@ -136,7 +136,7 @@ class TestWeaviateRepository(TestCase):
             self.assertIn(description, mapping_texts)
             for mapping in mappings:
                 if mapping.text == description:
-                    self.assertEqual(mapping.concept_identifier, f"import_test:{variable}")
+                    self.assertEqual(mapping.concept.concept_identifier, f"import_test:{variable}")
                     self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
 
     @unittest.skip("currently broken on github workflows")
