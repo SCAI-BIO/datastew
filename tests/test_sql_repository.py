@@ -63,4 +63,13 @@ class TestGetClosestEmbedding(unittest.TestCase):
         terminologies = [terminology.name for terminology in self.repository.get_all_terminologies()]
         concept_identifiers = [concept.concept_identifier for concept in self.repository.get_all_concepts()]
         self.assertIn("import_test", terminologies)
-        self.assertIn("import_test:A", concept_identifiers)
+
+        data_frame = data_dictionary_source.to_dataframe()
+        for row in data_frame.index:
+            variable = data_frame.loc[row, "variable"]
+            description = data_frame.loc[row, "description"]
+            self.assertIn(f"import_test:{variable}", concept_identifiers)
+            for mapping in self.repository.get_mappings("import_test"):
+                if mapping.text == description:
+                    self.assertEqual(mapping.concept_identifier, f"import_test:{variable}")
+                    self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")

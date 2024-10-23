@@ -121,9 +121,23 @@ class TestWeaviateRepository(TestCase):
         data_dictionary_source = DataDictionarySource(os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC")
         self.repository.import_data_dictionary(data_dictionary_source, terminology_name="import_test")
         terminology = self.repository.get_terminology("import_test")
-        concept = self.repository.get_concept("import_test:A")
         self.assertEqual("import_test", terminology.name)
-        self.assertEqual("import_test:A", concept.concept_identifier)
+
+        mappings = self.repository.get_mappings("import_test")
+        mapping_texts = [mapping.text for mapping in mappings]
+        data_frame = data_dictionary_source.to_dataframe()
+        for row in data_frame.index:
+            variable = data_frame.loc[row, "variable"]
+            description = data_frame.loc[row, "description"]
+            concept = self.repository.get_concept(f"import_test:{variable}")
+            self.assertEqual(concept.terminology.name, "import_test")
+            self.assertEqual(concept.pref_label, variable)
+            self.assertEqual(f"import_test:{variable}", concept.concept_identifier)
+            self.assertIn(description, mapping_texts)
+            for mapping in mappings:
+                if mapping.text == description:
+                    self.assertEqual(mapping.concept_identifier, f"import_test:{variable}")
+                    self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
 
     @unittest.skip("currently broken on github workflows")
     def test_repository_restart(self):
