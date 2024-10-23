@@ -7,6 +7,8 @@ import weaviate
 from weaviate.util import generate_uuid5
 from weaviate.classes.query import Filter, QueryReference, MetadataQuery
 
+from datastew.embedding import EmbeddingModel
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
 from datastew.repository.weaviate_schema import concept_schema, mapping_schema, terminology_schema
@@ -62,7 +64,35 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to check/create schema for {class_name}: {e}")
 
-    def store_all(self, model_object_instances):
+    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str, embedding_model: Optional[EmbeddingModel] = None):
+        terminology = Terminology(terminology_name, terminology_name)
+        self.store(terminology)
+        data_frame = data_dictionary.to_dataframe()
+        descriptions = data_frame["description"].tolist()
+        
+        if embedding_model is None:
+            embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
+        else:
+            embedding_model_name = embedding_model.get_model_name()
+        
+        variable_to_embedding = data_dictionary.get_embeddings(embedding_model)
+
+        for variable, description in zip(variable_to_embedding.keys(), descriptions):
+            concept_id = f"{terminology_name}:{variable}"
+            concept = Concept(
+                terminology=terminology,
+                pref_label=variable,
+                concept_identifier=concept_id
+            )
+            mapping = Mapping(
+                concept=concept,
+                text=description,
+                embedding=variable_to_embedding[variable],
+                sentence_embedder=embedding_model_name
+            )
+            self.store_all([concept, mapping])
+    
+    def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
         for instance in model_object_instances:
             self.store(instance)
 
@@ -94,7 +124,7 @@ class WeaviateRepository(BaseRepository):
                 terminology_id = str(terminology_data.uuid)
                 terminology = Terminology(terminology_name, terminology_id)
 
-            id = concept_data.uuid
+            id = str(concept_data.uuid)
             concept_name = str(concept_data.properties["prefLabel"])
             concept = Concept(terminology, concept_name, concept_id, id)
         except Exception as e:

@@ -1,11 +1,15 @@
+import os
 import unittest
 from unittest import TestCase
 
 from datastew import MPNetAdapter
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Terminology, Concept, Mapping
 from datastew.repository.weaviate import WeaviateRepository
 
 class TestWeaviateRepository(TestCase):
+
+    TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
     @classmethod
     def setUpClass(cls):
@@ -65,7 +69,7 @@ class TestWeaviateRepository(TestCase):
         terminologies = self.repository.get_all_terminologies()
         terminology_names = [t.name for t in terminologies]
         self.assertEqual(terminology.name, "snomed CT")
-        self.assertEqual(len(terminologies), 2)
+        self.assertEqual(len(terminologies), 3)
         self.assertIn("NCI Thesaurus OBO Edition", terminology_names)
         self.assertIn("snomed CT", terminology_names)
 
@@ -111,6 +115,15 @@ class TestWeaviateRepository(TestCase):
         self.assertEqual(specific_mappings_with_similarities[0][0].concept.terminology.name, "snomed CT")
         self.assertEqual(specific_mappings_with_similarities[0][0].sentence_embedder, self.model_name1)
         self.assertAlmostEqual(specific_mappings_with_similarities[0][1], 0.3947341, 3)
+
+    def test_import_data_dictionary(self):
+        """Test importing a data dictionary."""
+        data_dictionary_source = DataDictionarySource(os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC")
+        self.repository.import_data_dictionary(data_dictionary_source, terminology_name="import_test")
+        terminology = self.repository.get_terminology("import_test")
+        concept = self.repository.get_concept("import_test:A")
+        self.assertEqual("import_test", terminology.name)
+        self.assertEqual("import_test:A", concept.concept_identifier)
 
     @unittest.skip("currently broken on github workflows")
     def test_repository_restart(self):

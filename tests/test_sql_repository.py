@@ -1,10 +1,14 @@
 import unittest
+import os
 
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository.model import Terminology, Concept, Mapping
 from datastew.repository.sqllite import SQLLiteRepository
 
 
 class TestGetClosestEmbedding(unittest.TestCase):
+
+    TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
     def setUp(self):
         self.repository = SQLLiteRepository(mode="memory")
@@ -52,3 +56,11 @@ class TestGetClosestEmbedding(unittest.TestCase):
         self.assertEqual(len(sentence_embedders), 2)
         self.assertEqual(sentence_embedders[0], "sentence-transformers/all-mpnet-base-v2")
         self.assertEqual(sentence_embedders[1], "text-embedding-ada-002")
+
+    def test_import_data_dictionary(self):
+        data_dictionary_source = DataDictionarySource(os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC")
+        self.repository.import_data_dictionary(data_dictionary_source, terminology_name="import_test")
+        terminologies = [terminology.name for terminology in self.repository.get_all_terminologies()]
+        concept_identifiers = [concept.concept_identifier for concept in self.repository.get_all_concepts()]
+        self.assertIn("import_test", terminologies)
+        self.assertIn("import_test:A", concept_identifiers)
