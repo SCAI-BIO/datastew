@@ -49,7 +49,7 @@ setup(
         'pydantic~=2.5.0',
         'requests~=2.31.0',  # Added new requirement
         'uuid~=1.30',  # Added new requirement
-        'weaviate-client~=4.6.5'  # Added new requirement
+        'weaviate-client~=4.9.0'  # Updated version
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
