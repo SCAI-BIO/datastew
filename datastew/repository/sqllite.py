@@ -5,6 +5,8 @@ import numpy as np
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 
+from datastew.embedding import EmbeddingModel
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import Base, Concept, Mapping, Terminology
 
@@ -34,6 +36,37 @@ class SQLLiteRepository(BaseRepository):
     def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
         self.session.add_all(model_object_instances)
         self.session.commit()
+
+    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str, embedding_model: Optional[EmbeddingModel] = None):
+        try:
+            model_object_instances: List[Union[Terminology, Concept, Mapping]] = []
+            data_frame = data_dictionary.to_dataframe()
+            descriptions = data_frame["description"].tolist()
+            if embedding_model is None:
+                embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
+            else:
+                embedding_model_name = embedding_model.get_model_name()
+            variable_to_embedding = data_dictionary.get_embeddings(embedding_model)
+            terminology = Terminology(terminology_name, terminology_name)
+            model_object_instances.append(terminology)
+            for variable, description in zip(variable_to_embedding.keys(), descriptions):
+                concept_id = f"{terminology_name}:{variable}"
+                concept = Concept(
+                    terminology=terminology,
+                    pref_label=variable,
+                    concept_identifier=concept_id
+                )
+                mapping = Mapping(
+                    concept=concept,
+                    text=description,
+                    embedding=variable_to_embedding[variable],
+                    sentence_embedder=embedding_model_name
+                )
+                model_object_instances.append(concept)
+                model_object_instances.append(mapping)
+            self.store_all(model_object_instances)
+        except Exception as e:
+            raise RuntimeError(f"Failed to import data dictionary source: {e}")
 
     def get_all_concepts(self) -> List[Concept]:
         return self.session.query(Concept).all()

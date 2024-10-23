@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 
 import numpy as np
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
@@ -12,7 +13,7 @@ class Terminology(Base):
     id = Column(String, primary_key=True)
     name = Column(String)
 
-    def __init__(self, name: str, id: str) -> object:
+    def __init__(self, name: str, id: str):
         self.name = name
         self.id = id
 
@@ -25,7 +26,7 @@ class Concept(Base):
     terminology = relationship("Terminology")
     uuid = Column(String)
 
-    def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: str = None) -> object:
+    def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: Optional[str] = None):
         self.terminology = terminology
         self.pref_label = pref_label
         # should be unique
@@ -43,7 +44,7 @@ class Mapping(Base):
     embedding_json = Column(Text)
     sentence_embedder = Column(Text)
 
-    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: str) -> object:
+    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: str):
         self.concept = concept
         self.text = text
         if isinstance(embedding, np.ndarray):
@@ -56,4 +57,4 @@ class Mapping(Base):
 
     @property
     def embedding(self):
-        return json.loads(self.embedding_json)
+        return json.loads(str(self.embedding_json))

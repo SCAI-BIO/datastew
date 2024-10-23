@@ -1,11 +1,15 @@
+import os
 import unittest
 from unittest import TestCase
 
 from datastew import MPNetAdapter
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Terminology, Concept, Mapping
 from datastew.repository.weaviate import WeaviateRepository
 
 class TestWeaviateRepository(TestCase):
+
+    TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
     @classmethod
     def setUpClass(cls):
@@ -65,7 +69,7 @@ class TestWeaviateRepository(TestCase):
         terminologies = self.repository.get_all_terminologies()
         terminology_names = [t.name for t in terminologies]
         self.assertEqual(terminology.name, "snomed CT")
-        self.assertEqual(len(terminologies), 2)
+        self.assertEqual(len(terminologies), 3)
         self.assertIn("NCI Thesaurus OBO Edition", terminology_names)
         self.assertIn("snomed CT", terminology_names)
 
@@ -111,6 +115,29 @@ class TestWeaviateRepository(TestCase):
         self.assertEqual(specific_mappings_with_similarities[0][0].concept.terminology.name, "snomed CT")
         self.assertEqual(specific_mappings_with_similarities[0][0].sentence_embedder, self.model_name1)
         self.assertAlmostEqual(specific_mappings_with_similarities[0][1], 0.3947341, 3)
+
+    def test_import_data_dictionary(self):
+        """Test importing a data dictionary."""
+        data_dictionary_source = DataDictionarySource(os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC")
+        self.repository.import_data_dictionary(data_dictionary_source, terminology_name="import_test")
+        terminology = self.repository.get_terminology("import_test")
+        self.assertEqual("import_test", terminology.name)
+
+        mappings = self.repository.get_mappings("import_test")
+        mapping_texts = [mapping.text for mapping in mappings]
+        data_frame = data_dictionary_source.to_dataframe()
+        for row in data_frame.index:
+            variable = data_frame.loc[row, "variable"]
+            description = data_frame.loc[row, "description"]
+            concept = self.repository.get_concept(f"import_test:{variable}")
+            self.assertEqual(concept.terminology.name, "import_test")
+            self.assertEqual(concept.pref_label, variable)
+            self.assertEqual(f"import_test:{variable}", concept.concept_identifier)
+            self.assertIn(description, mapping_texts)
+            for mapping in mappings:
+                if mapping.text == description:
+                    self.assertEqual(mapping.concept.concept_identifier, f"import_test:{variable}")
+                    self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
 
     @unittest.skip("currently broken on github workflows")
     def test_repository_restart(self):

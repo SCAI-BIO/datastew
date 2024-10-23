@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Dict
+from typing import Dict, Optional
 from datastew.embedding import EmbeddingModel, MPNetAdapter
 
 import pandas as pd
@@ -94,7 +94,7 @@ class DataDictionarySource(Source):
             df.dropna(subset=["variable", "description"], inplace=True)
         return df
     
-    def get_embeddings(self, embedding_model: EmbeddingModel = None) -> Dict[str, list]:
+    def get_embeddings(self, embedding_model: Optional[EmbeddingModel] = None) -> Dict[str, list]:
         """
         Compute embedding vectors for each description in the data dictionary. The 
         resulting vectors are mapped to their respective variables and returned as a 

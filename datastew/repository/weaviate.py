@@ -7,6 +7,8 @@ import weaviate
 from weaviate.util import generate_uuid5
 from weaviate.classes.query import Filter, QueryReference, MetadataQuery
 
+from datastew.embedding import EmbeddingModel
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
 from datastew.repository.weaviate_schema import concept_schema, mapping_schema, terminology_schema
@@ -62,7 +64,38 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to check/create schema for {class_name}: {e}")
 
-    def store_all(self, model_object_instances):
+    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str, embedding_model: Optional[EmbeddingModel] = None):
+        try:
+            model_object_instances: List[Union[Terminology, Concept, Mapping]] = []
+            data_frame = data_dictionary.to_dataframe()
+            descriptions = data_frame["description"].tolist()
+            if embedding_model is None:
+                embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
+            else:
+                embedding_model_name = embedding_model.get_model_name()
+            variable_to_embedding = data_dictionary.get_embeddings(embedding_model)
+            terminology = Terminology(terminology_name, terminology_name)
+            model_object_instances.append(terminology)
+            for variable, description in zip(variable_to_embedding.keys(), descriptions):
+                concept_id = f"{terminology_name}:{variable}"
+                concept = Concept(
+                    terminology=terminology,
+                    pref_label=variable,
+                    concept_identifier=concept_id
+                )
+                mapping = Mapping(
+                    concept=concept,
+                    text=description,
+                    embedding=variable_to_embedding[variable],
+                    sentence_embedder=embedding_model_name
+                )
+                model_object_instances.append(concept)
+                model_object_instances.append(mapping)
+            self.store_all(model_object_instances)
+        except Exception as e:
+            raise RuntimeError(f"Failed to import data dictionary source: {e}")
+    
+    def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
         for instance in model_object_instances:
             self.store(instance)
 
@@ -94,7 +127,7 @@ class WeaviateRepository(BaseRepository):
                 terminology_id = str(terminology_data.uuid)
                 terminology = Terminology(terminology_name, terminology_id)
 
-            id = concept_data.uuid
+            id = str(concept_data.uuid)
             concept_name = str(concept_data.properties["prefLabel"])
             concept = Concept(terminology, concept_name, concept_id, id)
         except Exception as e:
@@ -156,9 +189,7 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch terminologies: {e}")
         return terminologies
 
-    def get_mappings(
-        self, terminology_name: Optional[str] = None, limit=1000
-    ) -> List[Mapping]:
+    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
         mappings = []
         try:
             mapping_collection = self.client.collections.get("Mapping")
@@ -176,9 +207,7 @@ class WeaviateRepository(BaseRepository):
                         f"Terminology {terminology_name} does not exists"
                     )
                 response = mapping_collection.query.fetch_objects(
-                    filters=Filter.by_ref(link_on="hasTerminology")
-                    .by_property("name")
-                    .equal(terminology_name),
+                    filters=Filter.by_ref(link_on="hasConcept").by_ref(link_on="hasTerminology").by_property("name").equal(terminology_name),
                     return_references=QueryReference(
                         link_on="hasConcept",
                         return_references=QueryReference(link_on="hasTerminology"),
