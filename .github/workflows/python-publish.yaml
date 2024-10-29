@@ -34,6 +34,7 @@ jobs:
       run: |
         VERSION=${{ github.event.release.tag_name }}
         sed -i 's/__version__ = ".*"/__version__ = "'${VERSION}'"/' _version.py
+        sed -i "s/version='.*'/version='${VERSION}'/" setup.py
     - name: Build package
       run: python -m build
     - name: Publish package

@@ -1,6 +1,5 @@
 import io
 import os
-import re
 
 from setuptools import setup, find_packages
 
@@ -14,18 +13,9 @@ try:
 except FileNotFoundError:
     long_description = DESCRIPTION
 
-VERSION_FILE = "datastew/_version.py"
-version = open(VERSION_FILE, "rt").read()
-VERSION_RE = r"^__version__ = ['\"]([^'\"]*)['\"]"
-match_object = re.search(VERSION_RE, version, re.M)
-if match_object:
-    version_str = match_object.group(1)
-else:
-    raise RuntimeError("Unable to find version string in %s." % (VERSION_FILE,))
-
 setup(
     name='datastew',
-    version=version_str,
+    version='0.4.0', # will be substituted in publish workflow
     packages=find_packages(),  # This will automatically find all packages and sub-packages
     url='https://github.com/SCAI-BIO/datastew',
     license='Apache-2.0 license',
