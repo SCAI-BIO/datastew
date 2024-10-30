@@ -1,5 +1,6 @@
 import io
 import os
+
 from setuptools import setup, find_packages
 
 DESCRIPTION = 'Intelligent data steward toolbox using Large Language Model embeddings for automated Data-Harmonization.'
@@ -14,7 +15,7 @@ except FileNotFoundError:
 
 setup(
     name='datastew',
-    version='0.1.0',  # will be substituted in publish workflow
+    version='0.4.0', # will be substituted in publish workflow
     packages=find_packages(),  # This will automatically find all packages and sub-packages
     url='https://github.com/SCAI-BIO/datastew',
     license='Apache-2.0 license',
