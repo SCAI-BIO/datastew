@@ -18,7 +18,7 @@ from datastew.repository.weaviate_schema import concept_schema, mapping_schema, 
 class WeaviateRepository(BaseRepository):
     logger = logging.getLogger(__name__)
 
-    def __init__(self, mode="memory", path=None, port=80, http_port=8079, grpc_port=50051):
+    def __init__(self, mode="memory", path=None, port=80, http_port=8079, grpc_port=50050):
         self.mode = mode
         try:
             if mode == "memory":
