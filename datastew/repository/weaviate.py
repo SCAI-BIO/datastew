@@ -24,7 +24,8 @@ class WeaviateRepository(BaseRepository):
             if mode == "memory":
                 # Check if there is an existing instance of Weaviate client for the default ports
                 if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
-                    self.client = weaviate.connect_to_local(port=http_port, grpc_port=grpc_port)
+                    self.client.close()
+                    self.client = weaviate.connect_to_embedded(persistence_data_path="db")
                 else:
                     self.client = weaviate.connect_to_embedded(persistence_data_path="db")
             elif mode == "disk":
@@ -32,7 +33,8 @@ class WeaviateRepository(BaseRepository):
                     raise ValueError("Path must be provided for disk mode.")
                 # Check if there is an existing instance of Weaviate client for the default ports
                 if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
-                    self.client = weaviate.connect_to_local(port=http_port, grpc_port=grpc_port)
+                    self.client.close()
+                    self.client = weaviate.connect_to_embedded(persistence_data_path=path)
                 else:
                     self.client = weaviate.connect_to_embedded(persistence_data_path=path)
             elif mode == "remote":
