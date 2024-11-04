@@ -152,4 +152,4 @@ class TestWeaviateRepository(TestCase):
         self.assertEqual(len(mappings), 5)
 
         concepts = repository.get_all_concepts()
-        self.assertEqual(len(concepts), 9)
+        self.assertEqual(len(concepts), 20)
