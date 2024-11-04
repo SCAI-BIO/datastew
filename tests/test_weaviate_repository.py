@@ -139,7 +139,6 @@ class TestWeaviateRepository(TestCase):
                     self.assertEqual(mapping.concept.concept_identifier, f"import_test:{variable}")
                     self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
 
-    @unittest.skip("currently broken on github workflows")
     def test_repository_restart(self):
         """Test the repository restart functionality to ensure no data is lost or corrupted."""
         # Re-initialize repository
