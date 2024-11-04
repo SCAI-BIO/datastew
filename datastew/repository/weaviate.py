@@ -18,21 +18,21 @@ from datastew.repository.weaviate_schema import concept_schema, mapping_schema, 
 class WeaviateRepository(BaseRepository):
     logger = logging.getLogger(__name__)
 
-    def __init__(self, mode="memory", path=None, port=80):
+    def __init__(self, mode="memory", path=None, port=80, http_port=8079, grpc_port=50051):
         self.mode = mode
         try:
             if mode == "memory":
                 # Check if there is an existing instance of Weaviate client for the default ports
-                if self._is_port_in_use(8079) and self._is_port_in_use(50050):
-                    self.client = weaviate.connect_to_local()
+                if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
+                    self.client = weaviate.connect_to_local(port=http_port, grpc_port=grpc_port)
                 else:
                     self.client = weaviate.connect_to_embedded(persistence_data_path="db")
             elif mode == "disk":
                 if path is None:
                     raise ValueError("Path must be provided for disk mode.")
                 # Check if there is an existing instance of Weaviate client for the default ports
-                if self._is_port_in_use(8079) and self._is_port_in_use(50050):
-                    self.client = weaviate.connect_to_local()
+                if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
+                    self.client = weaviate.connect_to_local(port=http_port, grpc_port=grpc_port)
                 else:
                     self.client = weaviate.connect_to_embedded(persistence_data_path=path)
             elif mode == "remote":
