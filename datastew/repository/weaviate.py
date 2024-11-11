@@ -1,9 +1,11 @@
 import logging
 import shutil
+import socket
 
 from typing import List, Tuple, Union, Optional
 
 import weaviate
+from weaviate import WeaviateClient
 from weaviate.util import generate_uuid5
 from weaviate.classes.query import Filter, QueryReference, MetadataQuery
 
@@ -17,15 +19,30 @@ from datastew.repository.weaviate_schema import concept_schema, mapping_schema, 
 class WeaviateRepository(BaseRepository):
     logger = logging.getLogger(__name__)
 
-    def __init__(self, mode="memory", path=None, port=80):
+    def __init__(self, mode="memory", path=None, port=80, http_port=8079, grpc_port=50050):
         self.mode = mode
+        self.client: Union[None, WeaviateClient] = None
         try:
             if mode == "memory":
-                self.client = weaviate.connect_to_embedded(persistence_data_path="db")
+                # Check if there is an existing instance of Weaviate client for the default ports
+                if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
+                    # if the client exists, first close then re-connect
+                    if self.client:
+                        self.client.close()
+                    self.client = weaviate.connect_to_local(port=http_port, grpc_port=grpc_port)
+                else:
+                    self.client = weaviate.connect_to_embedded(persistence_data_path="db")
             elif mode == "disk":
                 if path is None:
                     raise ValueError("Path must be provided for disk mode.")
-                self.client = weaviate.connect_to_embedded(persistence_data_path=path)
+                # Check if there is an existing instance of Weaviate client for the default ports
+                if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
+                    # if the client exists, first close then re-connect
+                    if self.client:
+                        self.client.close()
+                    self.client = weaviate.connect_to_local(port=http_port, grpc_port=grpc_port)
+                else:
+                    self.client = weaviate.connect_to_embedded(persistence_data_path=path)
             elif mode == "remote":
                 if path is None:
                     raise ValueError("Remote URL must be provided for remote mode.")
@@ -548,3 +565,7 @@ class WeaviateRepository(BaseRepository):
                 return False
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")
+        
+    def _is_port_in_use(self, port) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            return s.connect_ex(("localhost", port)) == 0
