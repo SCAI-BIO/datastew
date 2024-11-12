@@ -102,7 +102,7 @@ You can also import data from file sources (csv, tsv, xlsx) or from a public API
 download & compute embeddings for SNOMED from ebi OLS can be found in
 [datastew/scripts/ols_snomed_retrieval.py](datastew/scripts/ols_snomed_retrieval.py).
 
-### t-SNE visualization
+### Embedding visualization
 
 You can visualize the embedding space of multiple data dictionary sources with t-SNE plots utilizing different
 language models. An example how to generate a t-sne plot is shown in
@@ -126,6 +126,4 @@ plot_embeddings(
     [data_dictionary_source_1, data_dictionary_source_2], embedding_model=mpnet_adapter
 )
 ```
-
-An exemplary t-SNE plot:
 ![t-SNE plot](./docs/tsne_plot.png)
