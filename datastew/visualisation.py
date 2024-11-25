@@ -1,14 +1,17 @@
+import copy
 from enum import Enum
 
-import numpy as np
-import copy
-import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
-import plotly.graph_objects as go
+import numpy as np
+import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+import seaborn as sns
+from sklearn.manifold import TSNE
+from typing import Optional, List
 
+from datastew.process.parsing import DataDictionarySource
+from datastew.embedding import EmbeddingModel, MPNetAdapter
 from datastew.conf import COLORS_AD, COLORS_PD
 from datastew.mapping import MappingTable
 from datastew.repository.base import BaseRepository
@@ -176,9 +179,12 @@ def scatter_plot_all_cohorts(tables1: [MappingTable], tables2: [MappingTable], l
     fig.show()
 
 
-def get_plot_for_current_database_state(repository: BaseRepository, perplexity: int = 5, return_type="html") -> str:
-    # get up to 1000 entries from db
-    mappings = repository.get_all_mappings()
+def get_plot_for_current_database_state(repository: BaseRepository, terminology: Optional[str] = None,
+                                        perplexity: int = 5, return_type="html") -> str:
+    if not terminology:
+        mappings = repository.get_mappings()
+    else:
+        mappings = repository.get_mappings(terminology_name=terminology)
     # Extract embeddings
     embeddings = np.array([mapping.embedding for mapping in mappings])
     # Increase perplexity up to 30 if applicable
@@ -191,19 +197,19 @@ def get_plot_for_current_database_state(repository: BaseRepository, perplexity: 
         scatter_plot = go.Scatter(
             x=tsne_embeddings[:, 0],
             y=tsne_embeddings[:, 1],
-            mode='markers',
+            mode="markers",
             marker=dict(
                 size=8,
-                color='blue',
+                color="blue",
                 opacity=0.5
             ),
             text=[str(mapping) for mapping in mappings],
-            hoverinfo='text'
+            hoverinfo="text"
         )
         layout = go.Layout(
-            title='t-SNE Embeddings of Database Mappings',
-            xaxis=dict(title='t-SNE Component 1'),
-            yaxis=dict(title='t-SNE Component 2'),
+            title="t-SNE Embeddings of Database Mappings",
+            xaxis=dict(title="t-SNE Component 1"),
+            yaxis=dict(title="t-SNE Component 2"),
         )
         fig = go.Figure(data=[scatter_plot], layout=layout)
         if return_type == "html":
@@ -213,5 +219,61 @@ def get_plot_for_current_database_state(repository: BaseRepository, perplexity: 
         else:
             raise ValueError(f'Return type {return_type} is not viable. Use either "html" or "json".')
     else:
-        plot = '<b>Too few database entries to visualize</b>'
+        plot = "<b>Too few database entries to visualize</b>"
     return plot
+
+
+def plot_embeddings(data_dictionaries: List[DataDictionarySource], embedding_model: Optional[EmbeddingModel] = None,
+                    perplexity: int = 5):
+    """
+    Plots a t-SNE representation of embeddings from multiple data dictionaries and displays the plot.
+
+    :param data_dictionaries: A list of DataDictionarySource objects to extract embeddings from.
+    :param embedding_model: The embedding model used to compute embeddings. Defaults to MPNetAdapter.
+    :param perplexity: The perplexity for the t-SNE algorithm. Higher values give more global structure.
+    """
+    if embedding_model is None:
+        embedding_model = MPNetAdapter()
+    all_embeddings = []
+    all_texts = []
+    all_colors = []
+    plotly_colors = px.colors.qualitative.Plotly
+    for idx, dictionary in enumerate(data_dictionaries):
+        embeddings_dict = dictionary.get_embeddings(embedding_model=embedding_model)
+        embeddings = list(embeddings_dict.values())
+        texts = dictionary.to_dataframe()['description']
+        color = plotly_colors[idx % len(plotly_colors)]
+        all_embeddings.extend(embeddings)
+        all_texts.extend(texts)
+        all_colors.extend([color] * len(embeddings))
+    embeddings_array = np.array(all_embeddings)
+    # Adjust perplexity if there are enough points
+    if embeddings_array.shape[0] > 30:
+        perplexity = min(perplexity, 30)
+    if embeddings_array.shape[0] > perplexity:
+        # Compute t-SNE embeddings
+        tsne_embeddings = TSNE(n_components=2, perplexity=perplexity).fit_transform(embeddings_array)
+        # Create Plotly scatter plot
+        scatter_plot = go.Scatter(
+            x=tsne_embeddings[:, 0],
+            y=tsne_embeddings[:, 1],
+            mode="markers",
+            marker=dict(
+                size=8,
+                color=all_colors,  # Use the assigned colors from Plotly palette
+                opacity=0.7
+            ),
+            text=all_texts,
+            hoverinfo="text"
+        )
+        layout = go.Layout(
+            title="t-SNE Embeddings of Data Dictionaries",
+            xaxis=dict(title="t-SNE Component 1"),
+            yaxis=dict(title="t-SNE Component 2"),
+        )
+        fig = go.Figure(data=[scatter_plot], layout=layout)
+        # Display the plot
+        fig.show()
+    else:
+        print("Too few data dictionary entries to visualize. Adjust param 'perplexity' to a value less then the number "
+              "of data points.")

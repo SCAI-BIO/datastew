@@ -93,7 +93,7 @@ class MappingTable:
         self.embedding_source = embedding_source
         # FIXME: Join results in duplicate entries
         self.joined_mapping_table = pd.merge(self.joined_mapping_table, embedding_source.to_dataframe(),
-                                             left_on='description',
+                                             left_on="description",
                                              right_on="description")
 
     def get_embeddings(self):
@@ -102,32 +102,32 @@ class MappingTable:
         if "description" not in self.joined_mapping_table.columns:
             raise ValueError("No descriptions found in mapping table.")
         else:
-            return self.joined_mapping_table['embedding'].apply(np.array)
+            return self.joined_mapping_table["embedding"].apply(np.array)
 
     def get_embeddings_numpy(self):
-        return np.array(self.joined_mapping_table['embedding'].dropna().tolist())
+        return np.array(self.joined_mapping_table["embedding"].dropna().tolist())
 
     def save_embeddings(self, output_path: str):
         self.get_embeddings().to_csv(output_path, index=False)
         self.embedding_source = EmbeddingSource(output_path)
 
     def compute_embeddings(self, model: EmbeddingModel):
-        descriptions = self.joined_mapping_table['description'].dropna().unique().tolist()
+        descriptions = self.joined_mapping_table["description"].dropna().unique().tolist()
         embeddings = model.get_embeddings(descriptions)
-        embedding_df = pd.DataFrame({'description': descriptions, 'embedding': embeddings})
+        embedding_df = pd.DataFrame({"description": descriptions, "embedding": embeddings})
         self.joined_mapping_table = pd.merge(self.joined_mapping_table, embedding_df,
-                                             left_on='description',
-                                             right_on='description',
-                                             how='left')
+                                             left_on="description",
+                                             right_on="description",
+                                             how="left")
 
     def export_embeddings(self, output_path: str):
-        descriptions = self.joined_mapping_table['description'].dropna().unique().tolist()
-        embedding_df = pd.DataFrame({'description': descriptions, 'embedding': self.joined_mapping_table['embedding']})
+        descriptions = self.joined_mapping_table["description"].dropna().unique().tolist()
+        embedding_df = pd.DataFrame({"description": descriptions, "embedding": self.joined_mapping_table["embedding"]})
         embedding_df.to_csv(output_path)
 
     def import_embeddings(self, input_path: str):
         embeddings = pd.read_csv(input_path)
-        self.joined_mapping_table['embedding'] = embeddings['embedding']
+        self.joined_mapping_table["embedding"] = embeddings["embedding"]
 
     def get_mapping_table(self) -> pd.DataFrame:
         return self.joined_mapping_table
@@ -138,7 +138,7 @@ class MappingTable:
             concept_id = row["identifier"]
             variable_name = row["variable"]
             if self.data_dictionary_source is not None:
-                description = row['description']
+                description = row["description"]
             else:
                 description = None
             if not pd.isna(concept_id) and not pd.isna(variable_name):
@@ -157,7 +157,7 @@ class MappingTable:
             concept_id = row["identifier"]
             variable_name = row["variable"]
             if self.data_dictionary_source is not None:
-                description = row['description']
+                description = row["description"]
             else:
                 description = None
             if not pd.isna(concept_id) and not pd.isna(variable_name):
@@ -172,4 +172,4 @@ class MappingTable:
 
 
 def parse_float_array(s):
-    return [float(x) for x in s.strip('[]').split(',')]
+    return [float(x) for x in s.strip("[]").split(",")]

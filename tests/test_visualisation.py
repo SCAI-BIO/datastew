@@ -5,9 +5,13 @@ import numpy as np
 import pandas as pd
 
 from datastew.mapping import MappingTable
-from datastew.process.parsing import MappingSource, DataDictionarySource
-from datastew.visualisation import scatter_plot_two_distributions, enrichment_plot, scatter_plot_all_cohorts, \
-    bar_chart_average_acc_two_distributions
+from datastew.process.parsing import DataDictionarySource, MappingSource
+from datastew.visualisation import (
+    bar_chart_average_acc_two_distributions,
+    enrichment_plot,
+    scatter_plot_all_cohorts,
+    scatter_plot_two_distributions, plot_embeddings,
+)
 
 
 class Test(TestCase):
@@ -123,3 +127,11 @@ class Test(TestCase):
         mpnet_2 = pd.DataFrame({"M1": [0.9, 0.78, 0.68], "M2": [0.69, 0.9, 0.68], "M3": [0.71, 0.75, 0.9]}, index=labels).T
 
         bar_chart_average_acc_two_distributions(fuzzy_1, gpt_1, mpnet_1, fuzzy_2, gpt_2, mpnet_2, "title", "AD", "PD")
+
+    def test_plot_data_dict(self):
+        TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+        data_dictionary_source_1 = DataDictionarySource(os.path.join(TEST_DIR_PATH, "resources", "data_dict1.csv"),
+                                                      "VAR", "DESC")
+        data_dictionary_source_2 = DataDictionarySource(os.path.join(TEST_DIR_PATH, "resources", "data_dict2.csv"),
+                                                      "VAR", "DESC")
+        plot_embeddings([data_dictionary_source_1, data_dictionary_source_2])

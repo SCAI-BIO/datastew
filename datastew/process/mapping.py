@@ -44,18 +44,18 @@ def map_dictionary_to_dictionary(source: DataDictionarySource,
 
         # Create DataFrame for closest matches
         result_df = pd.DataFrame({
-            'Source Variable': df_source["variable"],
-            'Target Variable': df_target.iloc[closest_match_indices]["variable"].values,
-            'Source Description': df_source["description"],
-            'Target Description': df_target.iloc[closest_match_indices]["description"].values,
-            'Similarity': max_similarities
+            "Source Variable": df_source["variable"],
+            "Target Variable": df_target.iloc[closest_match_indices]["variable"].values,
+            "Source Description": df_source["description"],
+            "Target Description": df_target.iloc[closest_match_indices]["description"].values,
+            "Similarity": max_similarities
         })
 
     else:
         if limit > len(df_target):
             ValueError(f"The limit {limit} cannot be greater than the number of target variables {len(df_target)}.")
 
-        # Get the indices of the top 'limit' matches for each source variable
+        # Get the indices of the top "limit" matches for each source variable
         top_matches_indices = np.argsort(similarities, axis=1)[:, -limit:][:, ::-1]
 
         # Flatten indices for easier DataFrame construction
@@ -64,11 +64,11 @@ def map_dictionary_to_dictionary(source: DataDictionarySource,
 
         # Create DataFrame for closest matches
         result_df = pd.DataFrame({
-            'Source Variable': df_source.iloc[source_repeated]["variable"].values,
-            'Target Variable': df_target.iloc[flat_indices]["variable"].values,
-            'Source Description': df_source.iloc[source_repeated]["description"].values,
-            'Target Description': df_target.iloc[flat_indices]["description"].values,
-            'Similarity': np.take_along_axis(similarities, top_matches_indices, axis=1).flatten()
+            "Source Variable": df_source.iloc[source_repeated]["variable"].values,
+            "Target Variable": df_target.iloc[flat_indices]["variable"].values,
+            "Source Description": df_source.iloc[source_repeated]["description"].values,
+            "Target Description": df_target.iloc[flat_indices]["description"].values,
+            "Similarity": np.take_along_axis(similarities, top_matches_indices, axis=1).flatten()
         })
 
     return result_df

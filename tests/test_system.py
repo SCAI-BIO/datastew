@@ -19,13 +19,14 @@ class TestGetClosestEmbedding(unittest.TestCase):
         terminology = Terminology("test", "test")
         concept1 = Concept(terminology, "cat", "TEST:1")
         concept1_description = "The cat is sitting on the mat."
-        mapping1 = Mapping(concept1, concept1_description, self.embedding_model.get_embedding(concept1_description))
+        sentence_embedder = "test"
+        mapping1 = Mapping(concept1, concept1_description, self.embedding_model.get_embedding(concept1_description), sentence_embedder=sentence_embedder)
         concept2 = Concept(terminology, "sunrise", "TEST:2")
         concept2_description = "The sun rises in the east."
-        mapping2 = Mapping(concept2, concept2_description, self.embedding_model.get_embedding(concept2_description))
+        mapping2 = Mapping(concept2, concept2_description, self.embedding_model.get_embedding(concept2_description), sentence_embedder=sentence_embedder)
         concept3 = Concept(terminology, "dog", "TEST:3")
         concept3_description = "A loyal companion to humans."
-        mapping3 = Mapping(concept3, concept3_description, self.embedding_model.get_embedding(concept3_description))
+        mapping3 = Mapping(concept3, concept3_description, self.embedding_model.get_embedding(concept3_description), sentence_embedder=sentence_embedder)
         self.repository.store_all([terminology, concept1, mapping1, concept2, mapping2, concept3, mapping3])
         # test new mappings
         text1 = "A furry feline rests on the rug."

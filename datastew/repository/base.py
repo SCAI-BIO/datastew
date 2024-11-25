@@ -1,10 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
+from datastew.embedding import EmbeddingModel
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository.model import Mapping, Concept, Terminology
 
 
 class BaseRepository(ABC):
+
+    @abstractmethod
+    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str, embedding_model: Optional[EmbeddingModel] = None):
+        """Store a data dictionary"""
 
     @abstractmethod
     def store(self, model_object_instance):
@@ -27,8 +33,12 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def get_all_mappings(self, limit=1000) -> [Mapping]:
+    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
         """Get all embeddings up to a limit"""
+        pass
+
+    @abstractmethod
+    def get_all_sentence_embedders(self) -> List[str]:
         pass
 
     @abstractmethod

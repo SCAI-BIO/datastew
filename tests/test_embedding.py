@@ -1,11 +1,14 @@
 import unittest
-from datastew.embedding import MPNetAdapter, TextEmbedding
+
 import numpy as np
+
+from datastew.embedding import MPNetAdapter, TextEmbedding
+
 
 class TestEmbedding(unittest.TestCase):
 
     def setUp(self):
-        self.mpnet_adapter = MPNetAdapter(model="sentence-transformers/all-mpnet-base-v2")
+        self.mpnet_adapter = MPNetAdapter(model_name="sentence-transformers/all-mpnet-base-v2")
 
     def test_mpnet_adapter_get_embedding(self):
         text = "This is a test sentence."
