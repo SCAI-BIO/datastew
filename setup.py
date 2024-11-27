@@ -38,7 +38,7 @@ setup(
         'seaborn~=0.13.0',  # Updated version
         'sentence-transformers==2.3.1',
         'setuptools==60.2.0',  # Updated version
-        'scikit-learn==1.3.2',  # Updated version
+        'scikit-learn==1.5.0',  # Updated version
         'six==1.16.0',
         'thefuzz~=0.20.0',  # Updated version
         'tzdata==2023.3',
