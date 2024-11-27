@@ -30,7 +30,7 @@ setup(
         'openai~=0.28.0',  # Updated version
         'openpyxl',
         'pandas==2.1.0',  # Updated version
-        'pip==21.3.1',
+        'pip==23.3',
         'plotly~=5.17.0',  # Updated version
         'python-dateutil==2.8.2',
         'python-dotenv~=1.0.0',
