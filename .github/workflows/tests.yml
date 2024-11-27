@@ -28,5 +28,5 @@ jobs:
     - name: Install dependencies
       run: poetry install
 
-      - name: Run tests
-        run: poetry run pytest --cov=py_hla_match tests/
+    - name: Run tests
+      run: poetry run pytest --cov=py_hla_match tests/
