@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "datastew"
 version = "0.1.0"
-description = "Intelligent data steward toolbox using Large Language Model embeddings for automated Data-Harmonization."
+description = "Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings."
 authors = ["Tim Adams <tim.adams@scai.fraunhofer.de>", "Mehmet Can Ay <mehmet.ay@scai.fraunhofer.de>"]
 license = "Apache-2.0"
 readme = "README.md"
