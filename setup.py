@@ -42,7 +42,7 @@ setup(
         'six==1.16.0',
         'thefuzz~=0.20.0',  # Updated version
         'tzdata==2023.3',
-        'wheel==0.37.1',
+        'wheel==0.38.1',
         'aiofiles~=0.7.0',
         'python-multipart',
         'SQLAlchemy~=2.0.27',  # Updated version
