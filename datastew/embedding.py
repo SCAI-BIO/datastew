@@ -3,7 +3,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Sequence
 
-import numpy as np
 import openai
 import torch
 from openai.error import OpenAIError
@@ -22,7 +21,7 @@ class EmbeddingModel(ABC):
         pass
     
     @abstractmethod
-    def get_embeddings(self, messages: List[str]) ->Sequence[Sequence[float]]:
+    def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
         """Retrieve embeddings for a list of text messages
 
         :param messages: A list of text messages to embed.
