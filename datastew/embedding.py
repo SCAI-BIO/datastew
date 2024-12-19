@@ -126,10 +126,15 @@ class MPNetAdapter(EmbeddingModel):
         :param model_name: The model name for sentence transformers.
         :param num_threads: The number of CPU threads for inference.
         """
-        self.model = SentenceTransformer(model_name).to("cuda" if torch.cuda.is_available() else "cpu")
+        # Use GPU if available
+        if torch.cuda.is_available():
+            device = "cuda"
+        else:
+            device = "cpu"
+        self.model = SentenceTransformer(model_name).to(device)
         self.model_name = model_name # For Weaviate
         torch.set_num_threads(num_threads)
-        logging.info(f"MPNet model {model_name} initialized on GPU with {num_threads} threads.")
+        logging.info(f"MPNet model {model_name} initialized on {device} with {num_threads} threads.")
 
     def get_embedding(self, text: str) -> Sequence[float]:
         """Retrieve an embedding for a single text input using MPnet.
@@ -138,7 +143,7 @@ class MPNetAdapter(EmbeddingModel):
         :return: A sequence of floats representing the embedding.
         """
         if not text or not isinstance(text, str):
-            logging.warning(f"Empty or invalid text passed to get_embedding")
+            logging.warning("Empty or invalid text passed to get_embedding")
             return []
         text = self.sanitize(text.replace("\n", " "))
         try:
