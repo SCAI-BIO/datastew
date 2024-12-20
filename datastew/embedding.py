@@ -1,5 +1,6 @@
 import concurrent.futures
 import logging
+import os
 from abc import ABC, abstractmethod
 from typing import List, Sequence
 
@@ -10,7 +11,11 @@ from sentence_transformers import SentenceTransformer
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 class EmbeddingModel(ABC):
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+    
     @abstractmethod
     def get_embedding(self, text: str) -> Sequence[float]:
         """Retrieve the embedding vector for a single text input.
@@ -29,13 +34,12 @@ class EmbeddingModel(ABC):
         """
         pass
     
-    @abstractmethod
     def get_model_name(self) -> str:
         """Return the name of the embedding model.
         
         :return: The name of the model.
         """
-        pass
+        return self.model_name
 
     def sanitize(self, message: str) -> str:
         """Clean up the input text by trimming and converting to lowercase.
@@ -53,9 +57,9 @@ class GPT4Adapter(EmbeddingModel):
         :param api_key: The API key for accessing OpenAI services.
         :param model_name: The specific embedding model to use.
         """
+        super().__init__(model_name)
         self.api_key = api_key
         openai.api_key = api_key
-        self.model_name = model_name
 
     def get_embedding(self, text: str) -> Sequence[float]:
         """Retrieve an embedding for a single text input using OpenAI API.
@@ -110,13 +114,6 @@ class GPT4Adapter(EmbeddingModel):
         except Exception as e:
             logging.error(f"Error processing chunk: {e}")
             return []
-    
-    def get_model_name(self) -> str:
-        """Return the name of the embedding model in use.
-        
-        :return: The model name
-        """
-        return self.model_name
 
 
 class MPNetAdapter(EmbeddingModel):
@@ -126,15 +123,13 @@ class MPNetAdapter(EmbeddingModel):
         :param model_name: The model name for sentence transformers.
         :param num_threads: The number of CPU threads for inference.
         """
-        # Use GPU if available
-        if torch.cuda.is_available():
-            device = "cuda"
-        else:
-            device = "cpu"
+        super().__init__(model_name)
+        device, available_threads = self._initialize_device(num_threads)
         self.model = SentenceTransformer(model_name).to(device)
-        self.model_name = model_name # For Weaviate
-        torch.set_num_threads(num_threads)
-        logging.info(f"MPNet model {model_name} initialized on {device} with {num_threads} threads.")
+        torch.set_num_threads(available_threads)
+        logging.info(
+            f"MPNet model '{model_name} initialized on {device} with {available_threads} threads."
+        )
 
     def get_embedding(self, text: str) -> Sequence[float]:
         """Retrieve an embedding for a single text input using MPnet.
@@ -169,12 +164,33 @@ class MPNetAdapter(EmbeddingModel):
             logging.error(f"Failed processing messages: {e}")
             return []
     
-    def get_model_name(self) -> str:
-        """Return the name of the embedding model in use.
+    def _initialize_device(self, num_threads: int) -> tuple[str, int]:
+        """Determine the appropriate device (CPU or GPU) and set the thread count.
         
-        :return: The model name.
+        :param num_threads: The requested number of threads for inference.
+        :return: A tuple containing the selected device ("cuda" or "cpu") and the final number of threads to use.
+        :raise RuntimeError: If CPU core count cannot be determined when no GPU is available.
         """
-        return self.model_name
+        if torch.cuda.is_available():
+            cuda_count = torch.cuda.device_count()
+            threads = min(num_threads, cuda_count)
+            if num_threads > cuda_count:
+                logging.warning(
+                    f"Requested {num_threads} threads, but only {cuda_count} CUDA device available. Using {cuda_count} threads."
+                )
+            return "cuda", threads
+        
+        # Fallback to CPU
+        cpu_count = os.cpu_count()
+        if cpu_count is None:
+            raise RuntimeError("Unable to determine the number of CPU cores.")
+        
+        threads = min(num_threads, cpu_count)
+        if num_threads > cpu_count:
+            logging.warning(
+                f"Requested {num_threads} threads, but only {cpu_count} CPU cores available. Using {cpu_count} threads."
+            )
+        return "cpu", threads
 
 
 class TextEmbedding:
