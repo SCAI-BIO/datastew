@@ -135,7 +135,7 @@ class MPNetAdapter(EmbeddingModel):
             return []
         text = self.sanitize(text.replace("\n", " "))
         try:
-            embedding = self.model.encode(text, device=str(self.model.device))
+            embedding = self.model.encode(text)
             return embedding
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
