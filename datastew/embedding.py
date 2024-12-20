@@ -115,7 +115,7 @@ class GPT4Adapter(EmbeddingModel):
 
 
 class MPNetAdapter(EmbeddingModel):
-    def __init__(self, model_name="sentence-transformers/all-mpnet-base-v2", num_threads: int = 4):
+    def __init__(self, model_name="sentence-transformers/all-mpnet-base-v2"):
         """Initialize the MPNet adapter with a specified model name and threading settings.
         
         :param model_name: The model name for sentence transformers.
