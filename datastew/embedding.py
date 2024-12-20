@@ -126,10 +126,17 @@ class MPNetAdapter(EmbeddingModel):
         super().__init__(model_name)
         device, available_threads = self._initialize_device(num_threads)
         self.model = SentenceTransformer(model_name).to(device)
-        torch.set_num_threads(available_threads)
-        logging.info(
-            f"MPNet model '{model_name} initialized on {device} with {available_threads} threads."
-        )
+
+        if device == "cpu":
+            torch.set_num_threads(available_threads)
+            logging.info(
+                f"MPNet model '{model_name} initialized on CPU  with {available_threads} threads."
+            )
+        elif device == "cuda":
+            logging.info(
+                f"MPNet model '{model_name}' initialized on GPU. GPU thread management is handled automatically."
+            )
+            
 
     def get_embedding(self, text: str) -> Sequence[float]:
         """Retrieve an embedding for a single text input using MPnet.
@@ -172,13 +179,7 @@ class MPNetAdapter(EmbeddingModel):
         :raise RuntimeError: If CPU core count cannot be determined when no GPU is available.
         """
         if torch.cuda.is_available():
-            cuda_count = torch.cuda.device_count()
-            threads = min(num_threads, cuda_count)
-            if num_threads > cuda_count:
-                logging.warning(
-                    f"Requested {num_threads} threads, but only {cuda_count} CUDA device available. Using {cuda_count} threads."
-                )
-            return "cuda", threads
+            return "cuda", num_threads # num_threads does not affect GPU operations
         
         # Fallback to CPU
         cpu_count = os.cpu_count()
