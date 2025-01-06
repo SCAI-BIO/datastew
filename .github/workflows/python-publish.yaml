@@ -35,11 +35,10 @@ jobs:
       run: |
         VERSION=${{ github.event.release.tag_name }}
         sed -i 's/__version__ = ".*"/__version__ = "'${VERSION}'"/' datastew/_version.py
-        sed -i "s/version = '.*'/version = '${VERSION}'/" pyproject.toml
-
+        sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
     - name: Install dependencies
       run: |
-        poetry install
+        poetry install --no-dev
 
     - name: Build package
       run: |
@@ -49,4 +48,4 @@ jobs:
       env:
         POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
       run: |
-        poetry publish --username __token__ --password $POETRY_PYPI_TOKEN_PYPI
+        poetry publish --username __token__ --password $POETRY_PYPI_TOKEN_PYP
