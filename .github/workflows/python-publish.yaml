@@ -39,7 +39,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        poetry install --no-dev
+        poetry install
 
     - name: Build package
       run: |
@@ -49,4 +49,4 @@ jobs:
       env:
         POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
       run: |
-        poetry publish --username __token__ --password $POETRY_PYPI_TOKEN_PYP
+        poetry publish --username __token__ --password $POETRY_PYPI_TOKEN_PYPI
