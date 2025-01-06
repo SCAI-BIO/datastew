@@ -81,7 +81,8 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to check/create schema for {class_name}: {e}")
 
-    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str, embedding_model: Optional[EmbeddingModel] = None):
+    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str,
+                               embedding_model: Optional[EmbeddingModel] = None):
         try:
             model_object_instances: List[Union[Terminology, Concept, Mapping]] = []
             data_frame = data_dictionary.to_dataframe()
@@ -512,6 +513,24 @@ class WeaviateRepository(BaseRepository):
 
         except Exception as e:
             raise RuntimeError(f"Failed to store object in Weaviate: {e}")
+
+    def export_json(self, terminology_name: str, output_path: str):
+        """
+        Export the mappings for a given terminology to a JSON file.
+
+        :param terminology_name: The name of the terminology to export mappings for.
+        :param output_path: The path to save the JSON file.
+        """
+        try:
+            mappings = self.get_mappings(terminology_name=terminology_name)
+            with open(output_path, "w") as f:
+                for mapping in mappings:
+                    f.write(f"{mapping}\n")
+        except Exception as e:
+            raise RuntimeError(f"Failed to export mappings to JSON: {e}")
+
+    def import_json(self, input_path: str):
+        ""
 
     def _sentence_embedder_exists(self, name: str) -> bool:
         try:

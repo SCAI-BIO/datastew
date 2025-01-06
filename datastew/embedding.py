@@ -16,6 +16,7 @@ class EmbeddingModel(ABC):
     def get_model_name(self) -> str:
         pass
 
+    @staticmethod
     def sanitize(self, message: str) -> str:
         return message.strip().lower()
 
@@ -53,7 +54,7 @@ class GPT4Adapter(EmbeddingModel):
             embeddings.extend([item["embedding"] for item in response["data"]])
             logging.info("Processed chunk %d/%d", current_chunk, total_chunks)
         return embeddings
-    
+
     def get_model_name(self) -> str:
         return self.model_name
 
@@ -62,7 +63,7 @@ class MPNetAdapter(EmbeddingModel):
     def __init__(self, model_name="sentence-transformers/all-mpnet-base-v2"):
         logging.getLogger().setLevel(logging.INFO)
         self.model = SentenceTransformer(model_name)
-        self.model_name = model_name # For Weaviate
+        self.model_name = model_name  # For Weaviate
 
     def get_embedding(self, text: str):
         logging.info(f"Getting embedding for {text}")
@@ -86,7 +87,7 @@ class MPNetAdapter(EmbeddingModel):
             logging.error(f"Failed for messages {sanitized_messages}")
         flattened_embeddings = [[float(element) for element in row] for row in embeddings]
         return flattened_embeddings
-    
+
     def get_model_name(self) -> str:
         return self.model_name
 
@@ -95,3 +96,7 @@ class TextEmbedding:
     def __init__(self, text: str, embedding: [float]):
         self.text = text
         self.embedding = embedding
+
+
+def get_default_embedding_model() -> EmbeddingModel:
+    return MPNetAdapter()

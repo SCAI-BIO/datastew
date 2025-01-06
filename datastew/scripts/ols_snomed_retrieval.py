@@ -6,5 +6,5 @@ repository = SQLLiteRepository(name="snomed")
 embedding_model = MPNetAdapter()
 
 task = OLSTerminologyImportTask(repository, embedding_model, "SNONMED CT", "snomed")
-task.process()
+task.process_to_weaviate()
 print("done")

@@ -13,7 +13,7 @@ from typing import Optional, List
 from datastew.process.parsing import DataDictionarySource
 from datastew.embedding import EmbeddingModel, MPNetAdapter
 from datastew.conf import COLORS_AD, COLORS_PD
-from datastew.mapping import MappingTable
+from datastew._mapping import _MappingTable
 from datastew.repository.base import BaseRepository
 
 
@@ -62,7 +62,7 @@ def enrichment_plot(acc_gpt, acc_mpnet, acc_fuzzy, title, save_plot=False, save_
     plt.show()
 
 
-def concat_embeddings(tables1: [MappingTable], tables2: [MappingTable]):
+def concat_embeddings(tables1: [_MappingTable], tables2: [_MappingTable]):
     # remove entries that do not contain an embedding -> have no corresponding vector
     tables1_cleaned = [copy.deepcopy(table) for table in tables1]
     tables2_cleaned = [copy.deepcopy(table) for table in tables2]
@@ -114,7 +114,7 @@ def bar_chart_average_acc_two_distributions(dist1_fuzzy: pd.DataFrame, dist1_gpt
     plt.show()
 
 
-def scatter_plot_two_distributions(tables1: [MappingTable], tables2: [MappingTable], label1: str, label2: str,
+def scatter_plot_two_distributions(tables1: [_MappingTable], tables2: [_MappingTable], label1: str, label2: str,
                                    store_html: bool = True, legend_font_size: int = 16,
                                    store_destination: str = "resources/results/plots/ad_vs_pd.html"):
     vectors_tables1 = np.concatenate([table.get_embeddings_numpy() for table in tables1])
@@ -142,7 +142,7 @@ def scatter_plot_two_distributions(tables1: [MappingTable], tables2: [MappingTab
         fig.write_html(store_destination)
 
 
-def scatter_plot_all_cohorts(tables1: [MappingTable], tables2: [MappingTable], labels1: [str], labels2: [str],
+def scatter_plot_all_cohorts(tables1: [_MappingTable], tables2: [_MappingTable], labels1: [str], labels2: [str],
                              plot_side: PlotSide = PlotSide.BOTH, store_html: bool = True,
                              legend_font_size: int = 16, store_base_dir: str = "resources/results/plots"):
     if not len(tables1) == len(labels1) or not len(tables2) == len(labels2):

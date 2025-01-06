@@ -5,21 +5,21 @@ from datastew.embedding import EmbeddingModel
 from datastew.process.parsing import MappingSource, DataDictionarySource, EmbeddingSource
 
 
-class Terminology:
+class _Terminology:
 
     def __int__(self, identifier: str, name: str):
         self.identifier = identifier
         self.name = name
 
 
-class Concept:
+class _Concept:
 
-    def __init__(self, identifier: str, terminology: Terminology):
+    def __init__(self, identifier: str, terminology: _Terminology):
         self.identifier = identifier
         self.terminology = terminology
 
 
-class Embedding:
+class _Embedding:
 
     def __init__(self, embedding: [float], source: str):
         self.embedding = embedding
@@ -29,18 +29,18 @@ class Embedding:
         return pd.DataFrame(self.embedding, columns=[self.source])
 
 
-class Variable:
+class _Variable:
 
-    def __init__(self, name: str, description: str, source: str, embedding: Embedding = None):
+    def __init__(self, name: str, description: str, source: str, embedding: _Embedding = None):
         self.name = name
         self.description = description
         self.source = source
         self.embedding = embedding
 
 
-class Mapping:
+class _Mapping:
 
-    def __init__(self, concept: Concept, variable: Variable, source: str):
+    def __init__(self, concept: _Concept, variable: _Variable, source: str):
         self.concept = concept
         self.variable = variable
         self.source = source
@@ -55,12 +55,12 @@ class Mapping:
         return f"{self.variable.name} ({self.variable.description}) -> {self.concept.identifier}"
 
 
-class MappingTable:
+class _MappingTable:
 
     def __init__(self, mapping_source: MappingSource,
                  data_dictionary_source: DataDictionarySource = None,
                  embedding_source: EmbeddingSource = None,
-                 terminology: Terminology = None):
+                 terminology: _Terminology = None):
         self.mapping_source: MappingSource = mapping_source
         self.data_dictionary_source: DataDictionarySource = data_dictionary_source
         self.embedding_source: EmbeddingSource = embedding_source
@@ -74,7 +74,7 @@ class MappingTable:
     def set_dictionary_source(self, data_dictionary_source: DataDictionarySource):
         self.data_dictionary_source = data_dictionary_source
 
-    def set_terminology(self, terminology: Terminology):
+    def set_terminology(self, terminology: _Terminology):
         self.terminology = terminology
 
     def set_mapping_source(self, mapping_source: MappingSource):
@@ -132,7 +132,7 @@ class MappingTable:
     def get_mapping_table(self) -> pd.DataFrame:
         return self.joined_mapping_table
 
-    def get_mappings(self) -> [Mapping]:
+    def get_mappings(self) -> [_Mapping]:
         mappings = []
         for index, row in self.joined_mapping_table.iterrows():
             concept_id = row["identifier"]
@@ -142,16 +142,16 @@ class MappingTable:
             else:
                 description = None
             if not pd.isna(concept_id) and not pd.isna(variable_name):
-                concept = Concept(concept_id, self.terminology)
-                variable = Variable(variable_name, description,
-                                    self.data_dictionary_source.file_path
+                concept = _Concept(concept_id, self.terminology)
+                variable = _Variable(variable_name, description,
+                                     self.data_dictionary_source.file_path
                                     if self.data_dictionary_source is not None else None)
-                mapping = Mapping(concept, variable, self.mapping_source.file_path)
+                mapping = _Mapping(concept, variable, self.mapping_source.file_path)
                 mappings.append(mapping)
         # remove duplicates
         return list(dict.fromkeys(mappings))
 
-    def to_mapping_dto(self) -> [Mapping]:
+    def to_mapping_dto(self) -> [_Mapping]:
         mappings = []
         for index, row in self.joined_mapping_table.iterrows():
             concept_id = row["identifier"]
@@ -161,11 +161,11 @@ class MappingTable:
             else:
                 description = None
             if not pd.isna(concept_id) and not pd.isna(variable_name):
-                concept = Concept(concept_id, self.terminology)
-                variable = Variable(variable_name, description,
-                                    self.data_dictionary_source.file_path
+                concept = _Concept(concept_id, self.terminology)
+                variable = _Variable(variable_name, description,
+                                     self.data_dictionary_source.file_path
                                     if self.data_dictionary_source is not None else None)
-                mapping = Mapping(concept, variable, self.mapping_source.file_path)
+                mapping = _Mapping(concept, variable, self.mapping_source.file_path)
                 mappings.append(mapping)
         # remove duplicates
         return list(dict.fromkeys(mappings))

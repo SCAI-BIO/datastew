@@ -4,7 +4,7 @@ from unittest import TestCase
 import numpy as np
 import pandas as pd
 
-from datastew.mapping import MappingTable
+from datastew._mapping import _MappingTable
 from datastew.process.parsing import DataDictionarySource, MappingSource
 from datastew.visualisation import (
     bar_chart_average_acc_two_distributions,
@@ -77,13 +77,13 @@ class Test(TestCase):
     ]
 
     def test_scatter_plot_two_distributions(self):
-        mapping_table1 = MappingTable(self.mapping_source)
+        mapping_table1 = _MappingTable(self.mapping_source)
         mapping_table1.add_descriptions(self.data_dictionary_source)
-        mapping_table2 = MappingTable(self.mapping_source)
+        mapping_table2 = _MappingTable(self.mapping_source)
         mapping_table2.add_descriptions(self.data_dictionary_source)
-        mapping_table3 = MappingTable(self.mapping_source)
+        mapping_table3 = _MappingTable(self.mapping_source)
         mapping_table3.add_descriptions(self.data_dictionary_source)
-        mapping_table4 = MappingTable(self.mapping_source)
+        mapping_table4 = _MappingTable(self.mapping_source)
         mapping_table4.add_descriptions(self.data_dictionary_source)
 
         mapping_table1.joined_mapping_table["embedding"] = self.embeddings1
@@ -94,13 +94,13 @@ class Test(TestCase):
                                        store_html=False)
 
     def test_scatter_plot_all_cohorts(self):
-        mapping_table1 = MappingTable(self.mapping_source)
+        mapping_table1 = _MappingTable(self.mapping_source)
         mapping_table1.add_descriptions(self.data_dictionary_source)
-        mapping_table2 = MappingTable(self.mapping_source)
+        mapping_table2 = _MappingTable(self.mapping_source)
         mapping_table2.add_descriptions(self.data_dictionary_source)
-        mapping_table3 = MappingTable(self.mapping_source)
+        mapping_table3 = _MappingTable(self.mapping_source)
         mapping_table3.add_descriptions(self.data_dictionary_source)
-        mapping_table4 = MappingTable(self.mapping_source)
+        mapping_table4 = _MappingTable(self.mapping_source)
         mapping_table4.add_descriptions(self.data_dictionary_source)
 
         mapping_table1.joined_mapping_table["embedding"] = self.embeddings1
