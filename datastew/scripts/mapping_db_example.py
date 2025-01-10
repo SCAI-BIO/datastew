@@ -9,11 +9,11 @@ terminology = Terminology("snomed CT", "SNOMED")
 
 text1 = "Diabetes mellitus (disorder)"
 concept1 = Concept(terminology, text1, "Concept ID: 11893007")
-mapping1 = Mapping(concept1, text1, embedding_model.get_embedding(text1))
+mapping1 = Mapping(concept1, text1, embedding_model.get_embedding(text1), embedding_model.get_model_name())
 
 text2 = "Hypertension (disorder)"
 concept2 = Concept(terminology, text2, "Concept ID: 73211009")
-mapping2 = Mapping(concept2, text2, embedding_model.get_embedding(text2))
+mapping2 = Mapping(concept2, text2, embedding_model.get_embedding(text2), embedding_model.get_model_name())
 
 repository.store_all([terminology, concept1, mapping1, concept2, mapping2])
 
