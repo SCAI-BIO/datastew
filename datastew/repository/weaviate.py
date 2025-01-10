@@ -5,6 +5,7 @@ import socket
 from typing import List, Tuple, Union, Optional
 
 import weaviate
+from sqlalchemy.testing.plugin.plugin_base import warnings
 from weaviate import WeaviateClient
 from weaviate.util import generate_uuid5
 from weaviate.classes.query import Filter, QueryReference, MetadataQuery
@@ -13,6 +14,7 @@ from datastew.embedding import EmbeddingModel
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
+from datastew.repository.pagination import Page
 from datastew.repository.weaviate_schema import concept_schema, mapping_schema, terminology_schema
 
 
@@ -112,7 +114,7 @@ class WeaviateRepository(BaseRepository):
             self.store_all(model_object_instances)
         except Exception as e:
             raise RuntimeError(f"Failed to import data dictionary source: {e}")
-    
+
     def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
         for instance in model_object_instances:
             self.store(instance)
@@ -152,7 +154,52 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch concept {concept_id}: {e}")
         return concept
 
+    def get_concepts(self, limit: int, offset: int, terminology_name: Optional[str] = None) -> Page[Concept]:
+        try:
+            concept_collection = self.client.collections.get("Concept")
+
+            # filter by terminology if set, otherwise return concepts for all terminologies
+            if terminology_name is not None:
+                if not self._terminology_exists(terminology_name):
+                    raise ValueError(f"Terminology '{terminology_name}' not found in available terminologies.")
+                filters = Filter.by_ref("hasTerminology").by_property("name").equal(terminology_name)
+            else:
+                filters = None
+
+            response = concept_collection.query.fetch_objects(
+                limit=limit,
+                offset=offset,
+                filters=filters,
+                return_references=QueryReference(link_on="hasTerminology"),
+            )
+
+            concepts = []
+            for concept_data in response.objects:
+                if concept_data.references:
+                    terminology_data = concept_data.references["hasTerminology"].objects[0]
+                    terminology_name = str(terminology_data.properties["name"])
+                    terminology_id = str(terminology_data.uuid)
+                    terminology = Terminology(terminology_name, terminology_id)
+
+                id = str(concept_data.uuid)
+                concept_name = str(concept_data.properties["prefLabel"])
+                concept_id = str(concept_data.properties["conceptID"])
+
+                concept = Concept(terminology, concept_name, concept_id, id)
+                concepts.append(concept)
+
+            total_count = response.meta["totalCount"]
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch concepts: {e}")
+        return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)
+
     def get_all_concepts(self) -> List[Concept]:
+        # will be infeasible to load the whole database into memory, we use pagination instead
+        warnings.warn(
+            "get_all_concepts is deprecated and will be removed in a future release. Use get_concepts instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         concepts = []
         try:
             concept_collection = self.client.collections.get("Concept")
@@ -207,8 +254,13 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch terminologies: {e}")
         return terminologies
 
-    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
+    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000, offset=0) -> Page[Mapping]:
         mappings = []
+        # filter by terminology if set, otherwise return concepts for all terminologies
+        if terminology_name is not None:
+            if not self._terminology_exists(terminology_name):
+                raise ValueError(f"Terminology '{terminology_name}' not found in available terminologies.")
+
         try:
             mapping_collection = self.client.collections.get("Mapping")
             if not terminology_name:
@@ -218,6 +270,7 @@ class WeaviateRepository(BaseRepository):
                         return_references=QueryReference(link_on="hasTerminology"),
                     ),
                     limit=limit,
+                    offset=offset
                 )
             else:
                 if not self._terminology_exists(terminology_name):
@@ -225,7 +278,8 @@ class WeaviateRepository(BaseRepository):
                         f"Terminology {terminology_name} does not exists"
                     )
                 response = mapping_collection.query.fetch_objects(
-                    filters=Filter.by_ref(link_on="hasConcept").by_ref(link_on="hasTerminology").by_property("name").equal(terminology_name),
+                    filters=Filter.by_ref(link_on="hasConcept").by_ref(link_on="hasTerminology").by_property(
+                        "name").equal(terminology_name),
                     return_references=QueryReference(
                         link_on="hasConcept",
                         return_references=QueryReference(link_on="hasTerminology"),
@@ -254,9 +308,12 @@ class WeaviateRepository(BaseRepository):
                     sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
                 )
                 mappings.append(mapping)
+
+            total_count = response.meta["totalCount"]
+
         except Exception as e:
             raise RuntimeError(f"Failed to fetch mappings: {e}")
-        return mappings
+        return Page[Mapping](items=mappings, limit=limit, offset=offset, total_count=total_count)
 
     def get_closest_mappings(self, embedding, limit=5) -> List[Mapping]:
         mappings = []
@@ -296,7 +353,7 @@ class WeaviateRepository(BaseRepository):
         return mappings
 
     def get_closest_mappings_with_similarities(
-        self, embedding, limit=5
+            self, embedding, limit=5
     ) -> List[Tuple[Mapping, float]]:
         mappings_with_similarities = []
         try:
@@ -340,7 +397,9 @@ class WeaviateRepository(BaseRepository):
             )
         return mappings_with_similarities
 
-    def get_terminology_and_model_specific_closest_mappings(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Mapping]:
+    def get_terminology_and_model_specific_closest_mappings(self, embedding, terminology_name: str,
+                                                            sentence_embedder_name: str, limit: int = 5) -> List[
+        Mapping]:
         mappings = []
         try:
             if not self._terminology_exists(terminology_name):
@@ -352,9 +411,11 @@ class WeaviateRepository(BaseRepository):
             mapping_collection = self.client.collections.get("Mapping")
             response = mapping_collection.query.near_vector(
                 near_vector=embedding,
-                filters=Filter.by_ref("hasConcept").by_ref("hasTerminology").by_property("name").equal(terminology_name) &
-                Filter.by_property("hasSentenceEmbedder").equal(sentence_embedder_name),
-                return_references=QueryReference(link_on="hasConcept", return_references=QueryReference(link_on="hasTerminology")),
+                filters=Filter.by_ref("hasConcept").by_ref("hasTerminology").by_property("name").equal(
+                    terminology_name) &
+                        Filter.by_property("hasSentenceEmbedder").equal(sentence_embedder_name),
+                return_references=QueryReference(link_on="hasConcept",
+                                                 return_references=QueryReference(link_on="hasTerminology")),
                 limit=limit,
             )
             for o in response.objects:
@@ -384,7 +445,10 @@ class WeaviateRepository(BaseRepository):
             )
         return mappings
 
-    def get_terminology_and_model_specific_closest_mappings_with_similarities(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Tuple[Mapping, float]]:
+    def get_terminology_and_model_specific_closest_mappings_with_similarities(self, embedding, terminology_name: str,
+                                                                              sentence_embedder_name: str,
+                                                                              limit: int = 5) -> List[
+        Tuple[Mapping, float]]:
         mappings_with_similarities = []
         try:
             if not self._terminology_exists(terminology_name):
@@ -396,8 +460,9 @@ class WeaviateRepository(BaseRepository):
             mapping_collection = self.client.collections.get("Mapping")
             response = mapping_collection.query.near_vector(
                 near_vector=embedding,
-                filters=Filter.by_ref("hasConcept").by_ref("hasTerminology").by_property("name").equal(terminology_name) &
-                Filter.by_property("hasSentenceEmbedder").equal(sentence_embedder_name),
+                filters=Filter.by_ref("hasConcept").by_ref("hasTerminology").by_property("name").equal(
+                    terminology_name) &
+                        Filter.by_property("hasSentenceEmbedder").equal(sentence_embedder_name),
                 return_references=QueryReference(
                     link_on="hasConcept",
                     return_references=QueryReference(link_on="hasTerminology"),
@@ -458,7 +523,7 @@ class WeaviateRepository(BaseRepository):
                 if not self._concept_exists(model_object_instance.concept_identifier):
                     # recursion: create terminology if not existing
                     if not self._terminology_exists(
-                        model_object_instance.terminology.name
+                            model_object_instance.terminology.name
                     ):
                         self.store(model_object_instance.terminology)
                     properties = {
@@ -480,11 +545,12 @@ class WeaviateRepository(BaseRepository):
                         to=str(terminology.id),
                     )
                 else:
-                    self.logger.info(f"Concept with identifier {model_object_instance.concept_identifier} already exists. Skipping.")
+                    self.logger.info(
+                        f"Concept with identifier {model_object_instance.concept_identifier} already exists. Skipping.")
             elif isinstance(model_object_instance, Mapping):
                 if not self._mapping_exists(model_object_instance.embedding):
                     if not self._concept_exists(
-                        model_object_instance.concept.concept_identifier
+                            model_object_instance.concept.concept_identifier
                     ):
                         self.store(model_object_instance.concept)
                     properties = {
@@ -584,7 +650,7 @@ class WeaviateRepository(BaseRepository):
                 return False
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")
-        
+
     def _is_port_in_use(self, port) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(("localhost", port)) == 0

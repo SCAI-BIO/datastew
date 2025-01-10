@@ -58,3 +58,5 @@ class Mapping(Base):
     @property
     def embedding(self):
         return json.loads(str(self.embedding_json))
+
+

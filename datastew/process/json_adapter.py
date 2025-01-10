@@ -19,28 +19,29 @@ class WeaviateJsonConverter(object):
         self.concept_schema = schema_concept
         self.mapping_schema = schema_mapping
 
-    def from_repository(self, repository: WeaviateRepository, terminology_name: str = None) -> None:
+    def from_repository(self, repository: WeaviateRepository, terminology_name: str = None, limit=1000) -> None:
         """
         Converts data from a WeaviateRepository to our JSON format.
 
         :param repository: WeaviateRepository
+        :param terminology_name: The name of the terminology to filter.
+        :param limit: page size
 
         :return: None
         """
-        # TODO: This needs to work for specific terminologies, we need those endpoints in the repository
-        # TODO: Also: implement paging in the repository
-        # retrieve all terminologies, concepts and mappings
-        terminologies = repository.get_all_terminologies()
-        concepts = repository.get_all_concepts()
-        mappings = repository.get_mappings(limit =100)
-        # store the data in the JSON format
-        for terminology in terminologies:
-            # get the concepts and mappings for the terminology
-            terminology_name = terminology.name
-            terminology_concepts = [concept for concept in concepts if concept.hasTerminology == terminology_name]
-            terminology_mappings = [mapping for mapping in mappings if
-                                    mapping.hasConcept.hasTerminology == terminology_name]
-            self._write_to_json(terminology, terminology_concepts, terminology_mappings)
+        current_offset = 0
+        while repository.get_concepts(terminology_name=terminology_name, limit=limit,
+                                      offset=current_offset).has_next_page():
+            concepts = repository.get_concepts(limit, offset)
+            self._write_to_json(concepts.items[0].terminology, concepts, [])
+            offset = offset + limit
+        # reset offset
+        current_offset = 0
+        while repository.get_mappings(terminology_name=terminology_name, limit=limit,
+                                      offset=current_offset).has_next_page():
+            mappings = repository.get_concepts(limit, offset)
+            self._write_to_json(mappings.items[0].concept.terminology.name, mappings, [])
+            offset = offset + limit
 
     def from_ohdsi(self):
         """

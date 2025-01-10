@@ -11,17 +11,17 @@ from datastew.repository.model import Concept, Mapping, Terminology
 class OLSTerminologyImportTask:
 
     def __init__(self, embedding_model: EmbeddingModel, ontology_name: str,
-                 ontology_id: str, ols_api_base_url: str = "https://www.ebi.ac.uk/ols4/api/", page_size: int = 200):
+                 ontology_id: str, ols_api_base_url: str = "https://www.ebi.ac.uk/ols4/api/",
+                 page_size: int = 200):
         logging.getLogger().setLevel(logging.INFO)
         self.embedding_model = embedding_model
         self.ontology_id = ontology_id
         self.ontology_name = ontology_name
+        self.terminology = Terminology(self.ontology_name, self.ontology_id)
         self.OLS_BASE_URL = ols_api_base_url
         self.page_size = page_size
         self.num_pages = self.get_number_of_pages()
         self.current_page = 0
-        self.terminology = Terminology(self.ontology_name, self.ontology_id)
-        self.repository.store(self.terminology)
 
     def get_number_of_pages(self):
         url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?size={self.page_size}"
@@ -70,6 +70,8 @@ class OLSTerminologyImportTask:
 
         :return: None
         """
+        # init terminology
+        repository.store(self.terminology)
         # index starts at 0
         while self.current_page < self.num_pages - 1:
             concepts, mappings = self.__process_page(self.current_page)
