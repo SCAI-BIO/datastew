@@ -119,6 +119,10 @@ class WeaviateRepository(BaseRepository):
         for instance in model_object_instances:
             self.store(instance)
 
+    def get_iterator(self, collection: str):
+        return self.client.collections.get(collection).iterator()
+
+
     def get_all_sentence_embedders(self) -> List[str]:
         sentence_embedders = set()
         try:
@@ -158,6 +162,9 @@ class WeaviateRepository(BaseRepository):
         try:
             concept_collection = self.client.collections.get("Concept")
 
+            # TODO: How to get this?
+            total_count = None
+
             # filter by terminology if set, otherwise return concepts for all terminologies
             if terminology_name is not None:
                 if not self._terminology_exists(terminology_name):
@@ -188,7 +195,6 @@ class WeaviateRepository(BaseRepository):
                 concept = Concept(terminology, concept_name, concept_id, id)
                 concepts.append(concept)
 
-            total_count = response.meta["totalCount"]
         except Exception as e:
             raise RuntimeError(f"Failed to fetch concepts: {e}")
         return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)

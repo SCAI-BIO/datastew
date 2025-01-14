@@ -1,6 +1,6 @@
 import json
+import os
 
-from datastew import Terminology, Concept, Mapping
 from datastew.repository import WeaviateRepository
 from datastew.repository.weaviate_schema import terminology_schema, concept_schema, mapping_schema
 
@@ -13,35 +13,77 @@ class WeaviateJsonConverter(object):
     def __init__(self, dest_path: str,
                  schema_terminology: dict = terminology_schema,
                  schema_concept: dict = concept_schema,
-                 schema_mapping: dict = mapping_schema):
+                 schema_mapping: dict = mapping_schema,
+                 buffer_size: int = 1000):
         self.dest_path = dest_path
         self.terminology_schema = schema_terminology
         self.concept_schema = schema_concept
         self.mapping_schema = schema_mapping
+        self.output_file_path = dest_path
+        self._buffer = []
+        self._buffer_size = buffer_size
+        self._ensure_file_exists()
 
-    def from_repository(self, repository: WeaviateRepository, terminology_name: str = None, limit=1000) -> None:
+    def _ensure_file_exists(self):
+        """
+        Ensures the directory and file exist. Creates them if they do not.
+
+        :return: None
+        """
+        directory = os.path.dirname(self.output_file_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+
+        # Create an empty file if it doesn't exist
+        if not os.path.exists(self.output_file_path):
+            with open(self.output_file_path, 'w') as file:
+                pass
+
+    def _write_to_json(self, data):
+        """
+        Writes data to a JSON file in a performant manner using a buffer.
+
+        :param data: The data to write (individual JSON objects).
+        :return: None
+        """
+        # Add the data to the buffer
+        self._buffer.append(data)
+
+        # Check if the buffer size is reached
+        if len(self._buffer) >= self._buffer_size:
+            self._flush_to_file()
+
+    def _flush_to_file(self):
+        """
+        Writes the buffered data to the file and clears the buffer.
+
+        :return: None
+        """
+        if not self._buffer:
+            return
+
+        with open(self.output_file_path, 'a') as file:
+            # Write each JSON object in the buffer as a new line
+            for entry in self._buffer:
+                file.write(json.dumps(entry) + '\n')
+
+        # Clear the buffer
+        self._buffer.clear()
+
+
+    def from_repository(self, repository: WeaviateRepository) -> None:
         """
         Converts data from a WeaviateRepository to our JSON format.
 
         :param repository: WeaviateRepository
-        :param terminology_name: The name of the terminology to filter.
-        :param limit: page size
 
         :return: None
         """
-        current_offset = 0
-        while repository.get_concepts(terminology_name=terminology_name, limit=limit,
-                                      offset=current_offset).has_next_page():
-            concepts = repository.get_concepts(limit, offset)
-            self._write_to_json(concepts.items[0].terminology, concepts, [])
-            offset = offset + limit
-        # reset offset
-        current_offset = 0
-        while repository.get_mappings(terminology_name=terminology_name, limit=limit,
-                                      offset=current_offset).has_next_page():
-            mappings = repository.get_concepts(limit, offset)
-            self._write_to_json(mappings.items[0].concept.terminology.name, mappings, [])
-            offset = offset + limit
+        for concept in repository.get_iterator(self.concept_schema["class"]):
+            self._write_to_json(self._weaviate_object_to_dict(concept))
+        for mapping in repository.get_iterator(self.mapping_schema["class"]):
+            self._write_to_json(self._weaviate_object_to_dict(mapping))
+        self._flush_to_file()
 
     def from_ohdsi(self):
         """
@@ -52,29 +94,10 @@ class WeaviateJsonConverter(object):
         # use schema to construct the objects
         raise NotImplementedError("Not implemented yet.")
 
-    def from_object(self, object):
-        """
-        Writes single weaviate objects to JSON files. Appends to existing files.
-
-        :return: None
-        """
-        if isinstance(object, Terminology):
-            self._write_to_json(object, [], [])
-        elif isinstance(object, Concept):
-            self._write_to_json([], object, [])
-        elif isinstance(object, Mapping):
-            self._write_to_json([], [], object)
-        else:
-            raise ValueError("Object is not a Terminology, Concept or Mapping.")
-
-    def _write_to_json(self, terminology: Terminology, concepts, mappings):
-        """
-        Writes the data to JSON files.
-        """
-        terminology_name = terminology.name
-        with open(f"{self.dest_path}/{terminology_name}_terminology.json", "w") as f:
-            f.write(json.dumps(terminology, indent=2))
-        with open(f"{self.dest_path}/{terminology_name}_concepts.json", "w") as f:
-            f.write(json.dumps(concepts, indent=2))
-        with open(f"{self.dest_path}/{terminology_name}_mappings.json", "w") as f:
-            f.write(json.dumps(mappings, indent=2))
+    def _weaviate_object_to_dict(self, object):
+        return {
+            "class": object.collection,
+            "id": str(object.uuid),
+            "properties": object.properties,
+            "vector": object.vector
+        }
