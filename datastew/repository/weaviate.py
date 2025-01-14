@@ -120,7 +120,7 @@ class WeaviateRepository(BaseRepository):
             self.store(instance)
 
     def get_iterator(self, collection: str):
-        return self.client.collections.get(collection).iterator()
+        return self.client.collections.get(collection).iterator(include_vector=True)
 
 
     def get_all_sentence_embedders(self) -> List[str]:

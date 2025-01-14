@@ -70,7 +70,6 @@ class WeaviateJsonConverter(object):
         # Clear the buffer
         self._buffer.clear()
 
-
     def from_repository(self, repository: WeaviateRepository) -> None:
         """
         Converts data from a WeaviateRepository to our JSON format.
