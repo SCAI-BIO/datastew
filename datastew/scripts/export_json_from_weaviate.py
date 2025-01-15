@@ -4,7 +4,7 @@ from datastew.repository import WeaviateRepository
 
 repository = WeaviateRepository(mode='memory', path='localhost', port=8080)
 
-converter = WeaviateJsonConverter(dest_path="export.json")
+converter = WeaviateJsonConverter(dest_dir="export")
 
 # Compute and store some exemplary Mappings
 embedding_model = MPNetAdapter()
