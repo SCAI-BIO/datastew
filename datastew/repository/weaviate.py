@@ -676,16 +676,16 @@ class WeaviateRepository(BaseRepository):
             with collection.batch.dynamic() as batch:
                 for item in data:
                     try:
-                        class_name = item["class"]
                         object_id = item["id"]
                         properties = item["properties"]
                         vector = item.get("vector")
+                        references = item.get("references")
 
                         batch.add_object(
                             uuid=object_id,
-                            class_name=class_name,
                             properties=properties,
-                            vector=vector
+                            vector=vector,
+                            references=references
                         )
                     except KeyError as e:
                         print(f"Skipping object due to missing key: {e}")

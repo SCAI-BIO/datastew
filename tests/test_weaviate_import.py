@@ -2,9 +2,8 @@ import os
 import json
 from unittest import TestCase
 
-from datastew import Terminology, Concept, Mapping, MPNetAdapter
+from datastew import Terminology, Concept, Mapping
 from datastew.repository import WeaviateRepository
-from datastew.process.json_adapter import WeaviateJsonConverter
 
 
 class TestWeaviateRepositoryImport(TestCase):
@@ -18,12 +17,22 @@ class TestWeaviateRepositoryImport(TestCase):
         os.makedirs(cls.import_dir, exist_ok=True)
 
         # Write sample JSON files for testing
-        cls.terminology_data = [{"class": "Terminology", "id": "b4389093-d778-5ed0-97ac-ac132299369a", "properties": {"name": "snomed CT"}, "vector": {}}]
-        cls.concept_data = [
-            {"class": "Concept", "id": "10152406-0c9b-5bbc-a94d-c3d6dd0158fc", "properties": {"conceptID": "Concept ID: 386098009", "prefLabel": "Migraine"}, "vector": {}},
-            {"class": "Concept", "id": "15f4419f-20aa-5746-91e0-0b894f925597", "properties": {"conceptID": "Concept ID: 57386000", "prefLabel": "Influenza"}, "vector": {}}
+        cls.terminology_data = [
+            {"class": "Terminology", "id": "94331523-fa7e-5871-9375-8f559d6035dd",
+             "properties": {"name": "import_test"}, "vector": {}, "references": {}}
         ]
-        cls.mapping_data = [{"class": "Mapping", "id": "50ff1cf8-45c6-568f-a496-61e6c9623f58", "properties": {"source": "snomed CT", "target": "ICD10"}, "vector": {'default:'[1,1,1]}}]
+        cls.concept_data = [
+            {"class": "Concept", "id": "064cb594-41cd-561d-b5a8-2bf226006f09",
+             "properties": {"conceptID": "import_test:G", "prefLabel": "G"}, "vector": {},
+             "references": {"hasTerminology": "94331523-fa7e-5871-9375-8f559d6035dd"}},
+        ]
+        cls.mapping_data = [
+            {"class": "Mapping", "id": "0423d64c-fa89-54c3-b92c-4738a630d7d6",
+             "properties": {"text": "pancreas", "hasSentenceEmbedder": "sentence-transformers/all-mpnet-base-v2"},
+             "vector": {
+                 "default": [0.048744574189186096, -0.0035385489463806152]},
+             "references": {"hasConcept": "9ac77939-76cc-5450-9ff6-ab5b22952fc1"}}
+        ]
 
         with open(f"{cls.import_dir}/terminology.json", "w") as file:
             json.dump(cls.terminology_data, file)
@@ -42,20 +51,22 @@ class TestWeaviateRepositoryImport(TestCase):
 
     def test_json_import_terminology(self):
         self.repository.import_from_json(f"{self.import_dir}/terminology.json", "terminology")
-        terminology = self.repository.fetch_all(Terminology)
+        terminology = self.repository.get_all_terminologies()
         self.assertEqual(len(terminology), 1)
-        self.assertEqual(terminology[0].properties["name"], "snomed CT")
+        self.assertEqual(terminology[0].name, "import_test")
 
     def test_json_import_concept(self):
         self.repository.import_from_json(f"{self.import_dir}/concept.json", "concept")
-        concepts = self.repository.fetch_all(Concept)
-        self.assertEqual(len(concepts), 2)
-        self.assertIn("Migraine", [concept.properties["prefLabel"] for concept in concepts])
-        self.assertIn("Influenza", [concept.properties["prefLabel"] for concept in concepts])
+        concepts = self.repository.get_concepts(limit=5, offset=0).items
+        self.assertEqual(len(concepts), 1)
+        self.assertEqual(concepts[0].pref_label, "G")
+        # check for correct referencing
+        self.assertEqual(concepts[0].terminology.name, "import_test")
 
     def test_json_import_mapping(self):
         self.repository.import_from_json(f"{self.import_dir}/mapping.json", "mapping")
-        mappings = self.repository.fetch_all(Mapping)
+        mappings = self.repository.get_mappings(limit=5, offset=0).items
         self.assertEqual(len(mappings), 1)
-        self.assertEqual(mappings[0].properties["source"], "snomed CT")
-        self.assertEqual(mappings[0].properties["target"], "ICD10")
+        self.assertEqual(mappings[0].text, "pancreas")
+        # check for correct referencing
+        self.assertEqual(mappings[0].concept.pref_label, "G")
