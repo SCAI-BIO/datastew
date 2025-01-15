@@ -23,20 +23,29 @@ class TestWeaviateRepositoryExport(TestCase):
         cls.repository.store_all([terminology, concept1, mapping1])
 
     def test_json_export(self):
-        converter = WeaviateJsonConverter(dest_path="test_export.json")
+        converter = WeaviateJsonConverter(dest_dir="test_export")
         converter.from_repository(self.repository)
-        # assert that the file was created
-        self.assertTrue(converter.output_file_path)
-        # assert that the file is not empty
-        with open(converter.output_file_path, 'r') as file:
+        # assert that the dest dir
+        self.assertTrue(converter.dest_dir)
+        # assert that the files is not empty
+        with open(converter.dest_dir + "/terminology.json", 'r') as file:
+            self.assertTrue(file.read())
+        with open(converter.dest_dir + "/concept.json", 'r') as file:
+            self.assertTrue(file.read())
+        with open(converter.dest_dir + "/mapping.json", 'r') as file:
             self.assertTrue(file.read())
         # assert that the file contains the expected data
-        with open(converter.output_file_path, 'r') as file:
-            data = file.read()
-            self.assertIn("Diabetes mellitus (disorder)", data)
-            self.assertIn("Concept ID: 11893007", data)
-            self.assertIn("snomed CT", data)
-        # delete the generated export file from disk
-        os.remove(converter.output_file_path)
-        # close the repository
+        with open(converter.dest_dir + "/terminology.json", 'r') as file:
+            self.assertIn("snomed CT", file.read())
+        with open(converter.dest_dir + "/concept.json", 'r') as file:
+            self.assertIn("Diabetes mellitus (disorder)", file.read())
+        with open(converter.dest_dir + "/mapping.json", 'r') as file:
+            self.assertIn("Diabetes mellitus (disorder)", file.read())
+        # remove the created dir and files
+        os.remove(converter.dest_dir + "/terminology.json")
+        os.remove(converter.dest_dir + "/concept.json")
+        os.remove(converter.dest_dir + "/mapping.json")
+        # remove the created dir
+        os.rmdir(converter.dest_dir)
+        # close the db connection
         self.repository.close()
