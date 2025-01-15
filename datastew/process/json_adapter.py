@@ -78,6 +78,8 @@ class WeaviateJsonConverter(object):
 
         :return: None
         """
+        for terminology in repository.get_iterator((self.terminology_schema["class"])):
+            self._write_to_json(self._weaviate_object_to_dict(terminology))
         for concept in repository.get_iterator(self.concept_schema["class"]):
             self._write_to_json(self._weaviate_object_to_dict(concept))
         for mapping in repository.get_iterator(self.mapping_schema["class"]):

@@ -51,7 +51,7 @@ class TestWeaviateRepository(TestCase):
 
     def test_store_and_retrieve_mappings(self):
         """Test storing and retrieving mappings from the repository."""
-        mappings = self.repository.get_mappings(limit=5)
+        mappings = self.repository.get_mappings(limit=5).items
         self.assertEqual(len(mappings), 5)
 
     def test_concept_retrieval(self):
@@ -123,7 +123,7 @@ class TestWeaviateRepository(TestCase):
         terminology = self.repository.get_terminology("import_test")
         self.assertEqual("import_test", terminology.name)
 
-        mappings = self.repository.get_mappings("import_test")
+        mappings = self.repository.get_mappings("import_test").items
         mapping_texts = [mapping.text for mapping in mappings]
         data_frame = data_dictionary_source.to_dataframe()
         for row in data_frame.index:
@@ -148,7 +148,7 @@ class TestWeaviateRepository(TestCase):
         repository.store_all([self.terminology1, self.terminology2] + [item[0] for item in self.concepts_mappings] + [item[1] for item in self.concepts_mappings])
         
         # Check if mappings and concepts are intact
-        mappings = repository.get_mappings(limit=5)
+        mappings = repository.get_mappings(limit=5).items
         self.assertEqual(len(mappings), 5)
 
         concepts = repository.get_all_concepts()

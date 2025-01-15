@@ -1,11 +1,11 @@
 import logging
 import shutil
 import socket
+import warnings
 
 from typing import List, Tuple, Union, Optional
 
 import weaviate
-from sqlalchemy.testing.plugin.plugin_base import warnings
 from weaviate import WeaviateClient
 from weaviate.util import generate_uuid5
 from weaviate.classes.query import Filter, QueryReference, MetadataQuery
@@ -315,7 +315,8 @@ class WeaviateRepository(BaseRepository):
                 )
                 mappings.append(mapping)
 
-            total_count = response.meta["totalCount"]
+            # TODO: add
+            total_count = None
 
         except Exception as e:
             raise RuntimeError(f"Failed to fetch mappings: {e}")
