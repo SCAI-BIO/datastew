@@ -1,9 +1,10 @@
+import json
 import logging
 import shutil
 import socket
 import warnings
 
-from typing import List, Tuple, Union, Optional
+from typing import List, Tuple, Union, Optional, Literal
 
 import weaviate
 from weaviate import WeaviateClient
@@ -119,9 +120,16 @@ class WeaviateRepository(BaseRepository):
         for instance in model_object_instances:
             self.store(instance)
 
-    def get_iterator(self, collection: str):
-        return self.client.collections.get(collection).iterator(include_vector=True)
-
+    def get_iterator(self, collection: Literal["Concept", "Mapping", "Terminology"]):
+        if collection == "Concept":
+            return_references = QueryReference(link_on="hasTerminology")
+        elif collection == "Mapping":
+            return_references = QueryReference(link_on="hasConcept")
+        elif collection == "Terminology":
+            return_references = None
+        else:
+            raise ValueError(f"Collection {collection} is not supported.")
+        return self.client.collections.get(collection).iterator(include_vector=True, return_references=return_references)
 
     def get_all_sentence_embedders(self) -> List[str]:
         sentence_embedders = set()
@@ -162,8 +170,7 @@ class WeaviateRepository(BaseRepository):
         try:
             concept_collection = self.client.collections.get("Concept")
 
-            # TODO: How to get this?
-            total_count = None
+            total_count = self.client.collections.get(concept_schema["class"]).aggregate.over_all(total_count=True).total_count
 
             # filter by terminology if set, otherwise return concepts for all terminologies
             if terminology_name is not None:
@@ -315,8 +322,10 @@ class WeaviateRepository(BaseRepository):
                 )
                 mappings.append(mapping)
 
-            # TODO: add
-            total_count = None
+            collection_metadata = self.client.query.aggregate(mapping_schema["class"]).with_meta_count().do()
+            print(collection_metadata["data"])
+
+            total_count = self.client.collections.get(mapping_schema["class"]).aggregate.over_all(total_count=True).total_count
 
         except Exception as e:
             raise RuntimeError(f"Failed to fetch mappings: {e}")
@@ -587,23 +596,9 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to store object in Weaviate: {e}")
 
-    def export_json(self, terminology_name: str, output_path: str):
-        """
-        Export the mappings for a given terminology to a JSON file.
-
-        :param terminology_name: The name of the terminology to export mappings for.
-        :param output_path: The path to save the JSON file.
-        """
-        try:
-            mappings = self.get_mappings(terminology_name=terminology_name)
-            with open(output_path, "w") as f:
-                for mapping in mappings:
-                    f.write(f"{mapping}\n")
-        except Exception as e:
-            raise RuntimeError(f"Failed to export mappings to JSON: {e}")
 
     def import_json(self, input_path: str):
-        ""
+        return None
 
     def _sentence_embedder_exists(self, name: str) -> bool:
         try:
@@ -658,6 +653,52 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")
 
-    def _is_port_in_use(self, port) -> bool:
+    def import_from_json(self, json_path: str, object_type: str):
+        """
+        Imports data from a JSON file and stores it in the Weaviate database.
+
+        Parameters:
+        - json_path: Path to the JSON file.
+        - object_type: The type of objects to import ("terminology", "concept", "mapping").
+
+        Returns:
+        - None
+        """
+        try:
+            with open(json_path, "r") as file:
+                data = json.load(file)
+
+            if not isinstance(data, list):
+                data = [data]
+
+            collection = self.client.collections.get(object_type.capitalize())
+
+            with collection.batch.dynamic() as batch:
+                for item in data:
+                    try:
+                        class_name = item["class"]
+                        object_id = item["id"]
+                        properties = item["properties"]
+                        vector = item.get("vector")
+
+                        batch.add_object(
+                            uuid=object_id,
+                            class_name=class_name,
+                            properties=properties,
+                            vector=vector
+                        )
+                    except KeyError as e:
+                        print(f"Skipping object due to missing key: {e}")
+        except FileNotFoundError:
+            raise FileNotFoundError(f"JSON file not found at path: {json_path}")
+        except ValueError as e:
+            raise ValueError(f"Error in loading JSON file: {e}")
+        except Exception as e:
+            raise RuntimeError(f"An unexpected error occurred: {e}")
+
+        return None
+
+    @staticmethod
+    def _is_port_in_use(port) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(("localhost", port)) == 0

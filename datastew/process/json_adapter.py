@@ -106,10 +106,21 @@ class WeaviateJsonConverter(object):
         raise NotImplementedError("Not implemented yet.")
 
     @staticmethod
-    def _weaviate_object_to_dict(object):
+    def _weaviate_object_to_dict(weaviate_object):
+
+        if weaviate_object.references is not None:
+            # FIXME: This is a hack to get the UUID of the referenced object. Replace as soon as weaviate devs offer an
+            #  actual solution for this.
+            vals = [value.objects for key, value in weaviate_object.references.items()]
+            uuid = [str(obj.uuid) for sublist in vals for obj in sublist][0]
+            references = {key: uuid for key, value in weaviate_object.references.items()}
+        else:
+            references = {}
+
         return {
-            "class": object.collection,
-            "id": str(object.uuid),
-            "properties": object.properties,
-            "vector": object.vector
+            "class": weaviate_object.collection,
+            "id": str(weaviate_object.uuid),
+            "properties": weaviate_object.properties,
+            "vector": weaviate_object.vector,
+            "references": references
         }
