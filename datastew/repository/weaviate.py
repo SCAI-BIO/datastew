@@ -675,7 +675,7 @@ class WeaviateRepository(BaseRepository):
                     try:
                         object_id = item["id"]
                         properties = item["properties"]
-                        vector = item.get("vector")
+                        vector = item.get("vector", {}).get("default")
                         references = item.get("references")
 
                         batch.add_object(
