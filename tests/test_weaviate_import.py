@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from unittest import TestCase
 
 from datastew import Terminology, Concept, Mapping
@@ -40,6 +41,11 @@ class TestWeaviateRepositoryImport(TestCase):
             json.dump(cls.concept_data, file)
         with open(f"{cls.import_dir}/mapping.json", "w") as file:
             json.dump(cls.mapping_data, file)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.repository.close()
+        shutil.rmtree(os.path.join(os.getcwd(), "db"))
 
     @classmethod
     def tearDownClass(cls) -> None:

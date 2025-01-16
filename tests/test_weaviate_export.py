@@ -1,4 +1,5 @@
 import os
+import shutil
 from unittest import TestCase
 
 from datastew import Terminology, Mapping, Concept, MPNetAdapter
@@ -21,6 +22,11 @@ class TestWeaviateRepositoryExport(TestCase):
         mapping1 = Mapping(concept1, text1, embedding_model.get_embedding(text1), embedding_model.get_model_name())
 
         cls.repository.store_all([terminology, concept1, mapping1])
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.repository.close()
+        shutil.rmtree(os.path.join(os.getcwd(), "db"))
 
     def test_json_export(self):
         converter = WeaviateJsonConverter(dest_dir="test_export")

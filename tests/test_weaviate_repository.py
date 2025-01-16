@@ -1,4 +1,5 @@
 import os
+import shutil
 import unittest
 from unittest import TestCase
 
@@ -41,6 +42,11 @@ class TestWeaviateRepository(TestCase):
 
         # Store terminologies, concepts, and mappings in the repository
         cls.repository.store_all([cls.terminology1, cls.terminology2] + [item[0] for item in cls.concepts_mappings] + [item[1] for item in cls.concepts_mappings])
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.repository.close()
+        shutil.rmtree(os.path.join(os.getcwd(), "db"))
 
     @staticmethod
     def _create_mapping(terminology, text, concept_id, embedding_model):
