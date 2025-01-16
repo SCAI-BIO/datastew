@@ -322,9 +322,6 @@ class WeaviateRepository(BaseRepository):
                 )
                 mappings.append(mapping)
 
-            collection_metadata = self.client.query.aggregate(mapping_schema["class"]).with_meta_count().do()
-            print(collection_metadata["data"])
-
             total_count = self.client.collections.get(mapping_schema["class"]).aggregate.over_all(total_count=True).total_count
 
         except Exception as e:

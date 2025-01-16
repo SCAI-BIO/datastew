@@ -31,7 +31,7 @@ class TestWeaviateRepositoryImport(TestCase):
              "properties": {"text": "pancreas", "hasSentenceEmbedder": "sentence-transformers/all-mpnet-base-v2"},
              "vector": {
                  "default": [0.048744574189186096, -0.0035385489463806152]},
-             "references": {"hasConcept": "9ac77939-76cc-5450-9ff6-ab5b22952fc1"}}
+             "references": {"hasConcept": "064cb594-41cd-561d-b5a8-2bf226006f09"}}
         ]
 
         with open(f"{cls.import_dir}/terminology.json", "w") as file:
