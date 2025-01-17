@@ -44,16 +44,13 @@ class TestWeaviateRepositoryImport(TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.repository.close()
-        shutil.rmtree(os.path.join(os.getcwd(), "db"))
-
-    @classmethod
-    def tearDownClass(cls) -> None:
         # Clean up created files and directory
         os.remove(f"{cls.import_dir}/terminology.json")
         os.remove(f"{cls.import_dir}/concept.json")
         os.remove(f"{cls.import_dir}/mapping.json")
         os.rmdir(cls.import_dir)
+        cls.repository.close()
+        shutil.rmtree(os.path.join(os.getcwd(), "db"))
 
     def test_json_import_terminology(self):
         self.repository.import_from_json(f"{self.import_dir}/terminology.json", "terminology")

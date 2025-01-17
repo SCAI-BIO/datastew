@@ -8,8 +8,8 @@ from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Terminology, Concept, Mapping
 from datastew.repository.weaviate import WeaviateRepository
 
-class TestWeaviateRepository(TestCase):
 
+class TestWeaviateRepository(TestCase):
     TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
     @classmethod
@@ -27,8 +27,10 @@ class TestWeaviateRepository(TestCase):
 
         # Concepts and mappings
         cls.concepts_mappings = [
-            cls._create_mapping(cls.terminology1, "Diabetes mellitus (disorder)", "Concept ID: 11893007", cls.embedding_model1),
-            cls._create_mapping(cls.terminology1, "Hypertension (disorder)", "Concept ID: 73211009", cls.embedding_model2),
+            cls._create_mapping(cls.terminology1, "Diabetes mellitus (disorder)", "Concept ID: 11893007",
+                                cls.embedding_model1),
+            cls._create_mapping(cls.terminology1, "Hypertension (disorder)", "Concept ID: 73211009",
+                                cls.embedding_model2),
             cls._create_mapping(cls.terminology1, "Asthma", "Concept ID: 195967001", cls.embedding_model1),
             cls._create_mapping(cls.terminology1, "Heart attack", "Concept ID: 22298006", cls.embedding_model2),
             cls._create_mapping(cls.terminology2, "Common cold", "Concept ID: 13260007", cls.embedding_model1),
@@ -41,7 +43,9 @@ class TestWeaviateRepository(TestCase):
         cls.test_text = "The flu"
 
         # Store terminologies, concepts, and mappings in the repository
-        cls.repository.store_all([cls.terminology1, cls.terminology2] + [item[0] for item in cls.concepts_mappings] + [item[1] for item in cls.concepts_mappings])
+        cls.repository.store_all(
+            [cls.terminology1, cls.terminology2] + [item[0] for item in cls.concepts_mappings] + [item[1] for item in
+                                                                                                  cls.concepts_mappings])
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -97,7 +101,9 @@ class TestWeaviateRepository(TestCase):
     def test_terminology_and_model_specific_mappings(self):
         """Test retrieval of mappings filtered by terminology and model."""
         test_embedding = self.embedding_model1.get_embedding(self.test_text)
-        specific_mappings = self.repository.get_terminology_and_model_specific_closest_mappings(test_embedding, "snomed CT", self.model_name1)
+        specific_mappings = self.repository.get_terminology_and_model_specific_closest_mappings(test_embedding,
+                                                                                                "snomed CT",
+                                                                                                self.model_name1)
         self.assertEqual(len(specific_mappings), 2)
         self.assertEqual(specific_mappings[0].text, "Asthma")
         self.assertEqual(specific_mappings[0].concept.terminology.name, "snomed CT")
@@ -115,7 +121,8 @@ class TestWeaviateRepository(TestCase):
     def test_terminology_and_model_specific_mappings_with_similarities(self):
         """Test retrieval of terminology and model-specific mappings with similarity scores."""
         test_embedding = self.embedding_model1.get_embedding(self.test_text)
-        specific_mappings_with_similarities = self.repository.get_terminology_and_model_specific_closest_mappings_with_similarities(test_embedding, "snomed CT", self.model_name1)
+        specific_mappings_with_similarities = self.repository.get_terminology_and_model_specific_closest_mappings_with_similarities(
+            test_embedding, "snomed CT", self.model_name1)
         self.assertEqual(len(specific_mappings_with_similarities), 2)
         self.assertEqual(specific_mappings_with_similarities[0][0].text, "Asthma")
         self.assertEqual(specific_mappings_with_similarities[0][0].concept.terminology.name, "snomed CT")
@@ -124,7 +131,8 @@ class TestWeaviateRepository(TestCase):
 
     def test_import_data_dictionary(self):
         """Test importing a data dictionary."""
-        data_dictionary_source = DataDictionarySource(os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC")
+        data_dictionary_source = DataDictionarySource(
+            os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC")
         self.repository.import_data_dictionary(data_dictionary_source, terminology_name="import_test")
         terminology = self.repository.get_terminology("import_test")
         self.assertEqual("import_test", terminology.name)
@@ -149,10 +157,12 @@ class TestWeaviateRepository(TestCase):
         """Test the repository restart functionality to ensure no data is lost or corrupted."""
         # Re-initialize repository
         repository = WeaviateRepository(mode="disk", path="db")
-        
+
         # Try storing the same data again (should not create duplicates)
-        repository.store_all([self.terminology1, self.terminology2] + [item[0] for item in self.concepts_mappings] + [item[1] for item in self.concepts_mappings])
-        
+        repository.store_all(
+            [self.terminology1, self.terminology2] + [item[0] for item in self.concepts_mappings] + [item[1] for item in
+                                                                                                     self.concepts_mappings])
+
         # Check if mappings and concepts are intact
         mappings = repository.get_mappings(limit=5).items
         self.assertEqual(len(mappings), 5)
