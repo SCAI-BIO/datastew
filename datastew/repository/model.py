@@ -58,3 +58,13 @@ class Mapping(Base):
     @property
     def embedding(self):
         return json.loads(str(self.embedding_json))
+
+
+class MappingResult:
+
+    def __init__(self, mapping: Mapping, similarity: float):
+        self.mapping = mapping
+        self.similarity = similarity
+
+    def __str__(self):
+        return f"{self.mapping} | Similarity: {self.similarity}"

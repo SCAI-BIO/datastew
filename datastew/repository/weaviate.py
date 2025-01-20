@@ -13,6 +13,7 @@ from datastew.embedding import EmbeddingModel
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
+from datastew.repository.model import MappingResult
 from datastew.repository.weaviate_schema import concept_schema, mapping_schema, terminology_schema
 
 
@@ -296,7 +297,7 @@ class WeaviateRepository(BaseRepository):
 
     def get_closest_mappings_with_similarities(
         self, embedding, limit=5
-    ) -> List[Tuple[Mapping, float]]:
+    ) -> List[MappingResult]:
         mappings_with_similarities = []
         try:
             mapping_collection = self.client.collections.get("Mapping")
@@ -332,7 +333,7 @@ class WeaviateRepository(BaseRepository):
                     embedding=o.vector,
                     sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
                 )
-                mappings_with_similarities.append((mapping, similarity))
+                mappings_with_similarities.append(MappingResult(mapping, similarity))
         except Exception as e:
             raise RuntimeError(
                 f"Failed to fetch closest mappings with similarities: {e}"
