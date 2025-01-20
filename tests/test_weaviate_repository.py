@@ -101,20 +101,20 @@ class TestWeaviateRepository(TestCase):
         """Test retrieval of closest mappings with similarity scores."""
         test_embedding = self.embedding_model1.get_embedding(self.test_text)
         closest_mappings_with_similarities = self.repository.get_closest_mappings_with_similarities(test_embedding)
-        self.assertEqual(len(closest_mappings_with_similarities), 5)
-        self.assertEqual(closest_mappings_with_similarities[0][0].text, "Common cold")
-        self.assertEqual(closest_mappings_with_similarities[0][0].sentence_embedder, self.model_name1)
-        self.assertAlmostEqual(closest_mappings_with_similarities[0][1], 0.6747197, 3)
+        self.assertEqual(len(closest_mappings_with_similarities.mapping), 5)
+        self.assertEqual(closest_mappings_with_similarities.mapping[0].text, "Common cold")
+        self.assertEqual(closest_mappings_with_similarities.mapping[0].sentence_embedder, self.model_name1)
+        self.assertAlmostEqual(closest_mappings_with_similarities.mapping[1], 0.6747197, 3)
 
     def test_terminology_and_model_specific_mappings_with_similarities(self):
         """Test retrieval of terminology and model-specific mappings with similarity scores."""
         test_embedding = self.embedding_model1.get_embedding(self.test_text)
         specific_mappings_with_similarities = self.repository.get_terminology_and_model_specific_closest_mappings_with_similarities(test_embedding, "snomed CT", self.model_name1)
         self.assertEqual(len(specific_mappings_with_similarities), 2)
-        self.assertEqual(specific_mappings_with_similarities[0][0].text, "Asthma")
-        self.assertEqual(specific_mappings_with_similarities[0][0].concept.terminology.name, "snomed CT")
-        self.assertEqual(specific_mappings_with_similarities[0][0].sentence_embedder, self.model_name1)
-        self.assertAlmostEqual(specific_mappings_with_similarities[0][1], 0.3947341, 3)
+        self.assertEqual(specific_mappings_with_similarities.mapping[0].text, "Asthma")
+        self.assertEqual(specific_mappings_with_similarities.mapping[0].concept.terminology.name, "snomed CT")
+        self.assertEqual(specific_mappings_with_similarities.mapping[0].sentence_embedder, self.model_name1)
+        self.assertAlmostEqual(specific_mappings_with_similarities.mapping[1], 0.3947341, 3)
 
     def test_import_data_dictionary(self):
         """Test importing a data dictionary."""
