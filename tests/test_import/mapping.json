@@ -1,1 +1,0 @@
-[{"class": "Mapping", "id": "0423d64c-fa89-54c3-b92c-4738a630d7d6", "properties": {"text": "pancreas", "hasSentenceEmbedder": "sentence-transformers/all-mpnet-base-v2"}, "vector": {"default": [0.048744574189186096, -0.0035385489463806152]}, "references": {"hasConcept": "064cb594-41cd-561d-b5a8-2bf226006f09"}}]
