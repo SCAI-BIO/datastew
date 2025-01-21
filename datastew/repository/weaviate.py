@@ -1,20 +1,21 @@
 import logging
 import shutil
 import socket
-
-from typing import List, Tuple, Union, Optional
+from typing import List, Optional, Union
 
 import weaviate
 from weaviate import WeaviateClient
+from weaviate.classes.query import Filter, MetadataQuery, QueryReference
 from weaviate.util import generate_uuid5
-from weaviate.classes.query import Filter, QueryReference, MetadataQuery
 
 from datastew.embedding import EmbeddingModel
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import MappingResult
-from datastew.repository.weaviate_schema import concept_schema, mapping_schema, terminology_schema
+from datastew.repository.weaviate_schema import (concept_schema,
+                                                 mapping_schema,
+                                                 terminology_schema)
 
 
 class WeaviateRepository(BaseRepository):
@@ -384,7 +385,7 @@ class WeaviateRepository(BaseRepository):
             )
         return mappings
 
-    def get_terminology_and_model_specific_closest_mappings_with_similarities(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[Tuple[Mapping, float]]:
+    def get_terminology_and_model_specific_closest_mappings_with_similarities(self, embedding, terminology_name: str, sentence_embedder_name: str, limit: int = 5) -> List[MappingResult]:
         mappings_with_similarities = []
         try:
             if not self._terminology_exists(terminology_name):
@@ -427,7 +428,7 @@ class WeaviateRepository(BaseRepository):
                     embedding=o.vector,
                     sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
                 )
-                mappings_with_similarities.append((mapping, similarity))
+                mappings_with_similarities.append(MappingResult(mapping, similarity))
         except Exception as e:
             raise RuntimeError(
                 f"Failed to fetch the closest mappings for terminology {terminology_name} and model {sentence_embedder_name}: {e}"
