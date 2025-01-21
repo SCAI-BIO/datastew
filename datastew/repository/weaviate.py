@@ -3,20 +3,21 @@ import logging
 import shutil
 import socket
 import warnings
-
-from typing import List, Tuple, Union, Optional, Literal
+from typing import List, Literal, Optional, Tuple, Union
 
 import weaviate
 from weaviate import WeaviateClient
+from weaviate.classes.query import Filter, MetadataQuery, QueryReference
 from weaviate.util import generate_uuid5
-from weaviate.classes.query import Filter, QueryReference, MetadataQuery
 
 from datastew.embedding import EmbeddingModel
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
 from datastew.repository.pagination import Page
-from datastew.repository.weaviate_schema import concept_schema, mapping_schema, terminology_schema
+from datastew.repository.weaviate_schema import (concept_schema,
+                                                 mapping_schema,
+                                                 terminology_schema)
 
 
 class WeaviateRepository(BaseRepository):
@@ -283,7 +284,8 @@ class WeaviateRepository(BaseRepository):
                         return_references=QueryReference(link_on="hasTerminology"),
                     ),
                     limit=limit,
-                    offset=offset
+                    offset=offset,
+                    include_vector=True,
                 )
             else:
                 if not self._terminology_exists(terminology_name):
@@ -298,6 +300,8 @@ class WeaviateRepository(BaseRepository):
                         return_references=QueryReference(link_on="hasTerminology"),
                     ),
                     limit=limit,
+                    offset=offset,
+                    include_vector=True,
                 )
 
             for o in response.objects:
@@ -315,6 +319,7 @@ class WeaviateRepository(BaseRepository):
                         id=str(concept_data.uuid),
                     )
                 mapping = Mapping(
+                    id=str(o.uuid),
                     text=str(o.properties["text"]),
                     concept=concept,
                     embedding=o.vector,
