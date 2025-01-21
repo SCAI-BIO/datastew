@@ -1,9 +1,8 @@
-import os
 import json
+import os
 import shutil
 from unittest import TestCase
 
-from datastew import Terminology, Concept, Mapping
 from datastew.repository import WeaviateRepository
 
 
@@ -57,19 +56,28 @@ class TestWeaviateRepositoryImport(TestCase):
         terminology = self.repository.get_all_terminologies()
         self.assertEqual(len(terminology), 1)
         self.assertEqual(terminology[0].name, "import_test")
+        self.assertEqual(terminology[0].id, "94331523-fa7e-5871-9375-8f559d6035dd")
 
     def test_json_import_concept(self):
+        self.repository.import_from_json(f"{self.import_dir}/terminology.json", "terminology")
         self.repository.import_from_json(f"{self.import_dir}/concept.json", "concept")
         concepts = self.repository.get_concepts(limit=5, offset=0).items
         self.assertEqual(len(concepts), 1)
         self.assertEqual(concepts[0].pref_label, "G")
+        self.assertEqual(concepts[0].concept_identifier, "import_test:G")
+        self.assertEqual(concepts[0].id, "064cb594-41cd-561d-b5a8-2bf226006f09")
         # check for correct referencing
         self.assertEqual(concepts[0].terminology.name, "import_test")
 
     def test_json_import_mapping(self):
+        self.repository.import_from_json(f"{self.import_dir}/terminology.json", "terminology")
+        self.repository.import_from_json(f"{self.import_dir}/concept.json", "concept")
         self.repository.import_from_json(f"{self.import_dir}/mapping.json", "mapping")
         mappings = self.repository.get_mappings(limit=5, offset=0).items
         self.assertEqual(len(mappings), 1)
+        self.assertEqual(len(mappings[0].embedding["default"]), 2)
+        self.assertEqual(mappings[0].sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
         self.assertEqual(mappings[0].text, "pancreas")
+        self.assertEqual(mappings[0].id, "0423d64c-fa89-54c3-b92c-4738a630d7d6")
         # check for correct referencing
         self.assertEqual(mappings[0].concept.pref_label, "G")
