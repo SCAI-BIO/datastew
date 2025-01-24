@@ -1,8 +1,12 @@
-from datastew.repository.model import Terminology, Concept, Mapping
-from datastew.embedding import MPNetAdapter
-from datastew.repository.sqllite import SQLLiteRepository
+from datastew import MPNetAdapter, Concept, Mapping, Terminology
+from datastew.process.json_adapter import WeaviateJsonConverter
+from datastew.repository import WeaviateRepository
 
-repository = SQLLiteRepository()
+repository = WeaviateRepository(mode='memory', path='localhost', port=8080)
+
+converter = WeaviateJsonConverter(dest_dir="export")
+
+# Compute and store some exemplary Mappings
 embedding_model = MPNetAdapter()
 
 terminology = Terminology("snomed CT", "SNOMED")
@@ -50,3 +54,7 @@ mapping10 = Mapping(concept10, text10, embedding_model.get_embedding(text10), em
 repository.store_all([terminology, concept1, mapping1, concept2, mapping2, concept3, mapping3, concept4, mapping4,
                       concept5, mapping5, concept6, mapping6, concept7, mapping7, concept8, mapping8,
                       concept9, mapping9, concept10, mapping10])
+
+converter.from_repository(repository)
+
+repository.close()
