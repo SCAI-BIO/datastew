@@ -1,4 +1,5 @@
 import unittest
+from time import time
 
 import numpy as np
 
@@ -36,5 +37,41 @@ class TestEmbedding(unittest.TestCase):
         embedding1 = self.mpnet_adapter.get_embedding(text1)
         embedding2 = self.mpnet_adapter.get_embedding(text2)
         self.assertListEqual(embedding1.tolist(), embedding2.tolist())
+    
+    def test_caching_get_embedding(self):
+        text = "This is a test sentence."
+        self.mpnet_adapter._cache.clear()
+
+        # Measure time for the first call
+        start_time = time()
+        embedding1 = self.mpnet_adapter.get_embedding(text)
+        first_call_time = time() - start_time
+
+        # Measure time for the second call
+        start_time = time()
+        embedding2 = self.mpnet_adapter.get_embedding(text)
+        second_call_time = time() - start_time
+
+        self.assertLess(second_call_time, first_call_time)
+        self.assertListEqual(embedding1, embedding2)
+
+    def test_caching_get_embeddings(self):
+        messages = ["This is message 1.", "This is message 2."]
+        self.mpnet_adapter._cache.clear()
+
+        start_time = time()
+        embeddings1 = self.mpnet_adapter.get_embeddings(messages)
+        first_call_time = time() - start_time
+
+        start_time = time()
+        embeddings2 = self.mpnet_adapter.get_embeddings(messages)
+        second_call_time = time() - start_time
+
+        self.assertLess(second_call_time, first_call_time)
+
+        for emb1, emb2 in zip(embeddings1, embeddings2):
+            self.assertListEqual(emb1, emb2)
+
+
 
 
