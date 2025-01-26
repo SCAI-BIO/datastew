@@ -1,9 +1,11 @@
 import concurrent.futures
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Sequence
+from threading import Lock
+from typing import List, Sequence, Tuple
 
 import openai
+from cachetools import LRUCache
 from openai.error import OpenAIError
 from sentence_transformers import SentenceTransformer
 
@@ -11,8 +13,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 class EmbeddingModel(ABC):
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, cache_size: int = 10000):
         self.model_name = model_name
+        self._cache = LRUCache(maxsize=cache_size)
+        self._cache_lock = Lock()
     
     @abstractmethod
     def get_embedding(self, text: str) -> Sequence[float]:
@@ -31,6 +35,57 @@ class EmbeddingModel(ABC):
         :return: A sequence of embedding vectors.
         """
         pass
+
+    def add_to_cache(self, text: str, embedding: Sequence[float]):
+        """Add a text-embedding pair to cache.
+
+        :param text: The input text to be cached.
+        :param embedding: The embedding of the input text.
+        """
+        with self._cache_lock:
+            self._cache[text] = embedding
+
+    def get_from_cache(self, text: str) -> Sequence[float]:
+        """Retrieve an embedding from the cache.
+        
+        :param text: Cached input text.
+        :return: Embedding of the cached input text.
+        """
+        with self._cache_lock:
+            return self._cache.get(text)
+        
+    def get_cached_embeddings(
+            self, messages: List[str]
+    ) -> Tuple[List[Sequence[float]], List[int], List[str]]:
+        """Retrieve cached embeddings and identify uncached messages.
+
+        This method checks the cache for embeddings of the given messages. It returns
+        three items:
+        1. A list of embeddings where cached embeddings are included, and `None` is 
+        used as a placeholder for uncached messages.
+        2. A list of indices corresponding to the positions of uncached messages in 
+        the input list.
+        3. A list of the uncached messages themselves.
+
+        :param messages: A list of input text messages to check for cached embeddings.
+        :return: A tuple containing:
+            - A list of embeddings (cached or `None` for uncached messages).
+            - A list of indices corresponding to uncached messages.
+            - A list of uncached messages.
+        """
+        embeddings = []
+        uncached_indices = []
+        uncached_messages = []
+
+        for i, msg in enumerate(messages):
+            cached = self.get_from_cache(msg)
+            if cached is not None:
+                embeddings.append(cached)
+            else:
+                embeddings.append(None)
+                uncached_indices.append(i)
+                uncached_messages.append(msg)
+        return embeddings, uncached_indices, uncached_messages
     
     def get_model_name(self) -> str:
         """Return the name of the embedding model.
@@ -69,9 +124,19 @@ class GPT4Adapter(EmbeddingModel):
             logging.warning("Empty or invalid text passed to get_embedding")
             return []
         text = self.sanitize(text.replace("\n", " "))
+
+        # Check cache
+        cached = self.get_from_cache(text)
+        if cached:
+            logging.info("Cache hit for single text.")
+            return cached
+        
+        # Request from OpenAI API
         try:
             response = openai.Embedding.create(input=[text], model=self.model_name)
-            return response["data"][0]["embedding"]
+            embedding = response["data"][0]["embedding"]
+            self.add_to_cache(text, embedding)
+            return embedding
         except OpenAIError as e:
             logging.error(f"OpenAI API error: {e}")
             return []
@@ -89,29 +154,41 @@ class GPT4Adapter(EmbeddingModel):
             max_length = 2048
         
         sanitized_messages = [self.sanitize(msg) for msg in messages]
-        chunks = [sanitized_messages[i:i + max_length] for i in range(0, len(sanitized_messages), max_length)]
-        embeddings = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(self._process_chunk, chunk): chunk for chunk in chunks}
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    embeddings.extend(future.result())
-                except Exception as e:
-                    logging.error(f"Error in processing chunk: {e}")
-        return embeddings
+        embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(sanitized_messages)
+
+        if uncached_messages:
+            chunks = [uncached_messages[i:i + max_length] for i in range(0, len(uncached_messages), max_length)]
+            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+                futures = {executor.submit(self._process_chunk, chunk): chunk for chunk in chunks}
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        chunk_embeddings = future.result()
+                        for idx, embedding in zip(uncached_indices, chunk_embeddings):
+                            self.add_to_cache(sanitized_messages[idx], embedding)
+                            embeddings[idx] = embedding
+                    except Exception as e:
+                        logging.error(f"Error in processing chunk: {e}")
+                        return []
+                    
+        cache_hits = len(messages) - len(uncached_messages)
+        logging.info(f"Processed {len(messages)} messages ({cache_hits} cache hits).")
+        return [emb for emb in embeddings if emb is not None]
     
-    def _process_chunk(self, chunk: List[str]) -> Sequence[Sequence[float]]:
+    def _process_chunk(self, chunk: List[str], retries: int = 3) -> Sequence[Sequence[float]]:
         """Process a batch of text messages to retrieve embeddings.
         
         :param chunk: A list of sanitized messages.
+        :param retries: Maximum number of attempts to retrieve embeddings.
         :return: A sequence of embedding vectors.
         """
-        try:
-            response = openai.Embedding.create(input=chunk, model=self.model_name)
-            return [item["embedding"] for item in response["data"]]
-        except Exception as e:
-            logging.error(f"Error processing chunk: {e}")
-            return []
+        for attempt in range(retries):
+            try:
+                response = openai.Embedding.create(input=chunk, model=self.model_name)
+                return [item["embedding"] for item in response["data"]]
+            except Exception as e:
+                logging.error(f"Attempt {attempt + 1}/{retries} failed for chunk: {e}")
+        logging.error(f"All attempts failed for chunk: {chunk}")
+        return []
 
 
 class MPNetAdapter(EmbeddingModel):
@@ -134,8 +211,17 @@ class MPNetAdapter(EmbeddingModel):
             logging.warning("Empty or invalid text passed to get_embedding")
             return []
         text = self.sanitize(text.replace("\n", " "))
+
+        # Check cache
+        cached = self.get_from_cache(text)
+        if cached:
+            logging.info("Cache hit for single text.")
+            return cached
+        
         try:
             embedding = self.model.encode(text)
+            embedding = [float(x) for x in embedding]
+            self.add_to_cache(text, embedding)
             return embedding
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
@@ -149,13 +235,22 @@ class MPNetAdapter(EmbeddingModel):
         :return: A sequence of embedding vectors.
         """
         sanitized_messages = [self.sanitize(msg) for msg in messages]
-        try:
-            embeddings = self.model.encode(sanitized_messages, batch_size=batch_size, show_progress_bar=True)
-            flattened_embeddings = [[float(element) for element in row] for row in embeddings]
-            return flattened_embeddings
-        except Exception as e:
-            logging.error(f"Failed processing messages: {e}")
-            return []
+        embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(messages)
+
+        if uncached_messages:
+            try:
+                new_embeddings = self.model.encode(uncached_messages, batch_size=batch_size, show_progress_bar=True)
+                flattened_embeddings = [[float(element) for element in row] for row in new_embeddings if row is not None]
+                for idx, embedding in zip(uncached_indices, flattened_embeddings):
+                    self.add_to_cache(sanitized_messages[idx], embedding)
+                    embeddings[idx] = embedding
+            except Exception as e:
+                logging.error(f"Failed processing messages: {e}")
+                return []
+        
+        cache_hits = len(messages) - len(uncached_messages)
+        logging.info(f"Processed {len(messages)} messages ({cache_hits} cache hits).")
+        return [emb for emb in embeddings if emb is not None]
 
 
 class TextEmbedding:
