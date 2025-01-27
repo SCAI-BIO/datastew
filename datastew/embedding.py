@@ -52,7 +52,7 @@ class EmbeddingModel(ABC):
         :return: Embedding of the cached input text.
         """
         with self._cache_lock:
-            return self._cache.get(text)
+            return self._cache.get(text, [])
         
     def get_cached_embeddings(
             self, messages: List[str]
