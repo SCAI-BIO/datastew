@@ -79,7 +79,7 @@ class EmbeddingModel(ABC):
 
         for i, msg in enumerate(messages):
             cached = self.get_from_cache(msg)
-            if cached is not None:
+            if cached:
                 embeddings.append(cached)
             else:
                 embeddings.append(None)
