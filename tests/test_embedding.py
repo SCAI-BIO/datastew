@@ -36,7 +36,7 @@ class TestEmbedding(unittest.TestCase):
         text2 = "test "
         embedding1 = self.mpnet_adapter.get_embedding(text1)
         embedding2 = self.mpnet_adapter.get_embedding(text2)
-        self.assertListEqual(embedding1.tolist(), embedding2.tolist())
+        self.assertListEqual(embedding1, embedding2)
     
     def test_caching_get_embedding(self):
         text = "This is a test sentence."
