@@ -1,5 +1,6 @@
 import unittest
 from time import time
+from typing import Sequence
 
 from datastew.embedding import MPNetAdapter, TextEmbedding
 
@@ -12,13 +13,13 @@ class TestEmbedding(unittest.TestCase):
     def test_mpnet_adapter_get_embedding(self):
         text = "This is a test sentence."
         embedding = self.mpnet_adapter.get_embedding(text)
-        self.assertIsInstance(embedding, list)
+        self.assertIsInstance(embedding, Sequence)
         self.assertEqual(len(embedding), 768)
 
     def test_mpnet_adapter_get_embeddings(self):
         messages = ["This is message 1.", "This is message 2."]
         embeddings = self.mpnet_adapter.get_embeddings(messages)
-        self.assertIsInstance(embeddings, list)
+        self.assertIsInstance(embeddings, Sequence)
         self.assertEqual(len(embeddings), len(messages))
         self.assertEqual(len(embeddings[0]), 768)
 
@@ -34,7 +35,7 @@ class TestEmbedding(unittest.TestCase):
         text2 = "test "
         embedding1 = self.mpnet_adapter.get_embedding(text1)
         embedding2 = self.mpnet_adapter.get_embedding(text2)
-        self.assertListEqual(embedding1, embedding2)
+        self.assertSequenceEqual(embedding1, embedding2)
     
     def test_caching_get_embedding(self):
         text = "This is a test sentence."
@@ -51,7 +52,7 @@ class TestEmbedding(unittest.TestCase):
         second_call_time = time() - start_time
 
         self.assertLess(second_call_time, first_call_time)
-        self.assertListEqual(embedding1, embedding2)
+        self.assertSequenceEqual(embedding1, embedding2)
 
     def test_caching_get_embeddings(self):
         messages = ["This is message 1.", "This is message 2."]
@@ -68,7 +69,7 @@ class TestEmbedding(unittest.TestCase):
         self.assertLess(second_call_time, first_call_time)
 
         for emb1, emb2 in zip(embeddings1, embeddings2):
-            self.assertListEqual(emb1, emb2)
+            self.assertSequenceEqual(emb1, emb2)
 
 
 
