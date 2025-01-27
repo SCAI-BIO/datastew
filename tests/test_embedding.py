@@ -1,8 +1,6 @@
 import unittest
 from time import time
 
-import numpy as np
-
 from datastew.embedding import MPNetAdapter, TextEmbedding
 
 
@@ -14,7 +12,7 @@ class TestEmbedding(unittest.TestCase):
     def test_mpnet_adapter_get_embedding(self):
         text = "This is a test sentence."
         embedding = self.mpnet_adapter.get_embedding(text)
-        self.assertIsInstance(embedding, np.ndarray)
+        self.assertIsInstance(embedding, list)
         self.assertEqual(len(embedding), 768)
 
     def test_mpnet_adapter_get_embeddings(self):
