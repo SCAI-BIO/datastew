@@ -13,10 +13,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 class EmbeddingModel(ABC):
-    def __init__(self, model_name: str, cache_size: int = 10000):
+    def __init__(self, model_name: str, cache: bool = False, cache_size: int = 10000):
+        """Initialize the embedding model with an optional caching mechanism.
+
+        :param model_name: Name of the embedding model.
+        :param cache: Enable or disable caching (default: False).
+        :param cache_size: Maximum cache size when caching is enabled (default: 10,000).
+        """
         self.model_name = model_name
-        self._cache = LRUCache(maxsize=cache_size)
-        self._cache_lock = Lock()
+        self._cache = LRUCache(maxsize=cache_size) if cache else None
+        self._cache_lock = Lock() if cache else None
     
     @abstractmethod
     def get_embedding(self, text: str) -> Sequence[float]:
@@ -42,8 +48,9 @@ class EmbeddingModel(ABC):
         :param text: The input text to be cached.
         :param embedding: The embedding of the input text.
         """
-        with self._cache_lock:
-            self._cache[text] = embedding
+        if self._cache_lock and self._cache is not None:
+            with self._cache_lock:
+                self._cache[text] = embedding
 
     def get_from_cache(self, text: str) -> Sequence[float]:
         """Retrieve an embedding from the cache.
@@ -51,31 +58,23 @@ class EmbeddingModel(ABC):
         :param text: Cached input text.
         :return: Embedding of the cached input text.
         """
-        with self._cache_lock:
-            return self._cache.get(text, [])
+        if self._cache_lock and self._cache is not None:
+            with self._cache_lock:
+                return self._cache.get(text, [])
+        return []
         
     def get_cached_embeddings(
             self, messages: List[str]
     ) -> Tuple[List[Sequence[float]], List[int], List[str]]:
         """Retrieve cached embeddings and identify uncached messages.
 
-        This method checks the cache for embeddings of the given messages. It returns
-        three items:
-        1. A list of embeddings where cached embeddings are included, and `None` is 
-        used as a placeholder for uncached messages.
-        2. A list of indices corresponding to the positions of uncached messages in 
-        the input list.
-        3. A list of the uncached messages themselves.
-
-        :param messages: A list of input text messages to check for cached embeddings.
+        :param messages: A list of input text messages.
         :return: A tuple containing:
-            - A list of embeddings (cached or `None` for uncached messages).
-            - A list of indices corresponding to uncached messages.
+            - A list of embeddings (cached where available, `None` for uncached).
+            - A list of indices for uncached messages.
             - A list of uncached messages.
         """
-        embeddings = []
-        uncached_indices = []
-        uncached_messages = []
+        embeddings, uncached_indices, uncached_messages = [], [], []
 
         for i, msg in enumerate(messages):
             cached = self.get_from_cache(msg)
@@ -104,13 +103,14 @@ class EmbeddingModel(ABC):
 
 
 class GPT4Adapter(EmbeddingModel):
-    def __init__(self, api_key: str, model_name: str = "text-embedding-ada-002"):
+    def __init__(self, api_key: str, model_name: str = "text-embedding-ada-002", cache: bool = False):
         """Initialize the GPT-4 adapter with OpenAI API key and model name.
         
         :param api_key: The API key for accessing OpenAI services.
         :param model_name: The specific embedding model to use.
+        :param cache: Enable or disable caching (default: False).
         """
-        super().__init__(model_name)
+        super().__init__(model_name, cache)
         self.api_key = api_key
         openai.api_key = api_key
 
@@ -128,7 +128,6 @@ class GPT4Adapter(EmbeddingModel):
         # Check cache
         cached = self.get_from_cache(text)
         if cached:
-            logging.info("Cache hit for single text.")
             return cached
         
         # Request from OpenAI API
@@ -192,13 +191,13 @@ class GPT4Adapter(EmbeddingModel):
 
 
 class MPNetAdapter(EmbeddingModel):
-    def __init__(self, model_name="sentence-transformers/all-mpnet-base-v2"):
+    def __init__(self, model_name="sentence-transformers/all-mpnet-base-v2", cache: bool = False):
         """Initialize the MPNet adapter with a specified model name and threading settings.
         
         :param model_name: The model name for sentence transformers.
-        :param num_threads: The number of CPU threads for inference.
+        :param cache: Enable or disable caching (default: False).
         """
-        super().__init__(model_name)
+        super().__init__(model_name, cache)
         self.model = SentenceTransformer(model_name)
 
     def get_embedding(self, text: str) -> Sequence[float]:
