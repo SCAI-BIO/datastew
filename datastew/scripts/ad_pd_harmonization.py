@@ -4,7 +4,7 @@ from datastew.process.parsing import MappingSource, DataDictionarySource
 
 from datastew.embedding import GPT4Adapter, MPNetAdapter
 from datastew.evaluation import MatchingMethod, enrichment_analysis, evaluate
-from datastew.mapping import MappingTable
+from datastew._mapping import _MappingTable
 from dotenv import load_dotenv
 
 from datastew.visualisation import enrichment_plot, scatter_plot_all_cohorts, scatter_plot_two_distributions
@@ -43,61 +43,61 @@ mpnet = MPNetAdapter()
 # PD Mappings
 
 if EVAL_PD:
-    cdm_pd_gpt = MappingTable(MappingSource(PD_CDM_SRC, "Feature", "CURIE"))
+    cdm_pd_gpt = _MappingTable(MappingSource(PD_CDM_SRC, "Feature", "CURIE"))
     cdm_pd_gpt.joined_mapping_table["identifier"].to_csv("resources/cdm_curie.csv", index=False)
     cdm_pd_gpt.add_descriptions(DataDictionarySource(PD_CDM_SRC, "Feature", "Definition"))
     cdm_pd_gpt.compute_embeddings(gpt4)
 
-    cdm_pd_mpnet = MappingTable(MappingSource(PD_CDM_SRC, "Feature", "CURIE"))
+    cdm_pd_mpnet = _MappingTable(MappingSource(PD_CDM_SRC, "Feature", "CURIE"))
     cdm_pd_mpnet.joined_mapping_table["identifier"].to_csv("resources/cdm_curie.csv", index=False)
     cdm_pd_mpnet.add_descriptions(DataDictionarySource(PD_CDM_SRC, "Feature", "Definition"))
     cdm_pd_mpnet.compute_embeddings(mpnet)
 
-    ppmi_gpt = MappingTable(MappingSource(PD_CDM_SRC, "PPMI", "CURIE"))
+    ppmi_gpt = _MappingTable(MappingSource(PD_CDM_SRC, "PPMI", "CURIE"))
     ppmi_gpt.add_descriptions(DataDictionarySource(PPMI_DICT_SRC, "ITM_NAME", "DSCR"))
     ppmi_gpt.compute_embeddings(gpt4)
 
-    ppmi_mpnet = MappingTable(MappingSource(PD_CDM_SRC, "PPMI", "CURIE"))
+    ppmi_mpnet = _MappingTable(MappingSource(PD_CDM_SRC, "PPMI", "CURIE"))
     ppmi_mpnet.add_descriptions(DataDictionarySource(PPMI_DICT_SRC, "ITM_NAME", "DSCR"))
     ppmi_mpnet.compute_embeddings(mpnet)
 
-    luxpark_gpt = MappingTable(MappingSource(PD_CDM_SRC, "LuxPARK", "CURIE"))
+    luxpark_gpt = _MappingTable(MappingSource(PD_CDM_SRC, "LuxPARK", "CURIE"))
     luxpark_gpt.add_descriptions(DataDictionarySource(LUXPARK_DICT_SRC, "Variable / Field Name", "Field Label"))
     luxpark_gpt.compute_embeddings(gpt4)
 
-    luxpark_mpnet = MappingTable(MappingSource(PD_CDM_SRC, "LuxPARK", "CURIE"))
+    luxpark_mpnet = _MappingTable(MappingSource(PD_CDM_SRC, "LuxPARK", "CURIE"))
     luxpark_mpnet.add_descriptions(DataDictionarySource(LUXPARK_DICT_SRC, "Variable / Field Name", "Field Label"))
     luxpark_mpnet.compute_embeddings(mpnet)
 
-    biofind_gpt = MappingTable(MappingSource(PD_CDM_SRC, "BIOFIND", "CURIE"))
+    biofind_gpt = _MappingTable(MappingSource(PD_CDM_SRC, "BIOFIND", "CURIE"))
     biofind_gpt.add_descriptions(DataDictionarySource(BIOFIND_DICT_SRC, "ITM_NAME", "DSCR"))
     biofind_gpt.compute_embeddings(gpt4)
 
-    biofind_mpnet = MappingTable(MappingSource(PD_CDM_SRC, "BIOFIND", "CURIE"))
+    biofind_mpnet = _MappingTable(MappingSource(PD_CDM_SRC, "BIOFIND", "CURIE"))
     biofind_mpnet.add_descriptions(DataDictionarySource(BIOFIND_DICT_SRC, "ITM_NAME", "DSCR"))
     biofind_mpnet.compute_embeddings(mpnet)
 
-    lrrk2_gpt = MappingTable(MappingSource(PD_CDM_SRC, "LRRK2", "CURIE"))
+    lrrk2_gpt = _MappingTable(MappingSource(PD_CDM_SRC, "LRRK2", "CURIE"))
     lrrk2_gpt.add_descriptions(DataDictionarySource("resources/dictionaries/pd/LRRK2.xlsx", "Variable", "Label"))
     lrrk2_gpt.compute_embeddings(gpt4)
 
-    lrrk2_mpnet = MappingTable(MappingSource(PD_CDM_SRC, "LRRK2", "CURIE"))
+    lrrk2_mpnet = _MappingTable(MappingSource(PD_CDM_SRC, "LRRK2", "CURIE"))
     lrrk2_mpnet.add_descriptions(DataDictionarySource("resources/dictionaries/pd/LRRK2.xlsx", "Variable", "Label"))
     lrrk2_mpnet.compute_embeddings(mpnet)
 
-    opdc_gpt = MappingTable(MappingSource(PD_CDM_SRC, "OPDC", "CURIE"))
+    opdc_gpt = _MappingTable(MappingSource(PD_CDM_SRC, "OPDC", "CURIE"))
     opdc_gpt.add_descriptions(DataDictionarySource("resources/dictionaries/pd/OPDC.csv", "Variable Name", "Variable description"))
     opdc_gpt.compute_embeddings(gpt4)
 
-    opdc_mpnet = MappingTable(MappingSource(PD_CDM_SRC, "OPDC", "CURIE"))
+    opdc_mpnet = _MappingTable(MappingSource(PD_CDM_SRC, "OPDC", "CURIE"))
     opdc_mpnet.add_descriptions(DataDictionarySource("resources/dictionaries/pd/OPDC.csv", "Variable Name", "Variable description"))
     opdc_mpnet.compute_embeddings(mpnet)
 
-    tpd_gpt = MappingTable(MappingSource(PD_CDM_SRC, "TPD", "CURIE"))
+    tpd_gpt = _MappingTable(MappingSource(PD_CDM_SRC, "TPD", "CURIE"))
     tpd_gpt.add_descriptions(DataDictionarySource("resources/dictionaries/pd/TPD.csv", "Variable Name", "Variable description"))
     tpd_gpt.compute_embeddings(gpt4)
 
-    tpd_mpnet = MappingTable(MappingSource(PD_CDM_SRC, "TPD", "CURIE"))
+    tpd_mpnet = _MappingTable(MappingSource(PD_CDM_SRC, "TPD", "CURIE"))
     tpd_mpnet.add_descriptions(DataDictionarySource("resources/dictionaries/pd/TPD.csv", "Variable Name", "Variable description"))
     tpd_mpnet.compute_embeddings(mpnet)
 
@@ -156,115 +156,115 @@ if EVAL_PD:
 # AD Mappings
 
 if EVAL_AD:
-    cdm_ad_gpt = MappingTable(MappingSource(AD_CDM_SRC, "Feature", "CDM"))
+    cdm_ad_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "Feature", "CDM"))
     cdm_ad_gpt.add_descriptions(DataDictionarySource(AD_CDM_SRC, "Feature", "Definition"))
     cdm_ad_gpt.compute_embeddings(gpt4)
 
-    cdm_ad_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "Feature", "CDM"))
+    cdm_ad_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "Feature", "CDM"))
     cdm_ad_mpnet.add_descriptions(DataDictionarySource(AD_CDM_SRC, "Feature", "Definition"))
     cdm_ad_mpnet.compute_embeddings(mpnet)
 
-    abvib_gpt = MappingTable(MappingSource(AD_CDM_SRC, "abvib", "CDM"))
+    abvib_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "abvib", "CDM"))
     abvib_gpt.add_descriptions(DataDictionarySource(ABVIB_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     abvib_gpt.compute_embeddings(gpt4)
 
-    abvib_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "abvib", "CDM"))
+    abvib_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "abvib", "CDM"))
     abvib_mpnet.add_descriptions(DataDictionarySource(ABVIB_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     abvib_mpnet.compute_embeddings(mpnet)
 
-    adni_gpt = MappingTable(MappingSource(AD_CDM_SRC, "adni", "CDM"))
+    adni_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "adni", "CDM"))
     adni_gpt.add_descriptions(DataDictionarySource(ADNI_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     adni_gpt.compute_embeddings(gpt4)
 
-    adni_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "adni", "CDM"))
+    adni_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "adni", "CDM"))
     adni_mpnet.add_descriptions(DataDictionarySource(ADNI_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     adni_mpnet.compute_embeddings(mpnet)
 
-    a4_gpt = MappingTable(MappingSource(AD_CDM_SRC, "a4", "CDM"))
+    a4_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "a4", "CDM"))
     a4_gpt.add_descriptions(DataDictionarySource(A4_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     a4_gpt.compute_embeddings(gpt4)
 
-    a4_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "a4", "CDM"))
+    a4_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "a4", "CDM"))
     a4_mpnet.add_descriptions(DataDictionarySource(A4_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     a4_mpnet.compute_embeddings(mpnet)
 
-    aibl_gpt = MappingTable(MappingSource(AD_CDM_SRC, "aibl", "CDM"))
+    aibl_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "aibl", "CDM"))
     aibl_gpt.add_descriptions(DataDictionarySource(AIBL_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     aibl_gpt.compute_embeddings(gpt4)
 
-    aibl_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "aibl", "CDM"))
+    aibl_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "aibl", "CDM"))
     aibl_mpnet.add_descriptions(DataDictionarySource(AIBL_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     aibl_mpnet.compute_embeddings(mpnet)
 
-    arwibo_gpt = MappingTable(MappingSource(AD_CDM_SRC, "arwibo", "CDM"))
+    arwibo_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "arwibo", "CDM"))
     arwibo_gpt.add_descriptions(DataDictionarySource(ARWIBO_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     arwibo_gpt.compute_embeddings(gpt4)
 
-    arwibo_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "arwibo", "CDM"))
+    arwibo_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "arwibo", "CDM"))
     arwibo_mpnet.add_descriptions(DataDictionarySource(ARWIBO_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     arwibo_mpnet.compute_embeddings(mpnet)
 
-    dod_adni_gpt = MappingTable(MappingSource(AD_CDM_SRC, "dod-adni", "CDM"))
+    dod_adni_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "dod-adni", "CDM"))
     dod_adni_gpt.add_descriptions(DataDictionarySource(DOD_ADNI_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     dod_adni_gpt.compute_embeddings(gpt4)
 
-    dod_adni_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "dod-adni", "CDM"))
+    dod_adni_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "dod-adni", "CDM"))
     dod_adni_mpnet.add_descriptions(DataDictionarySource(DOD_ADNI_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     dod_adni_mpnet.compute_embeddings(mpnet)
 
-    edsd_gpt = MappingTable(MappingSource(AD_CDM_SRC, "edsd", "CDM"))
+    edsd_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "edsd", "CDM"))
     edsd_gpt.add_descriptions(DataDictionarySource(EDSD_DICT_XLSX, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     edsd_gpt.compute_embeddings(gpt4)
 
-    edsd_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "edsd", "CDM"))
+    edsd_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "edsd", "CDM"))
     edsd_mpnet.add_descriptions(DataDictionarySource(EDSD_DICT_XLSX, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     edsd_mpnet.compute_embeddings(mpnet)
 
-    emif_gpt = MappingTable(MappingSource(AD_CDM_SRC, "emif", "CDM"))
+    emif_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "emif", "CDM"))
     emif_gpt.add_descriptions(DataDictionarySource(EMIF_DICT_XLSX, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     emif_gpt.compute_embeddings(gpt4)
 
-    emif_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "emif", "CDM"))
+    emif_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "emif", "CDM"))
     emif_mpnet.add_descriptions(DataDictionarySource(EMIF_DICT_XLSX, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     emif_mpnet.compute_embeddings(mpnet)
 
-    iadni_gpt = MappingTable(MappingSource(AD_CDM_SRC, "i-adni", "CDM"))
+    iadni_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "i-adni", "CDM"))
     iadni_gpt.add_descriptions(DataDictionarySource(I_ADNI_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     iadni_gpt.compute_embeddings(gpt4)
 
-    iadni_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "i-adni", "CDM"))
+    iadni_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "i-adni", "CDM"))
     iadni_mpnet.add_descriptions(DataDictionarySource(I_ADNI_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     iadni_mpnet.compute_embeddings(mpnet)
 
-    jadni_gpt = MappingTable(MappingSource(AD_CDM_SRC, "jadni", "CDM"))
+    jadni_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "jadni", "CDM"))
     jadni_gpt.add_descriptions(DataDictionarySource(JADNI_DICT_TSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     jadni_gpt.compute_embeddings(gpt4)
 
-    jadni_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "jadni", "CDM"))
+    jadni_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "jadni", "CDM"))
     jadni_mpnet.add_descriptions(DataDictionarySource(JADNI_DICT_TSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     jadni_mpnet.compute_embeddings(mpnet)
 
-    pharmacog_gpt = MappingTable(MappingSource(AD_CDM_SRC, "pharmacog", "CDM"))
+    pharmacog_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "pharmacog", "CDM"))
     pharmacog_gpt.add_descriptions(DataDictionarySource(PHARMACOG_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     pharmacog_gpt.compute_embeddings(gpt4)
 
-    pharmacog_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "pharmacog", "CDM"))
+    pharmacog_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "pharmacog", "CDM"))
     pharmacog_mpnet.add_descriptions(DataDictionarySource(PHARMACOG_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     pharmacog_mpnet.compute_embeddings(mpnet)
 
-    prevent_ad_gpt = MappingTable(MappingSource(AD_CDM_SRC, "prevent-ad", "CDM"))
+    prevent_ad_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "prevent-ad", "CDM"))
     prevent_ad_gpt.add_descriptions(DataDictionarySource(PREVENT_AD_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     prevent_ad_gpt.compute_embeddings(gpt4)
 
-    prevent_ad_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "prevent-ad", "CDM"))
+    prevent_ad_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "prevent-ad", "CDM"))
     prevent_ad_mpnet.add_descriptions(DataDictionarySource(PREVENT_AD_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     prevent_ad_mpnet.compute_embeddings(mpnet)
 
-    vita_gpt = MappingTable(MappingSource(AD_CDM_SRC, "vita", "CDM"))
+    vita_gpt = _MappingTable(MappingSource(AD_CDM_SRC, "vita", "CDM"))
     vita_gpt.add_descriptions(DataDictionarySource(VITA_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     vita_gpt.compute_embeddings(gpt4)
 
-    vita_mpnet = MappingTable(MappingSource(AD_CDM_SRC, "vita", "CDM"))
+    vita_mpnet = _MappingTable(MappingSource(AD_CDM_SRC, "vita", "CDM"))
     vita_mpnet.add_descriptions(DataDictionarySource(VITA_DICT_CSV, "FIELD_LABEL", "FIELD_DESCRIPTION"))
     vita_mpnet.compute_embeddings(mpnet)
 

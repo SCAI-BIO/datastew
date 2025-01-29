@@ -44,13 +44,14 @@ class Mapping(Base):
     embedding_json = Column(Text)
     sentence_embedder = Column(Text)
 
-    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: str):
+    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: str, id: Optional[str] = None):
         self.concept = concept
         self.text = text
         if isinstance(embedding, np.ndarray):
             embedding = embedding.tolist()
         self.embedding_json = json.dumps(embedding)  # Store embedding as JSON
         self.sentence_embedder = sentence_embedder
+        self.id = id
 
     def __str__(self):
         return f"{self.concept.terminology.name} > {self.concept.concept_identifier} : {self.concept.pref_label} | {self.text}"

@@ -6,7 +6,7 @@ from scipy.spatial import distance
 from sklearn.metrics.pairwise import cosine_distances
 from thefuzz import fuzz, process
 
-from datastew.mapping import MappingTable
+from datastew._mapping import _MappingTable
 
 
 class MatchingMethod(Enum):
@@ -15,7 +15,7 @@ class MatchingMethod(Enum):
     COSINE_EMBEDDING_DISTANCE = 3
 
 
-def enrichment_analysis(source_table: MappingTable, target_table: MappingTable, max_cumulative_match_rank: int = 10,
+def enrichment_analysis(source_table: _MappingTable, target_table: _MappingTable, max_cumulative_match_rank: int = 10,
                         matching_method=MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE) -> np.ndarray:
     """
     Calculate accuracy for the n the closest matches for two mapping tables
@@ -73,7 +73,7 @@ def enrichment_analysis(source_table: MappingTable, target_table: MappingTable, 
     return (correct_matches / max_matches).round(2)
 
 
-def match_closest_descriptions(source_table: MappingTable, target_table: MappingTable,
+def match_closest_descriptions(source_table: _MappingTable, target_table: _MappingTable,
                                matching_method=MatchingMethod.EUCLIDEAN_EMBEDDING_DISTANCE) -> pd.DataFrame:
     """
     Match descriptions from source table to target table based on the biggest similarity
