@@ -6,7 +6,7 @@ from datastew.embedding import MPNetAdapter
 
 # 1) Initialize the repository and embedding model
 
-repository = WeaviateRepository(mode='memory', path='localhost', port=8080)
+repository = WeaviateRepository(mode='disk', path='localhost', port=8080)
 embedding_model = MPNetAdapter()
 # embedding_model = GPT4Adapter(key="your_key") # Use this line for higher accuracy if you have an OpenAI API key
 
@@ -31,8 +31,11 @@ repository.store_all([terminology, concept1, mapping1, concept2, mapping2])
 
 text_to_map = "Sugar sickness" # Semantically similar to "Diabetes mellitus (disorder)"
 embedding = embedding_model.get_embedding(text_to_map)
-mappings = repository.get_closest_mappings_with_similarities(embedding, limit=2)
+results = repository.get_closest_mappings_with_similarities(embedding, limit=2)
 
 # 4) print the mappings and their similarities
-for mapping in mappings:
-    print(mapping)
+for result in results:
+    print(result)
+
+
+
