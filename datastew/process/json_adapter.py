@@ -119,8 +119,6 @@ class WeaviateJsonConverter(object):
 
         if not os.path.exists(src):
             raise FileNotFoundError(f"OHDSI concept file '{src}' does not exist or is not a file.")
-        
-        df = pd.read_csv(src, delimiter="\t")
 
         terminology_file_path = self._get_file_path("terminology")
         concept_file_path = self._get_file_path("concept")
@@ -142,13 +140,14 @@ class WeaviateJsonConverter(object):
         self._flush_to_file(terminology_file_path, "terminology")
 
         # Process concepts one at a time
-        for _, row in tqdm(df.iterrows(), total=len(df), desc="Processing OHDSI concepts"):
-            concept_data = self._ohdsi_row_to_concept(row, terminology_id)
-            self._write_to_json(concept_file_path, "concept", concept_data)
+        for chunk in tqdm(pd.read_csv(src, delimiter="\t", chunksize=1000), desc="Processing OHDSI concepts"):
+            for _, row in chunk.iterrows():
+                concept_data = self._ohdsi_row_to_concept(row, terminology_id)
+                self._write_to_json(concept_file_path, "concept", concept_data)
 
-            # Compute embedding **one at a time** (low memory usage)
-            mapping_data = self._ohdsi_concept_to_mappings(row["concept_name"], concept_data["id"], embedding_model)
-            self._write_to_json(mapping_file_path, "mapping", mapping_data)
+                # Compute embedding **one at a time** (low memory usage)
+                mapping_data = self._ohdsi_concept_to_mappings(row["concept_name"], concept_data["id"], embedding_model)
+                self._write_to_json(mapping_file_path, "mapping", mapping_data)
         
         self._flush_to_file(concept_file_path, "concept")
         self._flush_to_file(mapping_file_path, "mapping")
