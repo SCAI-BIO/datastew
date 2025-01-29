@@ -1,8 +1,10 @@
+from datastew.repository import WeaviateRepository
 from datastew.repository.model import Terminology, Concept, Mapping
 from datastew.embedding import MPNetAdapter
-from datastew.repository.sqllite import SQLLiteRepository
 
-repository = SQLLiteRepository()
+# This script demonstrates how to fill a vector database with example data
+
+repository = WeaviateRepository(mode='memory', path='localhost', port=8080)
 embedding_model = MPNetAdapter()
 
 terminology = Terminology("snomed CT", "SNOMED")
