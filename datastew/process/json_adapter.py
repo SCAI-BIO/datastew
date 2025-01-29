@@ -1,8 +1,16 @@
 import json
 import os
+from typing import Dict, Sequence, Union
 
+import pandas as pd
+from tqdm import tqdm
+from weaviate.util import generate_uuid5
+
+from datastew.embedding import EmbeddingModel, MPNetAdapter
 from datastew.repository import WeaviateRepository
-from datastew.repository.weaviate_schema import terminology_schema, concept_schema, mapping_schema
+from datastew.repository.weaviate_schema import (concept_schema,
+                                                 mapping_schema,
+                                                 terminology_schema)
 
 
 class WeaviateJsonConverter(object):
@@ -29,8 +37,7 @@ class WeaviateJsonConverter(object):
 
         :return: None
         """
-        if not os.path.exists(self.dest_dir):
-            os.makedirs(self.dest_dir)
+        os.makedirs(self.dest_dir, exist_ok=True)
 
     def _get_file_path(self, collection: str) -> str:
         """
@@ -66,7 +73,7 @@ class WeaviateJsonConverter(object):
         if not self._buffer:
             return
 
-        with open(file_path, 'a') as file:
+        with open(file_path, 'a', encoding="utf-8") as file:
             for entry in self._buffer:
                 file.write(json.dumps(entry) + '\n')
 
@@ -97,13 +104,104 @@ class WeaviateJsonConverter(object):
             self._write_to_json(mapping_file_path, self._weaviate_object_to_dict(mapping))
         self._flush_to_file(mapping_file_path)
 
-    def from_ohdsi(self):
+    def from_ohdsi(self, src: str):
         """
         Converts data from OHDSI to our JSON format.
 
-        :return: None
+        :param src: The file path to the OHDSI CONCEPT.csv file.
         """
-        raise NotImplementedError("Not implemented yet.")
+
+        if not os.path.exists(src):
+            raise FileNotFoundError(f"OHDSI concept file '{src}' does not exist or is not a file.")
+        
+        df = pd.read_csv(src, delimiter="\t")
+
+        terminology_file_path = self._get_file_path("terminology")
+        concept_file_path = self._get_file_path("concept")
+        mapping_file_path = self._get_file_path("mapping")
+
+        # Initialize Embedding Model once
+        embedding_model = MPNetAdapter()
+
+        # Create a single OHDSI terminology entry with a fixed
+        terminology_properties = {"name": "OHDSI"}
+        terminology_id = generate_uuid5(terminology_properties)
+        ohdsi_terminology = {
+            "class": self.terminology_schema["class"],
+            "id": terminology_id,
+            "properties": terminology_properties,
+        }
+
+        self._write_to_json(terminology_file_path, ohdsi_terminology)
+        self._flush_to_file(terminology_file_path)
+
+        # Process concepts one at a time
+        for _, row in tqdm(df.iterrows(), total=len(df), desc="Processing OHDSI concepts"):
+            concept_data = self._ohdsi_row_to_concept(row, terminology_id)
+            self._write_to_json(concept_file_path, concept_data)
+
+            # Compute embedding **one at a time** (low memory usage)
+            mapping_data = self._ohdsi_concept_to_mappings(row["concept_name"], concept_data["id"], embedding_model)
+            self._write_to_json(mapping_file_path, mapping_data)
+        
+        self._flush_to_file(concept_file_path)
+        self._flush_to_file(mapping_file_path)
+
+    def _ohdsi_row_to_concept(
+            self,
+            row: pd.Series,
+            terminology_id: str
+        ) -> Dict[str, Union[str, Dict[str, str]]]:
+        """Converts an OHDSI row into a concept dictionary formatted for Weaviate.
+
+        :param row: A Pandas Series representing a row for OHDSI CONCEPT.csv.
+        :param terminology_id: UUID of the OHDSI terminology.
+        :return: A dictionary formatted for Weaviate.
+        """
+        properties = {
+            "conceptID": str(row["concept_id"]),
+            "prefLabel": row["concept_name"],
+        }
+        concept_id = generate_uuid5(properties)
+        return {
+            "class": self.concept_schema["class"],
+            "id": concept_id,
+            "properties": properties,
+            "references": {
+                "hasTerminology": terminology_id,
+            },
+        }
+
+    def _ohdsi_concept_to_mappings(
+            self,
+            pref_label: str,
+            concept_id: str,
+            embedding_model: EmbeddingModel
+        ) -> Dict[str, Union[str, Dict[str, str], Dict[str, Sequence[float]]]]:
+        """Generates an embedding **one at a time** to avoid excessive memory usage.
+
+        :param pref_label: The preferred label of the concept.
+        :param concept_id: The UUID of the concept.
+        :param embedding_model: An instance of EmbeddingModel (e.g., MPNetAdapter).
+        :return: A dictionary formatted Weaviate.
+        """
+        embedding = embedding_model.get_embedding(pref_label) # Single text embedding
+        properties = {
+            "text": pref_label,
+            "hasSentenceEmbedder": embedding_model.get_model_name(),
+        }
+        mapping_id = generate_uuid5(properties)
+        return {
+            "class": self.mapping_schema["class"],
+            "id": mapping_id,
+            "properties": properties,
+            "references": {
+                "hasConcept": concept_id,
+            },
+            "vector": {
+                "default": embedding, # Directly store the embedding for the concept
+            },
+        }
 
     @staticmethod
     def _weaviate_object_to_dict(weaviate_object):
