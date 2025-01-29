@@ -27,7 +27,11 @@ class WeaviateJsonConverter(object):
         self.terminology_schema = schema_terminology
         self.concept_schema = schema_concept
         self.mapping_schema = schema_mapping
-        self._buffer = []
+        self._buffers = {
+            "terminology": [],
+            "concept": [],
+            "mapping": [],
+        }
         self._buffer_size = buffer_size
         self._ensure_directories_exist()
 
@@ -48,36 +52,38 @@ class WeaviateJsonConverter(object):
         """
         return os.path.join(self.dest_dir, f"{collection}.json")
 
-    def _write_to_json(self, file_path: str, data):
+    def _write_to_json(self, file_path: str, collection: str, data):
         """
         Writes data to a JSON file for the specified collection using a buffer.
 
         :param file_path: The file path for the collection.
+        :param collection: The name of the collection (e.g., "terminology", "concept", "mapping").
         :param data: The data to write (individual JSON objects).
         :return: None
         """
         # Add the data to the buffer
-        self._buffer.append(data)
+        self._buffers[collection].append(data)
 
         # Check if the buffer size is reached
-        if len(self._buffer) >= self._buffer_size:
-            self._flush_to_file(file_path)
+        if len(self._buffers[collection]) >= self._buffer_size:
+            self._flush_to_file(file_path, collection)
 
-    def _flush_to_file(self, file_path: str):
+    def _flush_to_file(self, file_path: str, collection: str):
         """
         Writes the buffered data to the file and clears the buffer.
 
         :param file_path: The file path for the collection.
+        :param collection: The name of the collection (e.g., "terminology", "concept", "mapping").
         :return: None
         """
-        if not self._buffer:
+        if not self._buffers[collection]:
             return
 
         with open(file_path, 'a', encoding="utf-8") as file:
-            for entry in self._buffer:
+            for entry in self._buffers[collection]:
                 file.write(json.dumps(entry) + '\n')
 
-        self._buffer.clear()
+        self._buffers[collection].clear()
 
     def from_repository(self, repository: WeaviateRepository) -> None:
         """
@@ -89,20 +95,20 @@ class WeaviateJsonConverter(object):
         # Process terminology first
         terminology_file_path = self._get_file_path("terminology")
         for terminology in repository.get_iterator(self.terminology_schema["class"]):
-            self._write_to_json(terminology_file_path, self._weaviate_object_to_dict(terminology))
-        self._flush_to_file(terminology_file_path)
+            self._write_to_json(terminology_file_path, "terminology", self._weaviate_object_to_dict(terminology))
+        self._flush_to_file(terminology_file_path, "terminology")
 
         # Process concept next
         concept_file_path = self._get_file_path("concept")
         for concept in repository.get_iterator(self.concept_schema["class"]):
-            self._write_to_json(concept_file_path, self._weaviate_object_to_dict(concept))
-        self._flush_to_file(concept_file_path)
+            self._write_to_json(concept_file_path, "concept", self._weaviate_object_to_dict(concept))
+        self._flush_to_file(concept_file_path, "concept")
 
         # Process mapping last
         mapping_file_path = self._get_file_path("mapping")
         for mapping in repository.get_iterator(self.mapping_schema["class"]):
-            self._write_to_json(mapping_file_path, self._weaviate_object_to_dict(mapping))
-        self._flush_to_file(mapping_file_path)
+            self._write_to_json(mapping_file_path, "mapping", self._weaviate_object_to_dict(mapping))
+        self._flush_to_file(mapping_file_path, "mapping")
 
     def from_ohdsi(self, src: str):
         """
@@ -132,20 +138,20 @@ class WeaviateJsonConverter(object):
             "properties": terminology_properties,
         }
 
-        self._write_to_json(terminology_file_path, ohdsi_terminology)
-        self._flush_to_file(terminology_file_path)
+        self._write_to_json(terminology_file_path, "terminology", ohdsi_terminology)
+        self._flush_to_file(terminology_file_path, "terminology")
 
         # Process concepts one at a time
         for _, row in tqdm(df.iterrows(), total=len(df), desc="Processing OHDSI concepts"):
             concept_data = self._ohdsi_row_to_concept(row, terminology_id)
-            self._write_to_json(concept_file_path, concept_data)
+            self._write_to_json(concept_file_path, "concept", concept_data)
 
             # Compute embedding **one at a time** (low memory usage)
             mapping_data = self._ohdsi_concept_to_mappings(row["concept_name"], concept_data["id"], embedding_model)
-            self._write_to_json(mapping_file_path, mapping_data)
+            self._write_to_json(mapping_file_path, "mapping", mapping_data)
         
-        self._flush_to_file(concept_file_path)
-        self._flush_to_file(mapping_file_path)
+        self._flush_to_file(concept_file_path, "concept")
+        self._flush_to_file(mapping_file_path, "mapping")
 
     def _ohdsi_row_to_concept(
             self,
