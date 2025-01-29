@@ -8,7 +8,9 @@ from datastew.embedding import MPNetAdapter, TextEmbedding
 class TestEmbedding(unittest.TestCase):
 
     def setUp(self):
-        self.mpnet_adapter = MPNetAdapter(model_name="sentence-transformers/all-mpnet-base-v2")
+        self.mpnet_adapter = MPNetAdapter(
+            model_name="sentence-transformers/all-mpnet-base-v2", cache=True
+        )
 
     def test_mpnet_adapter_get_embedding(self):
         text = "This is a test sentence."
@@ -36,10 +38,11 @@ class TestEmbedding(unittest.TestCase):
         embedding1 = self.mpnet_adapter.get_embedding(text1)
         embedding2 = self.mpnet_adapter.get_embedding(text2)
         self.assertSequenceEqual(embedding1, embedding2)
-    
+
     def test_caching_get_embedding(self):
         text = "This is a test sentence."
-        self.mpnet_adapter._cache.clear()
+        if self.mpnet_adapter._cache:
+            self.mpnet_adapter._cache.clear()
 
         # Measure time for the first call
         start_time = time()
@@ -56,7 +59,8 @@ class TestEmbedding(unittest.TestCase):
 
     def test_caching_get_embeddings(self):
         messages = ["This is message 1.", "This is message 2."]
-        self.mpnet_adapter._cache.clear()
+        if self.mpnet_adapter._cache:
+            self.mpnet_adapter._cache.clear()
 
         start_time = time()
         embeddings1 = self.mpnet_adapter.get_embeddings(messages)
@@ -70,7 +74,3 @@ class TestEmbedding(unittest.TestCase):
 
         for emb1, emb2 in zip(embeddings1, embeddings2):
             self.assertSequenceEqual(emb1, emb2)
-
-
-
-
