@@ -18,11 +18,14 @@ class WeaviateJsonConverter(object):
     Converts data to our JSON format for Weaviate schema.
     """
 
-    def __init__(self, dest_dir: str,
-                 schema_terminology: dict = terminology_schema,
-                 schema_concept: dict = concept_schema,
-                 schema_mapping: dict = mapping_schema,
-                 buffer_size: int = 1000):
+    def __init__(
+        self,
+        dest_dir: str,
+        schema_terminology: dict = terminology_schema,
+        schema_concept: dict = concept_schema,
+        schema_mapping: dict = mapping_schema,
+        buffer_size: int = 1000,
+    ):
         self.dest_dir = dest_dir
         self.terminology_schema = schema_terminology
         self.concept_schema = schema_concept
@@ -79,9 +82,9 @@ class WeaviateJsonConverter(object):
         if not self._buffers[collection]:
             return
 
-        with open(file_path, 'a', encoding="utf-8") as file:
+        with open(file_path, "a", encoding="utf-8") as file:
             for entry in self._buffers[collection]:
-                file.write(json.dumps(entry) + '\n')
+                file.write(json.dumps(entry) + "\n")
 
         self._buffers[collection].clear()
 
@@ -95,19 +98,27 @@ class WeaviateJsonConverter(object):
         # Process terminology first
         terminology_file_path = self._get_file_path("terminology")
         for terminology in repository.get_iterator(self.terminology_schema["class"]):
-            self._write_to_json(terminology_file_path, "terminology", self._weaviate_object_to_dict(terminology))
+            self._write_to_json(
+                terminology_file_path,
+                "terminology",
+                self._weaviate_object_to_dict(terminology),
+            )
         self._flush_to_file(terminology_file_path, "terminology")
 
         # Process concept next
         concept_file_path = self._get_file_path("concept")
         for concept in repository.get_iterator(self.concept_schema["class"]):
-            self._write_to_json(concept_file_path, "concept", self._weaviate_object_to_dict(concept))
+            self._write_to_json(
+                concept_file_path, "concept", self._weaviate_object_to_dict(concept)
+            )
         self._flush_to_file(concept_file_path, "concept")
 
         # Process mapping last
         mapping_file_path = self._get_file_path("mapping")
         for mapping in repository.get_iterator(self.mapping_schema["class"]):
-            self._write_to_json(mapping_file_path, "mapping", self._weaviate_object_to_dict(mapping))
+            self._write_to_json(
+                mapping_file_path, "mapping", self._weaviate_object_to_dict(mapping)
+            )
         self._flush_to_file(mapping_file_path, "mapping")
 
     def from_ohdsi(self, src: str):
@@ -118,7 +129,9 @@ class WeaviateJsonConverter(object):
         """
 
         if not os.path.exists(src):
-            raise FileNotFoundError(f"OHDSI concept file '{src}' does not exist or is not a file.")
+            raise FileNotFoundError(
+                f"OHDSI concept file '{src}' does not exist or is not a file."
+            )
 
         terminology_file_path = self._get_file_path("terminology")
         concept_file_path = self._get_file_path("concept")
@@ -140,23 +153,31 @@ class WeaviateJsonConverter(object):
         self._flush_to_file(terminology_file_path, "terminology")
 
         # Process concepts one at a time
-        for chunk in tqdm(pd.read_csv(src, delimiter="\t", chunksize=1000), desc="Processing OHDSI concepts"):
+        for chunk in tqdm(
+            pd.read_csv(
+                src,
+                delimiter="\t",
+                chunksize=1000,
+                usecols=["concept_name", "concept_id"],
+            ),
+            desc="Processing OHDSI concepts",
+        ):
             for _, row in chunk.iterrows():
                 concept_data = self._ohdsi_row_to_concept(row, terminology_id)
                 self._write_to_json(concept_file_path, "concept", concept_data)
 
                 # Compute embedding **one at a time** (low memory usage)
-                mapping_data = self._ohdsi_concept_to_mappings(row["concept_name"], concept_data["id"], embedding_model)
+                mapping_data = self._ohdsi_concept_to_mappings(
+                    row["concept_name"], concept_data["id"], embedding_model
+                )
                 self._write_to_json(mapping_file_path, "mapping", mapping_data)
-        
+
         self._flush_to_file(concept_file_path, "concept")
         self._flush_to_file(mapping_file_path, "mapping")
 
     def _ohdsi_row_to_concept(
-            self,
-            row: pd.Series,
-            terminology_id: str
-        ) -> Dict[str, Union[str, Dict[str, str]]]:
+        self, row: pd.Series, terminology_id: str
+    ) -> Dict[str, Union[str, Dict[str, str]]]:
         """Converts an OHDSI row into a concept dictionary formatted for Weaviate.
 
         :param row: A Pandas Series representing a row for OHDSI CONCEPT.csv.
@@ -178,11 +199,8 @@ class WeaviateJsonConverter(object):
         }
 
     def _ohdsi_concept_to_mappings(
-            self,
-            pref_label: str,
-            concept_id: str,
-            embedding_model: EmbeddingModel
-        ) -> Dict[str, Union[str, Dict[str, str], Dict[str, Sequence[float]]]]:
+        self, pref_label: str, concept_id: str, embedding_model: EmbeddingModel
+    ) -> Dict[str, Union[str, Dict[str, str], Dict[str, Sequence[float]]]]:
         """Generates an embedding **one at a time** to avoid excessive memory usage.
 
         :param pref_label: The preferred label of the concept.
@@ -190,7 +208,7 @@ class WeaviateJsonConverter(object):
         :param embedding_model: An instance of EmbeddingModel (e.g., MPNetAdapter).
         :return: A dictionary formatted Weaviate.
         """
-        embedding = embedding_model.get_embedding(pref_label) # Single text embedding
+        embedding = embedding_model.get_embedding(pref_label)  # Single text embedding
         properties = {
             "text": pref_label,
             "hasSentenceEmbedder": embedding_model.get_model_name(),
@@ -204,7 +222,7 @@ class WeaviateJsonConverter(object):
                 "hasConcept": concept_id,
             },
             "vector": {
-                "default": embedding, # Directly store the embedding for the concept
+                "default": embedding,  # Directly store the embedding for the concept
             },
         }
 
@@ -214,9 +232,9 @@ class WeaviateJsonConverter(object):
         if weaviate_object.references is not None:
             # FIXME: This is a hack to get the UUID of the referenced object. Replace as soon as weaviate devs offer an
             #  actual solution for this.
-            vals = [value.objects for key, value in weaviate_object.references.items()]
+            vals = [value.objects for _, value in weaviate_object.references.items()]
             uuid = [str(obj.uuid) for sublist in vals for obj in sublist][0]
-            references = {key: uuid for key, value in weaviate_object.references.items()}
+            references = {key: uuid for key, _ in weaviate_object.references.items()}
         else:
             references = {}
 
@@ -225,5 +243,5 @@ class WeaviateJsonConverter(object):
             "id": str(weaviate_object.uuid),
             "properties": weaviate_object.properties,
             "vector": weaviate_object.vector,
-            "references": references
+            "references": references,
         }
