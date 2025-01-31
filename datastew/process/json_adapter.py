@@ -29,7 +29,7 @@ class WeaviateJsonConverter(object):
         self.terminology_schema = schema_terminology
         self.concept_schema = schema_concept
         self.mapping_schema = schema_mapping
-        self._buffers = []
+        self._buffer = []
         self._buffer_size = buffer_size
         self._ensure_directories_exist()
 
