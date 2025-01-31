@@ -5,7 +5,6 @@ import tempfile
 import unittest
 
 import pandas as pd
-from weaviate.util import generate_uuid5
 
 from datastew.embedding import MPNetAdapter
 from datastew.process.json_adapter import WeaviateJsonConverter
@@ -14,8 +13,8 @@ from datastew.process.json_adapter import WeaviateJsonConverter
 class MockMPNetAdapter(MPNetAdapter):
     """Mock embedding model to return fixed values for testing."""
 
-    def get_embedding(self, text: str):
-        return [0.1, 0.2, 0.3]  # Fixed vector for testing
+    def get_embeddings(self, texts):
+        return [[0.1, 0.2, 0.3] for _ in texts]  # Fixed vector for testing
 
     def get_model_name(self):
         return "MockMPNet"
@@ -55,19 +54,8 @@ class TestWeaviateJsonConverter(unittest.TestCase):
         # Initialize WeaviateJsonConverter
         self.converter = WeaviateJsonConverter(dest_dir=self.temp_dir)
 
-        # Replace the embedding model with a mock
-        self.converter._ohdsi_concept_to_mappings = (
-            lambda pref_label, concept_id, embedding_model: {
-                "class": self.converter.mapping_schema["class"],
-                "id": generate_uuid5({"text": pref_label}),
-                "properties": {
-                    "text": pref_label,
-                    "hasSentenceEmbedder": "MockMPNet",
-                },
-                "references": {"hasConcept": concept_id},
-                "vector": {"default": [0.1, 0.2, 0.3]},
-            }
-        )
+        # Inject Mock Embedding Model
+        self.mock_embedding_model = MockMPNetAdapter()
 
     def tearDown(self):
         """Removes the temporary directory after tests"""
@@ -77,7 +65,7 @@ class TestWeaviateJsonConverter(unittest.TestCase):
         """Tests that from_ohdsi creates the expected JSON files"""
 
         # Run the OHDSI to JSON conversion
-        self.converter.from_ohdsi(self.mock_concept_file)
+        self.converter.from_ohdsi(self.mock_concept_file, self.mock_embedding_model)
 
         # Expected output files
         terminology_file = os.path.join(self.temp_dir, "terminology.json")
@@ -93,7 +81,7 @@ class TestWeaviateJsonConverter(unittest.TestCase):
 
     def test_terminology_file_content(self):
         """Tests the correctness of the terminology.json file"""
-        self.converter.from_ohdsi(self.mock_concept_file)
+        self.converter.from_ohdsi(self.mock_concept_file, self.mock_embedding_model)
 
         terminology_file = os.path.join(self.temp_dir, "terminology.json")
         with open(terminology_file, "r") as f:
@@ -108,7 +96,7 @@ class TestWeaviateJsonConverter(unittest.TestCase):
 
     def test_concept_file_content(self):
         """Tests the correctness of the concept.json file"""
-        self.converter.from_ohdsi(self.mock_concept_file)
+        self.converter.from_ohdsi(self.mock_concept_file, self.mock_embedding_model)
 
         concept_file = os.path.join(self.temp_dir, "concept.json")
         with open(concept_file, "r") as f:
@@ -126,7 +114,7 @@ class TestWeaviateJsonConverter(unittest.TestCase):
 
     def test_mapping_file_content(self):
         """Tests the correctness of the mapping.json file"""
-        self.converter.from_ohdsi(self.mock_concept_file)
+        self.converter.from_ohdsi(self.mock_concept_file, self.mock_embedding_model)
 
         mapping_file = os.path.join(self.temp_dir, "mapping.json")
         with open(mapping_file, "r") as f:
@@ -145,4 +133,7 @@ class TestWeaviateJsonConverter(unittest.TestCase):
     def test_invalid_file_raises_error(self):
         """Tests that a missing file raises a FileNotFoundError"""
         with self.assertRaises(FileNotFoundError):
-            self.converter.from_ohdsi(os.path.join(self.temp_dir, "missing_file.csv"))
+            self.converter.from_ohdsi(
+                os.path.join(self.temp_dir, "missing_file.csv"),
+                self.mock_embedding_model,
+            )
