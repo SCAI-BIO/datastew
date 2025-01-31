@@ -155,8 +155,8 @@ class WeaviateJsonConverter(object):
             concepts = []
             mappings = []
 
-            concept_names = chunk["concept_name"].tolist()
-            concept_ids = chunk["concept_id"].tolist()
+            concept_names = chunk["concept_name"].astype(str).tolist()
+            concept_ids = chunk["concept_id"].astype(str).tolist()
 
             # Compute batch embeddings
             embeddings = embedding_model.get_embeddings(concept_names)
