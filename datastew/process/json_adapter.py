@@ -59,10 +59,10 @@ class WeaviateJsonConverter(object):
         :return: None
         """
         # Add the data to the buffer
-        self._buffers.append(data)
+        self._buffer.append(data)
 
         # Check if the buffer size is reached
-        if len(self._buffers) >= self._buffer_size:
+        if len(self._buffer) >= self._buffer_size:
             self._flush_to_file(file_path)
 
     def _flush_to_file(self, file_path: str):
@@ -72,14 +72,14 @@ class WeaviateJsonConverter(object):
         :param file_path: The file path for the collection.
         :return: None
         """
-        if not self._buffers:
+        if not self._buffer:
             return
 
         with open(file_path, "a", encoding="utf-8") as file:
-            for entry in self._buffers:
+            for entry in self._buffer:
                 file.write(json.dumps(entry) + "\n")
 
-        self._buffers.clear()
+        self._buffer.clear()
 
     def from_repository(self, repository: WeaviateRepository) -> None:
         """
