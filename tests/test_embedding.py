@@ -74,3 +74,22 @@ class TestEmbedding(unittest.TestCase):
 
         for emb1, emb2 in zip(embeddings1, embeddings2):
             self.assertSequenceEqual(emb1, emb2)
+
+    def test_cache_vs_no_cache_performance(self):
+        messages = ["This is message 1.", "This is message 2."]
+
+        adapter_with_cache = MPNetAdapter(cache=True)
+        if adapter_with_cache._cache:
+            adapter_with_cache._cache.clear()
+
+        start_time = time()
+        adapter_with_cache.get_embeddings(messages)
+        first_call_time_with_cache = time() - start_time
+
+        adapter_without_cache = MPNetAdapter()
+
+        start_time = time()
+        adapter_without_cache.get_embeddings(messages)
+        first_call_time_without_cache = time() - start_time
+
+        self.assertLess(first_call_time_without_cache, first_call_time_with_cache)
