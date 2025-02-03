@@ -44,6 +44,7 @@ embedding_model = GPT4Adapter(key="your_api_key")
 df = map_dictionary_to_dictionary(source, target, embedding_model=embedding_model)
 ```
 
+---
 
 ### Creating and using stored mappings
 
@@ -96,14 +97,16 @@ for result in results:
 
 output:
 
-```plaintext
-# snomed CT > Concept ID: 11893007 : Diabetes mellitus (disorder) | Diabetes mellitus (disorder) | Similarity: 0.4735338091850281
-# snomed CT > Concept ID: 73211009 : Hypertension (disorder) | Hypertension (disorder) | Similarity: 0.2003161907196045
+```python
+snomed CT > Concept ID: 11893007 : Diabetes mellitus (disorder) | Diabetes mellitus (disorder) | Similarity: 0.4735338091850281
+snomed CT > Concept ID: 73211009 : Hypertension (disorder) | Hypertension (disorder) | Similarity: 0.2003161907196045
 ```
 
 You can also import data from file sources (csv, tsv, xlsx) or from a public API like OLS. An example script to
 download & compute embeddings for SNOMED from ebi OLS can be found in
 [datastew/scripts/ols_snomed_retrieval.py](datastew/scripts/ols_snomed_retrieval.py).
+
+---
 
 ### Embedding visualization
 
