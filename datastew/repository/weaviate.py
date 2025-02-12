@@ -468,7 +468,7 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to fetch closest mappings: {e}")
         return mappings
-    
+
     # TODO: Implement the function utilizing pre-configured vectorizers
     def get_closest_mappings_with_similarities(
         self, embedding, limit=5
@@ -795,9 +795,12 @@ class WeaviateRepository(BaseRepository):
             # Prepare filters for fetching mappings with the same text and concept
             mapping_collection = self.client.collections.get("Mapping")
             filters = Filter.by_property("text").equal(str(mapping.text))
-            filters = filters & Filter.by_ref("hasConcept").by_id().equal(
-                mapping.concept.id
-            )
+            filters = filters & Filter.by_ref("hasConcept").by_property(
+                "conceptID"
+            ).equal(mapping.concept.concept_identifier)
+            filters = filters & Filter.by_ref("hasConcept").by_property(
+                "prefLabel"
+            ).equal(mapping.concept.pref_label)
 
             # Fetch mappings based on text and concept
             response = mapping_collection.query.fetch_objects(filters=filters)
