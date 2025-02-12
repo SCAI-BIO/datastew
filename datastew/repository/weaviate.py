@@ -6,6 +6,7 @@ import warnings
 from typing import List, Literal, Optional, Union
 
 import weaviate
+from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery, QueryReference
 from weaviate.util import generate_uuid5
 
@@ -53,6 +54,7 @@ class WeaviateRepository(BaseRepository):
         """
         self.bring_vectors = bring_vectors
         self.mode = mode
+        self.client: Optional[WeaviateClient] = None
         if not self.bring_vectors:
             if huggingface_key:
                 self.headers = {"X-HuggingFace-Api-Key": huggingface_key}
