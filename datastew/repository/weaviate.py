@@ -1,5 +1,6 @@
 import json
 import logging
+import shutil
 import socket
 import warnings
 from typing import List, Literal, Optional, Union
@@ -15,11 +16,8 @@ from datastew.repository.base import BaseRepository
 from datastew.repository.model import MappingResult
 from datastew.repository.pagination import Page
 from datastew.repository.weaviate_schema import (
-    concept_schema,
-    mapping_schema_preconfigured_embeddings,
-    mapping_schema_user_vectors,
-    terminology_schema,
-)
+    concept_schema, mapping_schema_preconfigured_embeddings,
+    mapping_schema_user_vectors, terminology_schema)
 
 
 class WeaviateRepository(BaseRepository):
@@ -54,6 +52,7 @@ class WeaviateRepository(BaseRepository):
         :raises RuntimeError: If there is a failure in creating the schema or connecting to Weaviate.
         """
         self.bring_vectors = bring_vectors
+        self.mode = mode
         if not self.bring_vectors:
             if huggingface_key:
                 self.headers = {"X-HuggingFace-Api-Key": huggingface_key}
@@ -61,9 +60,9 @@ class WeaviateRepository(BaseRepository):
                 raise ValueError(
                     "A HuggingFace API key is required for generating vectors."
                 )
-        if mode == "disk" and mode == "memory":
+        if self.mode == "disk" and self.mode == "memory":
             self._connect_to_disk(path, http_port, grpc_port)
-        elif mode == "remote":
+        elif self.mode == "remote":
             self._connect_to_remote(path, port)
         else:
             raise ValueError(
@@ -82,64 +81,77 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to create schema: {e}")
 
-    def _create_schema_if_not_exists(self, schema):
-        references = None
-        vectorizer_config = None
-        class_name = schema["class"]
-        try:
-            if not self.client.collections.exists(class_name):
-                description = schema["description"]
-                properties = schema["properties"]
-                if "references" in schema:
-                    references = schema["references"]
-                if "vectorizer_config" in schema and not self.bring_vectors:
-                    vectorizer_config = schema["vectorizer_config"]
-                self.client.collections.create(
-                    name=class_name,
-                    description=description,
-                    properties=properties,
-                    references=references,
-                    vectorizer_config=vectorizer_config,
-                )
-            else:
-                self.logger.info(f"Schema for {class_name} already exists. Skipping.")
-        except Exception as e:
-            raise RuntimeError(f"Failed to check/create schema for {class_name}: {e}")
-
     def import_data_dictionary(
         self,
         data_dictionary: DataDictionarySource,
         terminology_name: str,
         embedding_model: Optional[EmbeddingModel] = None,
     ):
+        """Imports a data dictionary into the Weaviate repository by converting the dictionary into a list of model
+        instances (Terminology, Concept, and Mapping). Each variable in the data dictionary is mapped to a concept and
+        a mapping. If `bring_vectors` is True, embeddings are generated using the provided or default embedding model
+        for each variable's description. Otherwise pre-configured HuggingFace model(s) will be used.
+
+        :param data_dictionary: The source data dictionary to be imported.
+        :param terminology_name: The name assigned to the terminology being imported.
+        :param embedding_model: An optional embedding model to be used for generating embeddings for the variables'
+            descriptions. If None, a default model "sentence-transformers/all-mpnet-base-v2" will be used.
+
+        :raises RuntimeError: If there is an error in importing the data dictionary or generating the embeddings.
+        """
         try:
+            # Initialize an empty list to store the model instances
             model_object_instances: List[Union[Terminology, Concept, Mapping]] = []
+
+            # Convert the data dictionary to a dataframe for easier manipulation.
             data_frame = data_dictionary.to_dataframe()
+
+            # Extract variables and descriptions from the dataframe
+            variables = data_frame["variable"].tolist()
             descriptions = data_frame["description"].tolist()
-            if embedding_model is None:
-                embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
-            else:
-                embedding_model_name = embedding_model.get_model_name()
-            variable_to_embedding = data_dictionary.get_embeddings(embedding_model)
+
+            # Create a Terminology object and append it to the list of instances
             terminology = Terminology(terminology_name, terminology_name)
             model_object_instances.append(terminology)
-            for variable, description in zip(
-                variable_to_embedding.keys(), descriptions
-            ):
+
+            if self.bring_vectors:
+                # If vectors are being used, select the embedding model (default or provided.)
+                if embedding_model is None:
+                    embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
+                else:
+                    embedding_model_name = embedding_model.get_model_name()
+
+                # Generate embeddings for each variable using the provided embedding model
+                variable_to_embedding = data_dictionary.get_embeddings(embedding_model)
+
+            # Create Concepts and Mappings for each variable with generated embeddings
+            for variable, description in zip(variables, descriptions):
                 concept_id = f"{terminology_name}:{variable}"
                 concept = Concept(
                     terminology=terminology,
                     pref_label=variable,
                     concept_identifier=concept_id,
                 )
-                mapping = Mapping(
-                    concept=concept,
-                    text=description,
-                    embedding=variable_to_embedding[variable],
-                    sentence_embedder=embedding_model_name,
-                )
+
+                # If the user bring vectors, create the Mapping with the embedding
+                if self.bring_vectors:
+                    mapping = Mapping(
+                        concept=concept,
+                        text=description,
+                        embedding=variable_to_embedding[variable],
+                        sentence_embedder=embedding_model_name,
+                    )
+                else:
+                    mapping = Mapping(
+                        concept=concept,
+                        text=description,
+                    )
+
+                # Add the created Concept and Mapping to the instances list
                 model_object_instances.append(concept)
                 model_object_instances.append(mapping)
+
+            # Store all the created instances in Weaviate
             self.store_all(model_object_instances)
         except Exception as e:
             raise RuntimeError(f"Failed to import data dictionary source: {e}")
@@ -147,6 +159,10 @@ class WeaviateRepository(BaseRepository):
     def store_all(
         self, model_object_instances: List[Union[Terminology, Concept, Mapping]]
     ):
+        """Stores a list of model objects (Terminology, Concept, Mapping) in the Weaviate database.
+
+        :param model_object_instances: A list of model instances (Terminology, Concept, or Mapping) to be stored.
+        """
         for instance in model_object_instances:
             self.store(instance)
 
@@ -164,12 +180,30 @@ class WeaviateRepository(BaseRepository):
         )
 
     def get_all_sentence_embedders(self) -> List[str]:
+        """Retrieves the names of all sentence embedders used in the "Mapping" collection. If `self.bring_vectors` is
+        True, it fetches the names directly from the objects in the collection. If `self.bring_vectors` is False, it
+        retrieves the names from the vector keys in the embeddings returned by an object in the collection.
+
+        :raises RuntimeError: If there is an issue fetching sentence embedders or vector configurations.
+        :return: A list of sentence embedder names.
+        """
         sentence_embedders = set()
+        mapping_collection = self.client.collections.get("Mapping")
         try:
-            mapping = self.client.collections.get("Mapping")
-            response = mapping.query.fetch_objects()
-            for o in response.objects:
-                sentence_embedders.add(o.properties["hasSentenceEmbedder"])
+            if self.bring_vectors:
+                # Fetch sentence embedders from the existing "Mapping" objects
+                response = mapping_collection.query.fetch_objects()
+
+                for o in response.objects:
+                    sentence_embedders.add(o.properties.get("hasSentenceEmbedder"))
+            else:
+                # Fetch sentence embedders from the vector keys in the object response
+                # Limiting to 1 object since we're only interest in the vector configuration
+                response = mapping_collection.query.fetch_objects(
+                    limit=1, include_vector=True
+                )
+                for o in response.objects:
+                    sentence_embedders.add(o.vector.keys())
         except Exception as e:
             raise RuntimeError(f"Failed to fetch sentence embedders: {e}")
         return list(sentence_embedders)
@@ -315,6 +349,7 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch terminologies: {e}")
         return terminologies
 
+    # TODO: Implement the function utilizing pre-configured vectorizers
     def get_mappings(
         self, terminology_name: Optional[str] = None, limit=1000, offset=0
     ) -> Page[Mapping]:
@@ -383,7 +418,7 @@ class WeaviateRepository(BaseRepository):
                 mappings.append(mapping)
 
             total_count = (
-                self.client.collections.get(mapping_schema["class"])
+                self.client.collections.get(mapping_schema_user_vectors["class"])
                 .aggregate.over_all(total_count=True)
                 .total_count
             )
@@ -394,6 +429,7 @@ class WeaviateRepository(BaseRepository):
             items=mappings, limit=limit, offset=offset, total_count=total_count
         )
 
+    # TODO: Implement the function utilizing pre-configured vectorizers
     def get_closest_mappings(self, embedding, limit=5) -> List[Mapping]:
         mappings = []
         try:
@@ -432,7 +468,8 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to fetch closest mappings: {e}")
         return mappings
-
+    
+    # TODO: Implement the function utilizing pre-configured vectorizers
     def get_closest_mappings_with_similarities(
         self, embedding, limit=5
     ) -> List[MappingResult]:
@@ -480,6 +517,7 @@ class WeaviateRepository(BaseRepository):
             )
         return mappings_with_similarities
 
+    # TODO: Implement the function utilizing pre-configured vectorizers
     def get_terminology_and_model_specific_closest_mappings(
         self,
         embedding,
@@ -540,6 +578,7 @@ class WeaviateRepository(BaseRepository):
             )
         return mappings
 
+    # TODO: Implement the function utilizing pre-configured vectorizers
     def get_terminology_and_model_specific_closest_mappings_with_similarities(
         self,
         embedding,
@@ -606,7 +645,7 @@ class WeaviateRepository(BaseRepository):
     def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
         try:
             if isinstance(model_object_instance, Terminology):
-                if not self._terminology_exists(model_object_instance.name):
+                if not self._terminology_exists(str(model_object_instance.name)):
                     properties = {"name": model_object_instance.name}
                     terminology_collection = self.client.collections.get("Terminology")
                     terminology_collection.data.insert(
@@ -617,7 +656,9 @@ class WeaviateRepository(BaseRepository):
                         f"Terminology with name {model_object_instance.name} already exists. Skipping."
                     )
             elif isinstance(model_object_instance, Concept):
-                if not self._concept_exists(model_object_instance.concept_identifier):
+                if not self._concept_exists(
+                    str(model_object_instance.concept_identifier)
+                ):
                     # recursion: create terminology if not existing
                     if not self._terminology_exists(
                         model_object_instance.terminology.name
@@ -646,15 +687,18 @@ class WeaviateRepository(BaseRepository):
                         f"Concept with identifier {model_object_instance.concept_identifier} already exists. Skipping."
                     )
             elif isinstance(model_object_instance, Mapping):
-                if not self._mapping_exists(model_object_instance.embedding):
+                if not self._mapping_exists(model_object_instance):
                     if not self._concept_exists(
                         model_object_instance.concept.concept_identifier
                     ):
                         self.store(model_object_instance.concept)
-                    properties = {
-                        "text": model_object_instance.text,
-                        "hasSentenceEmbedder": model_object_instance.sentence_embedder,
-                    }
+                    if self.bring_vectors:
+                        properties = {
+                            "text": model_object_instance.text,
+                            "hasSentenceEmbedder": model_object_instance.sentence_embedder,
+                        }
+                    else:
+                        properties = {"text": model_object_instance.text}
                     mapping_uuid = generate_uuid5(properties)
                     concept = self.get_concept(
                         model_object_instance.concept.concept_identifier
@@ -683,16 +727,27 @@ class WeaviateRepository(BaseRepository):
     def import_json(self, input_path: str):
         return None
 
+    def close(self):
+        self.client.close()
+
+    def shut_down(self):
+        if self.mode == "memory":
+            shutil.rmtree("db")
+
     def _sentence_embedder_exists(self, name: str) -> bool:
         try:
             mapping = self.client.collections.get("Mapping")
-            response = mapping.query.fetch_objects(
-                filters=Filter.by_property("hasSentenceEmbedder").equal(name)
-            )
-            if response.objects is not None:
-                return len(response.objects) > 0
+            if self.bring_vectors:
+                response = mapping.query.fetch_objects(
+                    filters=Filter.by_property("hasSentenceEmbedder").equal(name)
+                )
+                if response.objects is not None:
+                    return len(response.objects) > 0
+                else:
+                    return False
             else:
-                return False
+                sentence_embedders = set(self.get_all_sentence_embedders())
+                return name in sentence_embedders
         except Exception as e:
             raise RuntimeError(f"Failed to check if sentence embedder exists: {e}")
 
@@ -722,17 +777,47 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to check if concept exists: {e}")
 
-    def _mapping_exists(self, embedding) -> bool:
+    def _mapping_exists(self, mapping: Mapping) -> bool:
+        """Check if an exact Mapping object already exists in the Weaviate database based on its `text`, associated
+        `concept`, and optional vector matching.
+
+        :param mapping: The Mapping object to check for existence.
+        :raises RuntimeError: If an error occurs while querying the database or fetching objects.
+        :return: `True` if a Mapping object with the same text, concept, and optionally the same embedding(s) already
+            exists, otherwise `False`.
+        """
         try:
-            mapping = self.client.collections.get("Mapping")
-            response = mapping.query.near_vector(
-                near_vector=embedding,
-                distance=float(0),  # Ensure distance is explicitly casted to float
-            )
-            if response.objects is not None:
-                return len(response.objects) > 0
-            else:
+            # Check if the concept exists first (because every mapping should have a related concept)
+            concept_exists = self._concept_exists(mapping.concept.concept_identifier)
+            if not concept_exists:
                 return False
+
+            # Prepare filters for fetching mappings with the same text and concept
+            mapping_collection = self.client.collections.get("Mapping")
+            filters = Filter.by_property("text").equal(str(mapping.text))
+            filters = filters & Filter.by_ref("hasConcept").by_id().equal(
+                mapping.concept.id
+            )
+
+            # Fetch mappings based on text and concept
+            response = mapping_collection.query.fetch_objects(filters=filters)
+
+            # Check if any mappings are returned with the same text and concept
+            if response.objects:
+                # If `self.bring_vectors` is True, compare embeddings
+                if self.bring_vectors:
+                    for obj in response.objects:
+                        if obj.vector == mapping.embedding:
+                            return True
+                else:
+                    # If `self.bring_vectors` is False, compare the named vectors (if applicable)
+                    for obj in response.objects:
+                        if mapping.embedding is not None:
+                            for vector_name in obj.vector.keys():
+                                if mapping.embedding == obj.vector[vector_name]:
+                                    return True
+            return False  # No matching Mapping found in the collection
+
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")
 
@@ -780,6 +865,47 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"An unexpected error occurred: {e}")
 
         return None
+
+    def _create_schema_if_not_exists(self, schema):
+        """Creates a new schema in Weaviate if it does not already exist. The schema is defined in the provided `schema`
+        dictionary. The schema should define a class along with its properties and possible references. If the schema
+        already exists, the method logs a message and skips the creation process.
+
+        :param schema: A dictionary defining the schema to be created. It should include the following keys:
+            - "class": The name of the class for the schema (e.g., "Terminology", "Concept", or "Mapping")
+            - "description": A description of the class.
+            - "properties": A list of `Property` objects defining the properties for the schema. Each `Property` includes:
+                - `name`: The name of the property.
+                - `data_type`: The data type of the property (e.g., `DataType.TEXT`).
+            - "references" (optional): A list of `ReferenceProperty` objects, defining relationships to other classes.
+            - "vectorizer_config" (optional): A configuration for vectorization (only used when `bring_vectors` is
+                False), typically a list of `Configure` objects like `Configure.NamedVectors.text2vec_huggingface`.
+
+        :raises RuntimeError: If there is an issue checking for or creating the schema in Weaviate, such as connection
+            error.
+        """
+        references = None
+        vectorizer_config = None
+        class_name = schema["class"]
+        try:
+            if not self.client.collections.exists(class_name):
+                description = schema["description"]
+                properties = schema["properties"]
+                if "references" in schema:
+                    references = schema["references"]
+                if "vectorizer_config" in schema and not self.bring_vectors:
+                    vectorizer_config = schema["vectorizer_config"]
+                self.client.collections.create(
+                    name=class_name,
+                    description=description,
+                    properties=properties,
+                    references=references,
+                    vectorizer_config=vectorizer_config,
+                )
+            else:
+                self.logger.info(f"Schema for {class_name} already exists. Skipping.")
+        except Exception as e:
+            raise RuntimeError(f"Failed to check/create schema for {class_name}: {e}")
 
     @staticmethod
     def _is_port_in_use(port) -> bool:
