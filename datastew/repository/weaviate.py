@@ -922,7 +922,7 @@ class WeaviateRepository(BaseRepository):
             if path is None:
                 raise ValueError("Path must be provided for disk mode.")
             if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
-                if self.client.is_connected():
+                if self.client:
                     self.client.close()
                 if self.bring_vectors:
                     self.client = weaviate.connect_to_local(
