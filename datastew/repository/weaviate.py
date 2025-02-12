@@ -60,7 +60,7 @@ class WeaviateRepository(BaseRepository):
                 raise ValueError(
                     "A HuggingFace API key is required for generating vectors."
                 )
-        if self.mode == "disk" and self.mode == "memory":
+        if self.mode == "disk" or self.mode == "memory":
             self._connect_to_disk(path, http_port, grpc_port)
         elif self.mode == "remote":
             self._connect_to_remote(path, port)
