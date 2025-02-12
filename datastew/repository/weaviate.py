@@ -5,7 +5,6 @@ import warnings
 from typing import List, Literal, Optional, Union
 
 import weaviate
-from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery, QueryReference
 from weaviate.util import generate_uuid5
 
@@ -17,7 +16,8 @@ from datastew.repository.model import MappingResult
 from datastew.repository.pagination import Page
 from datastew.repository.weaviate_schema import (
     concept_schema,
-    mapping_schema,
+    mapping_schema_preconfigured_embeddings,
+    mapping_schema_user_vectors,
     terminology_schema,
 )
 
@@ -29,24 +29,42 @@ class WeaviateRepository(BaseRepository):
         self,
         bring_vectors: bool = True,
         huggingface_key: Optional[str] = None,
-        mode: str = "disk",
+        mode: str = "memory",
         path: str = "db",
         port: int = 80,
         http_port: int = 8079,
         grpc_port: int = 50050,
     ):
-        self.client: Optional[WeaviateClient] = None
-        if not bring_vectors:
+        """Initialize the WeaviateRepository instance, connecting to either a local or remote Weaviate instance and
+        setting up the appropriate schemas based on the specific options.
+
+        :param bring_vectors: Specifies whether to use custom vectors provided by the user (True) or pre-configured
+            embeddings (False). Defaults to True.
+        :param huggingface_key: API key for Hugging Face if using pre-configured embeddings. Required if `bring_vectors`
+            is False. Defaults to None.
+        :param mode: Defines the connection mode for the repository. Can be either "disk" (local instance), "memory"
+            (in-memory, using the same logic as "disk"), or "remote" (remote Weaviate instance). Defaults to "memory".
+        :param path: The path for the local disk connection, used only in "disk" mode. Defaults to "db".
+        :param port: The port number for remote Weaviate connection, used only in "remote" mode. Defaults to 80.
+        :param http_port: The HTTP port for the local connection in "disk" mode. Defaults to 8079.
+        :param grpc_port: The gRPC port for the local connection in "disk" mode. Defaults to 50050.
+
+        :raises ValueError: If the `huggingface_key` is not provided when `bring_vectors` is False or if an invalid
+            `mode` is specified.
+        :raises RuntimeError: If there is a failure in creating the schema or connecting to Weaviate.
+        """
+        self.bring_vectors = bring_vectors
+        if not self.bring_vectors:
             if huggingface_key:
                 self.headers = {"X-HuggingFace-Api-Key": huggingface_key}
             else:
                 raise ValueError(
                     "A HuggingFace API key is required for generating vectors."
                 )
-        if mode == "disk":
-            self._connect_to_disk(path, http_port, grpc_port, bring_vectors)
+        if mode == "disk" and mode == "memory":
+            self._connect_to_disk(path, http_port, grpc_port)
         elif mode == "remote":
-            self._connect_to_remote(path, port, bring_vectors)
+            self._connect_to_remote(path, port)
         else:
             raise ValueError(
                 f"Repository mode {mode} is not defined. Use either disk or remote."
@@ -55,12 +73,18 @@ class WeaviateRepository(BaseRepository):
         try:
             self._create_schema_if_not_exists(terminology_schema)
             self._create_schema_if_not_exists(concept_schema)
-            self._create_schema_if_not_exists(mapping_schema)
+            if self.bring_vectors:
+                self._create_schema_if_not_exists(mapping_schema_user_vectors)
+            else:
+                self._create_schema_if_not_exists(
+                    mapping_schema_preconfigured_embeddings
+                )
         except Exception as e:
             raise RuntimeError(f"Failed to create schema: {e}")
 
     def _create_schema_if_not_exists(self, schema):
         references = None
+        vectorizer_config = None
         class_name = schema["class"]
         try:
             if not self.client.collections.exists(class_name):
@@ -68,11 +92,14 @@ class WeaviateRepository(BaseRepository):
                 properties = schema["properties"]
                 if "references" in schema:
                     references = schema["references"]
+                if "vectorizer_config" in schema and not self.bring_vectors:
+                    vectorizer_config = schema["vectorizer_config"]
                 self.client.collections.create(
                     name=class_name,
                     description=description,
                     properties=properties,
                     references=references,
+                    vectorizer_config=vectorizer_config,
                 )
             else:
                 self.logger.info(f"Schema for {class_name} already exists. Skipping.")
@@ -759,16 +786,14 @@ class WeaviateRepository(BaseRepository):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(("localhost", port)) == 0
 
-    def _connect_to_disk(
-        self, path: str, http_port: int, grpc_port: int, bring_vectors: bool
-    ):
+    def _connect_to_disk(self, path: str, http_port: int, grpc_port: int):
         try:
             if path is None:
                 raise ValueError("Path must be provided for disk mode.")
             if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
-                if self.client:
+                if self.client.is_connected():
                     self.client.close()
-                if bring_vectors:
+                if self.bring_vectors:
                     self.client = weaviate.connect_to_local(
                         port=http_port, grpc_port=grpc_port
                     )
@@ -777,7 +802,7 @@ class WeaviateRepository(BaseRepository):
                         port=http_port, grpc_port=grpc_port, headers=self.headers
                     )
             else:
-                if bring_vectors:
+                if self.bring_vectors:
                     self.client = weaviate.connect_to_embedded(
                         persistence_data_path=path
                     )
@@ -788,11 +813,11 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise ConnectionError(f"Failed to initalize Weaviate client: {e}")
 
-    def _connect_to_remote(self, path: str, port: int, bring_vectors: bool):
+    def _connect_to_remote(self, path: str, port: int):
         try:
             if path is None:
                 raise ValueError("Remote URL must be provided for remote mode.")
-            if bring_vectors:
+            if self.bring_vectors:
                 self.client = weaviate.connect_to_local(host=path, port=port)
             else:
                 self.client = weaviate.connect_to_local(
