@@ -38,7 +38,7 @@ mapping_schema_preconfigured_embeddings = {
     "references": [ReferenceProperty(name="hasConcept", target_collection="Concept")],
     "vectorizer_config": [
         Configure.NamedVectors.text2vec_huggingface(
-            name="MPNet",
+            name="sentence-transformers_all-mpnet-base-v2",
             source_properties=["text"],
             model="sentence-transformers/all-mpnet-base-v2",
         )
