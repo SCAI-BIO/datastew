@@ -1,8 +1,8 @@
-import unittest
 import os
+import unittest
 
 from datastew.process.parsing import DataDictionarySource
-from datastew.repository.model import Terminology, Concept, Mapping
+from datastew.repository.model import Concept, Mapping, Terminology
 from datastew.repository.sqllite import SQLLiteRepository
 
 
@@ -42,7 +42,7 @@ class TestGetClosestEmbedding(unittest.TestCase):
         sample_embedding = [0.2, 0.4, 0.35]
         closest_mappings, distances = self.repository.get_closest_mappings(sample_embedding, limit=3)
         self.assertEqual(len(closest_mappings), 3)
-        self.assertEqual(mapping_2.text, closest_mappings[0].text)
+        self.assertEqual(mapping_2.text, closest_mappings[0][0].text)
 
     def test_get_all_sentence_embedders(self):
         terminology = Terminology(name="Terminology 1", id="1")
