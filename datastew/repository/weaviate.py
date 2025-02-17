@@ -1302,7 +1302,7 @@ class WeaviateRepository(BaseRepository):
                         persistence_data_path=path, headers=self.headers
                     )
         except Exception as e:
-            raise ConnectionError(f"Failed to initalize Weaviate client: {e}")
+            raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
 
     def _connect_to_remote(self, path: str, port: int):
         try:
@@ -1315,4 +1315,4 @@ class WeaviateRepository(BaseRepository):
                     host=path, port=port, headers=self.headers
                 )
         except Exception as e:
-            raise ConnectionError(f"Failed to initalize Weaviate client: {e}")
+            raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
