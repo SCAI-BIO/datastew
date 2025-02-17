@@ -10,7 +10,7 @@ from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery, QueryReference
 from weaviate.util import generate_uuid5
 
-from datastew.embedding import EmbeddingModel
+from datastew.embedding import EmbeddingModel, MPNetAdapter
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
@@ -119,9 +119,9 @@ class WeaviateRepository(BaseRepository):
             if self.bring_vectors:
                 # If vectors are being used, select the embedding model (default or provided.)
                 if embedding_model is None:
-                    embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
-                else:
-                    embedding_model_name = embedding_model.get_model_name()
+                    embedding_model = MPNetAdapter()
+
+                embedding_model_name = embedding_model.model_name
 
                 # Generate embeddings for each variable using the provided embedding model
                 variable_to_embedding = data_dictionary.get_embeddings(embedding_model)
@@ -791,7 +791,7 @@ class WeaviateRepository(BaseRepository):
         try:
             if not self.client:
                 raise ValueError("Client is not initialized or is invalid.")
-            # Check if the concept exists first (because every mapping should have a related concept)
+            # Check if the concept exists first
             concept_exists = self._concept_exists(mapping.concept.concept_identifier)
             if not concept_exists:
                 return False
@@ -801,13 +801,14 @@ class WeaviateRepository(BaseRepository):
             # Fetch mappings based on text and concept
             response = mapping_collection.query.fetch_objects(
                 filters=(
-                    Filter.by_property("text").equal(str(mapping.text))
-                    & Filter.by_ref("hasConcept")
-                    .by_property("conceptID")
-                    .equal(mapping.concept.concept_identifier)
-                    & Filter.by_ref("hasConcept")
-                    .by_property("prefLabel")
-                    .equal(mapping.concept.pref_label)
+                    Filter.all_of(
+                        [
+                            Filter.by_property("text").equal(str(mapping.text)),
+                            Filter.by_ref("hasConcept")
+                            .by_property("conceptID")
+                            .equal(mapping.concept.concept_identifier),
+                        ]
+                    )
                 )
             )
             if response.objects is not None:
