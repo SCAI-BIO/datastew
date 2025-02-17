@@ -390,7 +390,7 @@ class WeaviateRepository(BaseRepository):
             raise ValueError("Client is not initialized or is invalid.")
 
         mappings = []  # List to store fetched mappings
-        filters = []  # List to store filters for query
+        filters = None  # List to store filters for query
         target_vector = True  # Whether to include vectors in the response
 
         # Apply terminology filter if specified
@@ -399,12 +399,20 @@ class WeaviateRepository(BaseRepository):
                 raise ValueError(
                     f"Terminology '{terminology_name}' not found in available terminologies."
                 )
-            filters.append(
-                Filter.by_ref("hasConcept")
-                .by_ref("hasTerminology")
-                .by_property("name")
-                .equal(terminology_name)
-            )
+            if filters:
+                filters.append(
+                    Filter.by_ref("hasConcept")
+                    .by_ref("hasTerminology")
+                    .by_property("name")
+                    .equal(terminology_name)
+                )
+            else:
+                filters = [
+                    Filter.by_ref("hasConcept")
+                    .by_ref("hasTerminology")
+                    .by_property("name")
+                    .equal(terminology_name)
+                ]
 
         # Apply sentence embedder filter if specified
         if sentence_embedder:
@@ -414,9 +422,18 @@ class WeaviateRepository(BaseRepository):
                 )
             # Add filter for sentence embedder only if vectors should be included
             if self.bring_vectors:
-                filters.append(
-                    Filter.by_property("hasSentenceEmbedder").equal(sentence_embedder)
-                )
+                if filters:
+                    filters.append(
+                        Filter.by_property("hasSentenceEmbedder").equal(
+                            sentence_embedder
+                        )
+                    )
+                else:
+                    filters = [
+                        Filter.by_property("hasSentenceEmbedder").equal(
+                            sentence_embedder
+                        )
+                    ]
             else:
                 target_vector = sentence_embedder
         else:
@@ -431,7 +448,7 @@ class WeaviateRepository(BaseRepository):
 
             # Fetch objects based on the filters, limit, and offset
             response = mapping_collection.query.fetch_objects(
-                filters=Filter.all_of(filters),
+                filters=Filter.all_of(filters) if filters else None,
                 limit=limit,
                 offset=offset,
                 include_vector=target_vector,
