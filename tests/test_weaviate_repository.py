@@ -1,11 +1,10 @@
 import os
 import shutil
-import unittest
 from unittest import TestCase
 
 from datastew import MPNetAdapter
 from datastew.process.parsing import DataDictionarySource
-from datastew.repository import Terminology, Concept, Mapping
+from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.weaviate import WeaviateRepository
 
 
