@@ -806,22 +806,9 @@ class WeaviateRepository(BaseRepository):
 
             # Fetch mappings based on text and concept
             response = mapping_collection.query.fetch_objects(filters=filters)
-
-            # Check if any mappings are returned with the same text and concept
-            if response.objects:
-                # If `self.bring_vectors` is True, compare embeddings
-                if self.bring_vectors:
-                    for obj in response.objects:
-                        if obj.vector == mapping.embedding:
-                            return True
-                else:
-                    # If `self.bring_vectors` is False, compare the named vectors (if applicable)
-                    for obj in response.objects:
-                        if mapping.embedding is not None:
-                            for vector_name in obj.vector.keys():
-                                if mapping.embedding == obj.vector[vector_name]:
-                                    return True
-            return False  # No matching Mapping found in the collection
+            if response.objects is not None:
+                return len(response.objects) > 0
+            return False
 
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")
