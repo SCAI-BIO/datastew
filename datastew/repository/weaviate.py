@@ -789,23 +789,27 @@ class WeaviateRepository(BaseRepository):
             exists, otherwise `False`.
         """
         try:
+            if not self.client:
+                raise ValueError("Client is not initialized or is invalid.")
             # Check if the concept exists first (because every mapping should have a related concept)
             concept_exists = self._concept_exists(mapping.concept.concept_identifier)
             if not concept_exists:
                 return False
 
-            # Prepare filters for fetching mappings with the same text and concept
             mapping_collection = self.client.collections.get("Mapping")
-            filters = Filter.by_property("text").equal(str(mapping.text))
-            filters = filters & Filter.by_ref("hasConcept").by_property(
-                "conceptID"
-            ).equal(mapping.concept.concept_identifier)
-            filters = filters & Filter.by_ref("hasConcept").by_property(
-                "prefLabel"
-            ).equal(mapping.concept.pref_label)
 
             # Fetch mappings based on text and concept
-            response = mapping_collection.query.fetch_objects(filters=filters)
+            response = mapping_collection.query.fetch_objects(
+                filters=(
+                    Filter.by_property("text").equal(str(mapping.text))
+                    & Filter.by_ref("hasConcept")
+                    .by_property("conceptID")
+                    .equal(mapping.concept.concept_identifier)
+                    & Filter.by_ref("hasConcept")
+                    .by_property("prefLabel")
+                    .equal(mapping.concept.pref_label)
+                )
+            )
             if response.objects is not None:
                 return len(response.objects) > 0
             return False
