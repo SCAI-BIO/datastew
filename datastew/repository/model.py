@@ -1,7 +1,6 @@
 import json
-from typing import Optional
+from typing import Dict, List, Optional, Union
 
-import numpy as np
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -44,11 +43,9 @@ class Mapping(Base):
     embedding_json = Column(Text)
     sentence_embedder = Column(Text)
 
-    def __init__(self, concept: Concept, text: str, embedding: list, sentence_embedder: str, id: Optional[str] = None):
+    def __init__(self, concept: Concept, text: str, embedding: Optional[Union[List[float], Dict[str, List[float]]]] = None, sentence_embedder: Optional[str] = None, id: Optional[str] = None):
         self.concept = concept
         self.text = text
-        if isinstance(embedding, np.ndarray):
-            embedding = embedding.tolist()
         self.embedding_json = json.dumps(embedding)  # Store embedding as JSON
         self.sentence_embedder = sentence_embedder
         self.id = id
