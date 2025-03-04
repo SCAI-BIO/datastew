@@ -136,7 +136,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
             test_embedding, sentence_embedder=self.target_vector
         )
         self.assertEqual(len(closest_mappings), 5)
-        self.assertEqual(closest_mappings[0].text, "Common cold")
+        self.assertEqual(closest_mappings[0].text, "Influenza")
 
     def test_terminology_and_model_specific_mappings(self):
         """Test retrieval of mappings filtered by terminology and model."""
@@ -156,7 +156,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
         )
         self.assertEqual(len(closest_mappings_with_similarities), 5)
         self.assertEqual(
-            closest_mappings_with_similarities[0].mapping.text, "Common cold"
+            closest_mappings_with_similarities[0].mapping.text, "Influenza"
         )
         self.assertAlmostEqual(
             closest_mappings_with_similarities[0].similarity, 0.6747197, 3
