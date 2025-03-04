@@ -20,7 +20,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
         """Set up reusable components for the tests."""
         cls.repository = WeaviateRepository(bring_vectors=False, huggingface_key=hf_key)
         cls.embedding_model = MPNetAdapter()
-        cls.target_vector = "sentence-transformers_all-mpnet-base-v2"
+        cls.target_vector = "sentence_transformers_all_mpnet_base_v2"
         # Terminologies
         cls.terminology1 = Terminology("snomed CT", "SNOMED")
         cls.terminology2 = Terminology("NCI Thesaurus OBO Edition", "NCIT")
