@@ -100,7 +100,9 @@ class TestPreconfiguredWeaviateRepository(TestCase):
 
     def test_store_and_retrieve_mappings(self):
         """Test storing and retrieving mappings from the repository."""
-        mappings = self.repository.get_mappings(limit=5).items
+        mappings = self.repository.get_mappings(
+            limit=5, sentence_embedder="sentence_transformers_all_mpnet_base_v2"
+        ).items
         self.assertEqual(len(mappings), 5)
 
     def test_concept_retrieval(self):
