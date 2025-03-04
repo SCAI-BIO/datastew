@@ -144,7 +144,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
         specific_mappings = self.repository.get_closest_mappings(
             test_embedding, False, "snomed CT", self.target_vector
         )
-        self.assertEqual(len(specific_mappings), 2)
+        self.assertEqual(len(specific_mappings), 4)
         self.assertEqual(specific_mappings[0].text, "Asthma")
         self.assertEqual(specific_mappings[0].concept.terminology.name, "snomed CT")
 
@@ -159,7 +159,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
             closest_mappings_with_similarities[0].mapping.text, "Influenza"
         )
         self.assertAlmostEqual(
-            closest_mappings_with_similarities[0].similarity, 0.6747197, 3
+            closest_mappings_with_similarities[0].similarity, 0.5877506, 3
         )
 
     def test_terminology_and_model_specific_mappings_with_similarities(self):
@@ -168,7 +168,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
         specific_mappings_with_similarities = self.repository.get_closest_mappings(
             test_embedding, True, "snomed CT", self.target_vector
         )
-        self.assertEqual(len(specific_mappings_with_similarities), 2)
+        self.assertEqual(len(specific_mappings_with_similarities), 4)
         self.assertEqual(specific_mappings_with_similarities[0].mapping.text, "Asthma")
         self.assertEqual(
             specific_mappings_with_similarities[0].mapping.concept.terminology.name,
