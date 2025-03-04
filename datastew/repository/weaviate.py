@@ -208,7 +208,7 @@ class WeaviateRepository(BaseRepository):
                     limit=1, include_vector=True
                 )
                 for o in response.objects:
-                    sentence_embedders.add(o.vector.keys())
+                    sentence_embedders.update(o.vector.keys())
         except Exception as e:
             raise RuntimeError(f"Failed to fetch sentence embedders: {e}")
         return list(sentence_embedders)
