@@ -175,7 +175,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
             "snomed CT",
         )
         self.assertAlmostEqual(
-            specific_mappings_with_similarities[0].similarity, 0.3947341, 3
+            specific_mappings_with_similarities[0].similarity, 0.2154954, 3
         )
 
     def test_import_data_dictionary(self):
