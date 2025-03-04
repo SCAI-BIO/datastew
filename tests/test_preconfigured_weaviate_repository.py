@@ -101,7 +101,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
     def test_store_and_retrieve_mappings(self):
         """Test storing and retrieving mappings from the repository."""
         mappings = self.repository.get_mappings(
-            limit=5, sentence_embedder="sentence_transformers_all_mpnet_base_v2"
+            limit=5, sentence_embedder=self.target_vector
         ).items
         self.assertEqual(len(mappings), 5)
 
@@ -152,7 +152,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
         """Test retrieval of closest mappings with similarity scores."""
         test_embedding = self.embedding_model.get_embedding(self.test_text)
         closest_mappings_with_similarities = self.repository.get_closest_mappings(
-            test_embedding, True
+            test_embedding, True, sentence_embedder=self.target_vector
         )
         self.assertEqual(len(closest_mappings_with_similarities), 5)
         self.assertEqual(
@@ -191,7 +191,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
         terminology = self.repository.get_terminology("import_test")
         self.assertEqual("import_test", terminology.name)
 
-        mappings = self.repository.get_mappings("import_test").items
+        mappings = self.repository.get_mappings("import_test", self.target_vector).items
         mapping_texts = [mapping.text for mapping in mappings]
         data_frame = data_dictionary_source.to_dataframe()
         for row in data_frame.index:
@@ -221,7 +221,9 @@ class TestPreconfiguredWeaviateRepository(TestCase):
         )
 
         # Check if mappings and concepts are intact
-        mappings = repository.get_mappings(limit=5).items
+        mappings = repository.get_mappings(
+            sentence_embedder=self.target_vector, limit=5
+        ).items
         self.assertEqual(len(mappings), 5)
 
         concepts = repository.get_all_concepts()
