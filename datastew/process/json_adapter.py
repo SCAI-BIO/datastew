@@ -20,15 +20,15 @@ class WeaviateJsonConverter(object):
     def __init__(
         self,
         dest_dir: str,
-        schema_terminology: dict = terminology_schema,
-        schema_concept: dict = concept_schema,
-        schema_mapping: dict = mapping_schema_user_vectors,
+        terminology_schema: dict = terminology_schema,
+        concept_schema: dict = concept_schema,
+        mapping_schema: dict = mapping_schema_user_vectors,
         buffer_size: int = 1000,
     ):
         self.dest_dir = dest_dir
-        self.terminology_schema = schema_terminology
-        self.concept_schema = schema_concept
-        self.mapping_schema_user_vectors = schema_mapping
+        self.terminology_schema = terminology_schema
+        self.concept_schema = concept_schema
+        self.mapping_schema_user_vectors = mapping_schema
         self._buffer = []
         self._buffer_size = buffer_size
         self._ensure_directories_exist()
