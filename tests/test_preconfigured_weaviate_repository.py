@@ -18,7 +18,9 @@ class TestPreconfiguredWeaviateRepository(TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up reusable components for the tests."""
-        cls.repository = WeaviateRepository(bring_vectors=False, huggingface_key=hf_key)
+        cls.repository = WeaviateRepository(
+            use_weaviate_vectorizer=True, huggingface_key=hf_key
+        )
         cls.embedding_model = MPNetAdapter()
         cls.target_vector = "sentence_transformers_all_mpnet_base_v2"
         # Terminologies
@@ -211,7 +213,9 @@ class TestPreconfiguredWeaviateRepository(TestCase):
     def test_repository_restart(self):
         """Test the repository restart functionality to ensure no data is lost or corrupted."""
         # Re-initialize repository
-        repository = WeaviateRepository(bring_vectors=False, huggingface_key=hf_key)
+        repository = WeaviateRepository(
+            use_weaviate_vectorizer=True, huggingface_key=hf_key
+        )
 
         # Try storing the same data again (should not create duplicates)
         repository.store_all(

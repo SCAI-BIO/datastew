@@ -26,7 +26,7 @@ class WeaviateRepository(BaseRepository):
 
     def __init__(
         self,
-        bring_vectors: bool = True,
+        use_weaviate_vectorizer: bool = False,
         huggingface_key: Optional[str] = None,
         mode: str = "memory",
         path: str = "db",
@@ -37,10 +37,10 @@ class WeaviateRepository(BaseRepository):
         """Initialize the WeaviateRepository instance, connecting to either a local or remote Weaviate instance and
         setting up the appropriate schemas based on the specific options.
 
-        :param bring_vectors: Specifies whether to use custom vectors provided by the user (True) or pre-configured
-            embeddings (False). Defaults to True.
-        :param huggingface_key: API key for Hugging Face if using pre-configured embeddings. Required if `bring_vectors`
-            is False. Defaults to None.
+        :param use_weaviate_vectorizer: Specifies whether to use pre-configured embeddings (True) or custom vectors
+            provided by the user (False). Defaults to False.
+        :param huggingface_key: API key for Hugging Face if using pre-configured embeddings. Required if `use_weaviate_vectorizer`
+            is True. Defaults to None.
         :param mode: Defines the connection mode for the repository. Can be either "memory" (in-memory), or "remote"
             (remote Weaviate instance). Defaults to "memory".
         :param path: The path for the local disk connection, used only in "memory" mode. Defaults to "db".
@@ -48,14 +48,14 @@ class WeaviateRepository(BaseRepository):
         :param http_port: The HTTP port for the local connection in "memory" mode. Defaults to 8079.
         :param grpc_port: The gRPC port for the local connection in "memory" mode. Defaults to 50050.
 
-        :raises ValueError: If the `huggingface_key` is not provided when `bring_vectors` is False or if an invalid
-            `mode` is specified.
+        :raises ValueError: If the `huggingface_key` is not provided when `use_weaviate_vectorizer` is True or if an
+            invalid `mode` is specified.
         :raises RuntimeError: If there is a failure in creating the schema or connecting to Weaviate.
         """
-        self.bring_vectors = bring_vectors
+        self.use_weaviate_vectorizer = use_weaviate_vectorizer
         self.mode = mode
         self.client: Optional[WeaviateClient] = None
-        if not self.bring_vectors:
+        if self.use_weaviate_vectorizer:
             if huggingface_key:
                 self.headers = {"X-HuggingFace-Api-Key": huggingface_key}
             else:
@@ -74,7 +74,7 @@ class WeaviateRepository(BaseRepository):
         try:
             self._create_schema_if_not_exists(terminology_schema)
             self._create_schema_if_not_exists(concept_schema)
-            if self.bring_vectors:
+            if not self.use_weaviate_vectorizer:
                 self._create_schema_if_not_exists(mapping_schema_user_vectors)
             else:
                 self._create_schema_if_not_exists(
@@ -91,8 +91,8 @@ class WeaviateRepository(BaseRepository):
     ):
         """Imports a data dictionary into the Weaviate repository by converting the dictionary into a list of model
         instances (Terminology, Concept, and Mapping). Each variable in the data dictionary is mapped to a concept and
-        a mapping. If `bring_vectors` is True, embeddings are generated using the provided or default embedding model
-        for each variable's description. Otherwise pre-configured HuggingFace model(s) will be used.
+        a mapping. If `use_weaviate_vectorizer` is False, embeddings are generated using the provided or default
+        embedding model for each variable's description. Otherwise pre-configured HuggingFace model(s) will be used.
 
         :param data_dictionary: The source data dictionary to be imported.
         :param terminology_name: The name assigned to the terminology being imported.
@@ -116,7 +116,7 @@ class WeaviateRepository(BaseRepository):
             terminology = Terminology(terminology_name, terminology_name)
             model_object_instances.append(terminology)
 
-            if self.bring_vectors:
+            if not self.use_weaviate_vectorizer:
                 # If vectors are being used, select the embedding model (default or provided.)
                 if embedding_model is None:
                     embedding_model = MPNetAdapter()
@@ -136,7 +136,7 @@ class WeaviateRepository(BaseRepository):
                 )
 
                 # If the user bring vectors, create the Mapping with the embedding
-                if self.bring_vectors:
+                if not self.use_weaviate_vectorizer:
                     mapping = Mapping(
                         concept=concept,
                         text=description,
@@ -182,9 +182,10 @@ class WeaviateRepository(BaseRepository):
         )
 
     def get_all_sentence_embedders(self) -> List[str]:
-        """Retrieves the names of all sentence embedders used in the "Mapping" collection. If `self.bring_vectors` is
-        True, it fetches the names directly from the objects in the collection. If `self.bring_vectors` is False, it
-        retrieves the names from the vector keys in the embeddings returned by an object in the collection.
+        """Retrieves the names of all sentence embedders used in the "Mapping" collection. If
+        `self.use_weaviate_vectorizer` is False, it fetches the names directly from the objects in the collection. If
+        `self.use_weaviate_vectorizer` is True, it retrieves the names from the vector keys in the embeddings returned
+        by an object in the collection.
 
         :raises ValueError: If the client is not initialized.
         :raises RuntimeError: If there is an issue fetching sentence embedders or vector configurations.
@@ -195,7 +196,7 @@ class WeaviateRepository(BaseRepository):
         sentence_embedders = set()
         mapping_collection = self.client.collections.get("Mapping")
         try:
-            if self.bring_vectors:
+            if not self.use_weaviate_vectorizer:
                 # Fetch sentence embedders from the existing "Mapping" objects
                 response = mapping_collection.query.fetch_objects()
 
@@ -375,14 +376,14 @@ class WeaviateRepository(BaseRepository):
         embedder. The function can limit and offset the number of results returned
 
         :param terminology_name: The name of the terminology to filter the mappings, defaults to None
-        :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if `bring_vectors`
-            is `False`, defaults to None
+        :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if
+            `use_weaviate_vectorizer` is `True`, defaults to None
         :param limit: The maximum number of mappings to return, defaults to 1000
         :param offset: The number of mappings to skip before returning results, defaults to 0
         :raises ValueError: If the client is not initialized or is invalid.
         :raises ValueError: If the terminology is not found.
         :raises ValueError: If the sentence embedder is not found.
-        :raises ValueError: If `sentence_embedder` is `None` and `bring_vectors` is `False`.
+        :raises ValueError: If `sentence_embedder` is `None` and `use_weaviate_vectorizer` is `True`.
         :raises RuntimeError: If the fetch operation fails.
         :return: A page object containing a list of Mapping objects, along with pagination details.
         """
@@ -421,7 +422,7 @@ class WeaviateRepository(BaseRepository):
                     f"Vectorizer '{sentence_embedder}' not found in available vectorizers."
                 )
             # Add filter for sentence embedder only if vectors should be included
-            if self.bring_vectors:
+            if not self.use_weaviate_vectorizer:
                 if filters:
                     filters.append(
                         Filter.by_property("hasSentenceEmbedder").equal(
@@ -437,9 +438,9 @@ class WeaviateRepository(BaseRepository):
             else:
                 target_vector = sentence_embedder
         else:
-            if not self.bring_vectors:
+            if self.use_weaviate_vectorizer:
                 raise ValueError(
-                    "Sentence embedder cannot be `None` while `self.bring_vectors` is `False`."
+                    "Sentence embedder cannot be `None` while `self.use_weaviate_vectorizer` is `True`."
                 )
 
         try:
@@ -478,7 +479,7 @@ class WeaviateRepository(BaseRepository):
                     )
 
                 # Create a Mapping object and add to the mappings list
-                if self.bring_vectors:
+                if not self.use_weaviate_vectorizer:
                     mapping = Mapping(
                         id=str(o.uuid),
                         text=str(o.properties["text"]),
@@ -520,15 +521,15 @@ class WeaviateRepository(BaseRepository):
         embedder.
 
         :param embedding: The embedding vector to find the closest mappings.
-        :param similarities: Whether to include similarity scores in the result, defaults to False
-        :param terminology_name: The name of the terminology to filter the mappings, defaults to None
-        :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if `bring_vectors`
-            is `False`, defaults to None
+        :param similarities: Whether to include similarity scores in the result, defaults to `False`.
+        :param terminology_name: The name of the terminology to filter the mappings, defaults to None.
+        :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if
+            `use_weaviate_vectorizer` is `True`, defaults to None.
         :param limit: The Maximum number of closest mappings to return, defaults to 5
         :raises ValueError: If the client is not initialized.
         :raises ValueError: If terminology does not exist.
         :raises ValueError: If sentence embedder does not exist.
-        :raises ValueError: If sentence embedder is not set while `bring_vectors` is False.
+        :raises ValueError: If sentence embedder is not set while `use_weaviate_vectorizer` is `True`.
         :raises RuntimeError: If the fetch operation fails
         :return: A list of Mapping or MappingResult objects based on whether similarity scores are included.
         """
@@ -567,7 +568,7 @@ class WeaviateRepository(BaseRepository):
                     f"Vectorizer '{sentence_embedder}' not found in available vectorizers."
                 )
             # Add filter for sentence embedder only if vectors should be included
-            if self.bring_vectors:
+            if not self.use_weaviate_vectorizer:
                 if filters:
                     filters.append(
                         Filter.by_property("hasSentenceEmbedder").equal(
@@ -583,9 +584,9 @@ class WeaviateRepository(BaseRepository):
             else:
                 target_vector = sentence_embedder
         else:
-            if not self.bring_vectors:
+            if self.use_weaviate_vectorizer:
                 raise ValueError(
-                    "Sentence embedder cannot be `None` while `self.bring_vectors` is `False`."
+                    "Sentence embedder cannot be `None` while `self.use_weaviate_vectorizer` is `True`."
                 )
         try:
             # Get the mapping collection from the Weaviate client
@@ -627,7 +628,7 @@ class WeaviateRepository(BaseRepository):
                     )
 
                 # Create Mapping objects and append them to the list
-                if self.bring_vectors:
+                if not self.use_weaviate_vectorizer:
                     mapping = Mapping(
                         concept=concept,
                         text=str(o.properties["text"]),
@@ -659,8 +660,8 @@ class WeaviateRepository(BaseRepository):
         """Fetches the closest mappings based on an embedding vector and includes similarity scores for each mapping.
 
         :param embedding: The embedding vector to find the closest mappings.
-        :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if `bring_vectors`
-            is `False`, defaults to None.
+        :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if
+            `use_weaviate_vectorizer` is `True`, defaults to None.
         :param limit: The maximum number of closest mappings to return, defaults to 5.
         :return: A list of MappingResult objects, each containing a mapping and its similarity score.
         """
@@ -792,7 +793,7 @@ class WeaviateRepository(BaseRepository):
                         model_object_instance.concept.concept_identifier
                     ):
                         self.store(model_object_instance.concept)
-                    if self.bring_vectors:
+                    if not self.use_weaviate_vectorizer:
                         properties = {
                             "text": model_object_instance.text,
                             "hasSentenceEmbedder": model_object_instance.sentence_embedder,
@@ -843,7 +844,7 @@ class WeaviateRepository(BaseRepository):
             raise ValueError("Client is not initialized or is invalid.")
         try:
             mapping = self.client.collections.get("Mapping")
-            if self.bring_vectors:
+            if not self.use_weaviate_vectorizer:
                 response = mapping.query.fetch_objects(
                     filters=Filter.by_property("hasSentenceEmbedder").equal(name)
                 )
@@ -985,8 +986,9 @@ class WeaviateRepository(BaseRepository):
                 - `name`: The name of the property.
                 - `data_type`: The data type of the property (e.g., `DataType.TEXT`).
             - "references" (optional): A list of `ReferenceProperty` objects, defining relationships to other classes.
-            - "vectorizer_config" (optional): A configuration for vectorization (only used when `bring_vectors` is
-                False), typically a list of `Configure` objects like `Configure.NamedVectors.text2vec_huggingface`.
+            - "vectorizer_config" (optional): A configuration for vectorization (only used when
+                `use_weaviate_vectorizer` is True), typically a list of `Configure` objects like
+                `Configure.NamedVectors.text2vec_huggingface`.
 
         :raises RuntimeError: If there is an issue checking for or creating the schema in Weaviate, such as connection
             error.
@@ -1002,7 +1004,7 @@ class WeaviateRepository(BaseRepository):
                 properties = schema["properties"]
                 if "references" in schema:
                     references = schema["references"]
-                if "vectorizer_config" in schema and not self.bring_vectors:
+                if "vectorizer_config" in schema and self.use_weaviate_vectorizer:
                     vectorizer_config = schema["vectorizer_config"]
                 self.client.collections.create(
                     name=class_name,
@@ -1028,7 +1030,7 @@ class WeaviateRepository(BaseRepository):
             if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
                 if self.client:
                     self.client.close()
-                if self.bring_vectors:
+                if not self.use_weaviate_vectorizer:
                     self.client = weaviate.connect_to_local(
                         port=http_port, grpc_port=grpc_port
                     )
@@ -1037,7 +1039,7 @@ class WeaviateRepository(BaseRepository):
                         port=http_port, grpc_port=grpc_port, headers=self.headers
                     )
             else:
-                if self.bring_vectors:
+                if not self.use_weaviate_vectorizer:
                     self.client = weaviate.connect_to_embedded(
                         persistence_data_path=path
                     )
@@ -1052,7 +1054,7 @@ class WeaviateRepository(BaseRepository):
         try:
             if path is None:
                 raise ValueError("Remote URL must be provided for remote mode.")
-            if self.bring_vectors:
+            if not self.use_weaviate_vectorizer:
                 self.client = weaviate.connect_to_local(host=path, port=port)
             else:
                 self.client = weaviate.connect_to_local(
