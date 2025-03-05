@@ -14,7 +14,7 @@ class TestWeaviateRepository(TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up reusable components for the tests."""
-        cls.repository = WeaviateRepository(mode="disk", path="db")
+        cls.repository = WeaviateRepository()
         cls.embedding_model1 = MPNetAdapter()
         cls.embedding_model2 = MPNetAdapter("FremyCompany/BioLORD-2023")
         cls.model_name1 = cls.embedding_model1.get_model_name()
@@ -190,7 +190,7 @@ class TestWeaviateRepository(TestCase):
     def test_repository_restart(self):
         """Test the repository restart functionality to ensure no data is lost or corrupted."""
         # Re-initialize repository
-        repository = WeaviateRepository(mode="disk", path="db")
+        repository = WeaviateRepository()
 
         # Try storing the same data again (should not create duplicates)
         repository.store_all(
