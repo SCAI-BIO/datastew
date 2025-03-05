@@ -835,6 +835,8 @@ class WeaviateRepository(BaseRepository):
     def shut_down(self):
         if self.mode == "memory":
             shutil.rmtree("db")
+        else:
+            self.close()
 
     def _sentence_embedder_exists(self, name: str) -> bool:
         if not self.client:
