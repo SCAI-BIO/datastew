@@ -54,6 +54,7 @@ class WeaviateRepository(BaseRepository):
         """
         self.use_weaviate_vectorizer = use_weaviate_vectorizer
         self.mode = mode
+        self.client: WeaviateClient
         self.headers = None
         if self.use_weaviate_vectorizer:
             if huggingface_key:
