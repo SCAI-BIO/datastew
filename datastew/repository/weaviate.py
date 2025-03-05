@@ -17,8 +17,11 @@ from datastew.repository.base import BaseRepository
 from datastew.repository.model import MappingResult
 from datastew.repository.pagination import Page
 from datastew.repository.weaviate_schema import (
-    concept_schema, mapping_schema_preconfigured_embeddings,
-    mapping_schema_user_vectors, terminology_schema)
+    concept_schema,
+    mapping_schema_preconfigured_embeddings,
+    mapping_schema_user_vectors,
+    terminology_schema,
+)
 
 
 class WeaviateRepository(BaseRepository):
@@ -41,12 +44,12 @@ class WeaviateRepository(BaseRepository):
             embeddings (False). Defaults to True.
         :param huggingface_key: API key for Hugging Face if using pre-configured embeddings. Required if `bring_vectors`
             is False. Defaults to None.
-        :param mode: Defines the connection mode for the repository. Can be either "disk" (local instance), "memory"
-            (in-memory, using the same logic as "disk"), or "remote" (remote Weaviate instance). Defaults to "memory".
-        :param path: The path for the local disk connection, used only in "disk" mode. Defaults to "db".
+        :param mode: Defines the connection mode for the repository. Can be either "memory" (in-memory), or "remote"
+            (remote Weaviate instance). Defaults to "memory".
+        :param path: The path for the local disk connection, used only in "memory" mode. Defaults to "db".
         :param port: The port number for remote Weaviate connection, used only in "remote" mode. Defaults to 80.
-        :param http_port: The HTTP port for the local connection in "disk" mode. Defaults to 8079.
-        :param grpc_port: The gRPC port for the local connection in "disk" mode. Defaults to 50050.
+        :param http_port: The HTTP port for the local connection in "memory" mode. Defaults to 8079.
+        :param grpc_port: The gRPC port for the local connection in "memory" mode. Defaults to 50050.
 
         :raises ValueError: If the `huggingface_key` is not provided when `bring_vectors` is False or if an invalid
             `mode` is specified.
@@ -62,7 +65,7 @@ class WeaviateRepository(BaseRepository):
                 raise ValueError(
                     "A HuggingFace API key is required for generating vectors."
                 )
-        if self.mode == "disk" or self.mode == "memory":
+        if self.mode == "memory":
             self._connect_to_disk(path, http_port, grpc_port)
         elif self.mode == "remote":
             self._connect_to_remote(path, port)
