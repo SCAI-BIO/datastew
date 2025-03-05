@@ -17,11 +17,8 @@ from datastew.repository.base import BaseRepository
 from datastew.repository.model import MappingResult
 from datastew.repository.pagination import Page
 from datastew.repository.weaviate_schema import (
-    concept_schema,
-    mapping_schema_preconfigured_embeddings,
-    mapping_schema_user_vectors,
-    terminology_schema,
-)
+    concept_schema, mapping_schema_preconfigured_embeddings,
+    mapping_schema_user_vectors, terminology_schema)
 
 
 class WeaviateRepository(BaseRepository):
@@ -665,9 +662,6 @@ class WeaviateRepository(BaseRepository):
         :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if `bring_vectors`
             is `False`, defaults to None.
         :param limit: The maximum number of closest mappings to return, defaults to 5.
-        :raises ValueError: If the client is not initialized
-        :raises ValueError: If `sentence_embedder` is `None` while `bring_vectors` is `False`.
-        :raises RuntimeError: If the fetch operation fails.
         :return: A list of MappingResult objects, each containing a mapping and its similarity score.
         """
         # Emit a deprecation warning as this function is deprecated
@@ -676,83 +670,12 @@ class WeaviateRepository(BaseRepository):
             DeprecationWarning,
             stacklevel=2,
         )
-
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-
-        target_vector = None
-
-        # Ensure the sentence embedder is provided if the user utilizes pre-configured vectorizers
-        if not self.bring_vectors:
-            if sentence_embedder:
-                target_vector = sentence_embedder
-            else:
-                raise ValueError(
-                    "Sentence embedder cannot be `None` while `self.bring_vectors` is `False`."
-                )
-        mappings_with_similarities = []
-        try:
-            # Get the mapping collection from the Weaviate client
-            mapping_collection = self.client.collections.get("Mapping")
-
-            # Perform the vector search to fetch the closest mappings with similarity scores
-            response = mapping_collection.query.near_vector(
-                near_vector=embedding,
-                limit=limit,
-                return_metadata=MetadataQuery(distance=True),
-                return_references=QueryReference(
-                    link_on="hasConcept",
-                    return_references=QueryReference(link_on="hasTerminology"),
-                ),
-                target_vector=target_vector,
-            )
-
-            # Process the response objects into MappingResult objects
-            for o in response.objects:
-                # Calculate similarity based on distance
-                if o.metadata.distance:
-                    similarity = 1 - o.metadata.distance
-                if o.references:
-                    # Extract concept and terminology data
-                    concept_data = o.references["hasConcept"].objects[0]
-                    terminology_data = concept_data.references[
-                        "hasTerminology"
-                    ].objects[0]
-                    terminology = Terminology(
-                        name=str(terminology_data.properties["name"]),
-                        id=str(terminology_data.uuid),
-                    )
-                    concept = Concept(
-                        terminology=terminology,
-                        pref_label=str(concept_data.properties["prefLabel"]),
-                        concept_identifier=str(concept_data.properties["conceptID"]),
-                        id=str(concept_data.uuid),
-                    )
-
-                # Create Mapping objects and append them to the mappings list
-                if self.bring_vectors:
-                    mapping = Mapping(
-                        concept=concept,
-                        text=str(o.properties["text"]),
-                        embedding=o.vector,
-                        sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
-                    )
-                else:
-                    mapping = Mapping(
-                        concept=concept,
-                        text=str(o.properties["text"]),
-                        embedding=o.vector,
-                    )
-
-                # Append MappingResult with similarity score
-                mappings_with_similarities.append(MappingResult(mapping, similarity))
-
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to fetch closest mappings with similarities: {e}"
-            )
-
-        return mappings_with_similarities
+        return self.get_closest_mappings(
+            embedding=embedding,
+            similarities=True,
+            sentence_embedder=sentence_embedder,
+            limit=limit,
+        )
 
     def get_terminology_and_model_specific_closest_mappings(
         self,
@@ -770,10 +693,6 @@ class WeaviateRepository(BaseRepository):
         :param terminology_name: The name of the terminology to filter the mappings.
         :param sentence_embedder_name: The name of the sentence embedder to filter the mappings.
         :param limit: The maximum number of closest mappings to return, defaults to 5
-        :raises ValueError: If the client is not initialized.
-        :raises RuntimeError: If the terminology does not exist.
-        :raises RuntimeError: If the sentence embedder does not exist.
-        :raises RuntimeError: If the fetch operation fails.
         :return: A list of the closest Mapping objects that match the specific filters.
         """
         # Emit a deprecation warning as this function is deprecated
@@ -782,98 +701,12 @@ class WeaviateRepository(BaseRepository):
             DeprecationWarning,
             stacklevel=2,
         )
-
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-
-        mappings = []  # List to store the resulting mappings
-        filters = []  # List to store filters for the query
-        target_vector = None  # Variable to store the sentence embedder if the user utilizes pre-configured vectorizers
-        try:
-            # Ensure the terminology exists
-            if not self._terminology_exists(terminology_name):
-                raise RuntimeError(f"Terminology {terminology_name} does not exists")
-
-            # Ensure the sentence embedder exists
-            if not self._sentence_embedder_exists(sentence_embedder_name):
-                raise RuntimeError(
-                    f"Sentence Embedder {sentence_embedder_name} does not exists"
-                )
-
-            # Add the terminology filter
-            filters.append(
-                Filter.by_ref("hasConcept")
-                .by_ref("hasTerminology")
-                .by_property("name")
-                .equal(terminology_name)
-            )
-
-            # Add sentence embedder filter or set target_vector if the user utilizes pre-configured vectorizers
-            if self.bring_vectors:
-                filters.append(
-                    Filter.by_property("hasSentenceEmbedder").equal(
-                        sentence_embedder_name
-                    )
-                )
-            else:
-                target_vector = sentence_embedder_name
-
-            # Get the mapping collection from the Weaviate client
-            mapping_collection = self.client.collections.get("Mapping")
-
-            # Perform the vector search to fetch the closest mappings
-            response = mapping_collection.query.near_vector(
-                near_vector=embedding,
-                filters=Filter.all_of(filters),
-                return_references=QueryReference(
-                    link_on="hasConcept",
-                    return_references=QueryReference(link_on="hasTerminology"),
-                ),
-                limit=limit,
-                target_vector=target_vector,
-            )
-
-            # Process the response objects into Mapping objects
-            for o in response.objects:
-                if o.references:
-                    # Extract concept and terminology data
-                    concept_data = o.references["hasConcept"].objects[0]
-                    terminology_data = concept_data.references[
-                        "hasTerminology"
-                    ].objects[0]
-                    terminology = Terminology(
-                        name=str(terminology_data.properties["name"]),
-                        id=str(terminology_data.uuid),
-                    )
-                    concept = Concept(
-                        terminology=terminology,
-                        pref_label=str(concept_data.properties["prefLabel"]),
-                        concept_identifier=str(concept_data.properties["conceptID"]),
-                        id=str(concept_data.uuid),
-                    )
-
-                # Create Mapping objects and add to the mappings list
-                if self.bring_vectors:
-                    mapping = Mapping(
-                        text=str(o.properties["text"]),
-                        concept=concept,
-                        embedding=o.vector,
-                        sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
-                    )
-                else:
-                    mapping = Mapping(
-                        text=str(o.properties["text"]),
-                        concept=concept,
-                        embedding=o.vector,
-                    )
-                mappings.append(mapping)
-
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to fetch the closest mappings for terminology {terminology_name} and model {sentence_embedder_name}: {e}"
-            )
-
-        return mappings
+        return self.get_closest_mappings(
+            embedding=embedding,
+            terminology_name=terminology_name,
+            sentence_embedder=sentence_embedder_name,
+            limit=limit,
+        )
 
     def get_terminology_and_model_specific_closest_mappings_with_similarities(
         self,
@@ -891,10 +724,6 @@ class WeaviateRepository(BaseRepository):
         :param terminology_name: The name of the terminology to filter the mappings.
         :param sentence_embedder_name: The name of the sentence embedder to filter the mappings.
         :param limit: The maximum number closest mapping to return, defaults to 5
-        :raises ValueError: If the client is not initialized.
-        :raises ValueError: If the terminology does not exist.
-        :raises ValueError: If the sentence embedder does not exist.
-        :raises RuntimeError: If the fetch operation fails.
         :return: A list of MappingResults objects, each containing a mapping and its similarity score.
         """
         # Emit a deprecation warning as this function is deprecated
@@ -903,103 +732,13 @@ class WeaviateRepository(BaseRepository):
             DeprecationWarning,
             stacklevel=2,
         )
-
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-
-        mappings_with_similarities = []
-        filters = []
-        target_vector = None
-
-        # Ensure the terminology exist
-        if not self._terminology_exists(terminology_name):
-            raise ValueError(f"Terminology {terminology_name} does not exists")
-
-        # Apply the terminology filter
-        filters.append(
-            Filter.by_ref("hasConcept")
-            .by_ref("hasTerminology")
-            .by_property("name")
-            .equal(terminology_name)
+        return self.get_closest_mappings(
+            embedding=embedding,
+            similarities=True,
+            terminology_name=terminology_name,
+            sentence_embedder=sentence_embedder_name,
+            limit=limit,
         )
-
-        # Ensure the sentence embedder exists
-        if not self._sentence_embedder_exists(sentence_embedder_name):
-            raise ValueError(
-                f"Sentence Embedder {sentence_embedder_name} does not exists"
-            )
-
-        # Apply the sentence embedder filter
-        if self.bring_vectors:
-            filters.append(
-                Filter.by_property("hasSentenceEmbedder").equal(sentence_embedder_name)
-            )
-        else:
-            target_vector = sentence_embedder_name
-
-        try:
-            # Get the mapping collection from the Weaviate client
-            mapping_collection = self.client.collections.get("Mapping")
-
-            # Perform the vector search to fetch the closest mappings with similarity scores
-            response = mapping_collection.query.near_vector(
-                near_vector=embedding,
-                filters=Filter.all_of(filters),
-                return_references=QueryReference(
-                    link_on="hasConcept",
-                    return_references=QueryReference(link_on="hasTerminology"),
-                ),
-                return_metadata=MetadataQuery(distance=True),
-                target_vector=target_vector,
-                limit=limit,
-            )
-
-            # Process the response objects into MappingResult objects
-            for o in response.objects:
-                # Calculate similarity based on distance
-                if o.metadata.distance:
-                    similarity = 1 - o.metadata.distance
-                if o.references:
-                    # Extract concept and terminology data
-                    concept_data = o.references["hasConcept"].objects[0]
-                    terminology_data = concept_data.references[
-                        "hasTerminology"
-                    ].objects[0]
-                    terminology = Terminology(
-                        name=str(terminology_data.properties["name"]),
-                        id=str(terminology_data.uuid),
-                    )
-                    concept = Concept(
-                        terminology=terminology,
-                        pref_label=str(concept_data.properties["prefLabel"]),
-                        concept_identifier=str(concept_data.properties["conceptID"]),
-                        id=str(concept_data.uuid),
-                    )
-
-                # Create Mapping objects and append them to the list
-                if self.bring_vectors:
-                    mapping = Mapping(
-                        text=str(o.properties["text"]),
-                        concept=concept,
-                        embedding=o.vector,
-                        sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
-                    )
-                else:
-                    mapping = Mapping(
-                        text=str(o.properties["text"]),
-                        concept=concept,
-                        embedding=o.vector,
-                    )
-
-                # Append MappingResult with similarity score
-                mappings_with_similarities.append(MappingResult(mapping, similarity))
-
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to fetch the closest mappings for terminology {terminology_name} and model {sentence_embedder_name}: {e}"
-            )
-
-        return mappings_with_similarities
 
     def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
         if not self.client:
