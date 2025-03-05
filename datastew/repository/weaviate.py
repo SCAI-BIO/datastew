@@ -55,6 +55,7 @@ class WeaviateRepository(BaseRepository):
         self.use_weaviate_vectorizer = use_weaviate_vectorizer
         self.mode = mode
         self.client: Optional[WeaviateClient] = None
+        self.headers = None
         if self.use_weaviate_vectorizer:
             if huggingface_key:
                 self.headers = {"X-HuggingFace-Api-Key": huggingface_key}
@@ -63,7 +64,7 @@ class WeaviateRepository(BaseRepository):
                     "A HuggingFace API key is required for generating vectors."
                 )
         if self.mode == "memory":
-            self._connect_to_disk(path, http_port, grpc_port)
+            self._connect_to_memory(path, http_port, grpc_port)
         elif self.mode == "remote":
             self._connect_to_remote(path, port)
         else:
@@ -1023,30 +1024,20 @@ class WeaviateRepository(BaseRepository):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(("localhost", port)) == 0
 
-    def _connect_to_disk(self, path: str, http_port: int, grpc_port: int):
+    def _connect_to_memory(self, path: str, http_port: int, grpc_port: int):
         try:
             if path is None:
                 raise ValueError("Path must be provided for disk mode.")
             if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
                 if self.client:
                     self.client.close()
-                if not self.use_weaviate_vectorizer:
-                    self.client = weaviate.connect_to_local(
-                        port=http_port, grpc_port=grpc_port
-                    )
-                else:
-                    self.client = weaviate.connect_to_local(
-                        port=http_port, grpc_port=grpc_port, headers=self.headers
-                    )
+                self.client = weaviate.connect_to_local(
+                    port=http_port, grpc_port=grpc_port, headers=self.headers
+                )
             else:
-                if not self.use_weaviate_vectorizer:
-                    self.client = weaviate.connect_to_embedded(
-                        persistence_data_path=path
-                    )
-                else:
-                    self.client = weaviate.connect_to_embedded(
-                        persistence_data_path=path, headers=self.headers
-                    )
+                self.client = weaviate.connect_to_embedded(
+                    persistence_data_path=path, headers=self.headers
+                )
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
 
@@ -1054,11 +1045,8 @@ class WeaviateRepository(BaseRepository):
         try:
             if path is None:
                 raise ValueError("Remote URL must be provided for remote mode.")
-            if not self.use_weaviate_vectorizer:
-                self.client = weaviate.connect_to_local(host=path, port=port)
-            else:
-                self.client = weaviate.connect_to_local(
-                    host=path, port=port, headers=self.headers
-                )
+            self.client = weaviate.connect_to_local(
+                host=path, port=port, headers=self.headers
+            )
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
