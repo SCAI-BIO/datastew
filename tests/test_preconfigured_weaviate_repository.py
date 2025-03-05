@@ -9,7 +9,7 @@ from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.weaviate import WeaviateRepository
 
 load_dotenv()
-hf_key = os.getenv("HF_KEY")
+hf_key = os.getenv("HUGGINGFACE_KEY")
 
 
 class TestPreconfiguredWeaviateRepository(TestCase):
