@@ -1,8 +1,8 @@
-import unittest
 import os
+import unittest
 
 from datastew.process.parsing import DataDictionarySource
-from datastew.repository.model import Terminology, Concept, Mapping
+from datastew.repository.model import Concept, Mapping, Terminology
 from datastew.repository.sqllite import SQLLiteRepository
 
 

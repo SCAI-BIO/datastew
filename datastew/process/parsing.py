@@ -1,9 +1,10 @@
 from abc import ABC
-from typing import Dict, Optional
-from datastew.embedding import EmbeddingModel, MPNetAdapter
+from typing import Dict, Optional, Sequence
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+
+from datastew.embedding import EmbeddingModel, MPNetAdapter
 
 
 class Source(ABC):
@@ -94,17 +95,15 @@ class DataDictionarySource(Source):
             df.dropna(subset=["variable", "description"], inplace=True)
         return df
     
-    def get_embeddings(self, embedding_model: Optional[EmbeddingModel] = None) -> Dict[str, list]:
+    def get_embeddings(self, embedding_model: Optional[EmbeddingModel] = None) -> Dict[str, Sequence[float]]:
         """
         Compute embedding vectors for each description in the data dictionary. The 
         resulting vectors are mapped to their respective variables and returned as a 
         dictionary.
 
-        :param embedding_model: The embedding model used to compute embeddings for the descriptions.
-                                Defaults to MPNetAdapter.
-        :return: A dictionary where each key is a variable name and the value is the 
-                 embedding vector for the corresponding description.
-        :rtype: Dict[str, list]
+        :param embedding_model: The embedding model used to compute embeddings for the descriptions. Defaults to None.
+        :return: A dictionary where each key is a variable name and the value is the  embedding vector for the
+            corresponding description.
         """
         # Compute vectors for all descriptions
         df: pd.DataFrame = self.to_dataframe()
@@ -113,7 +112,7 @@ class DataDictionarySource(Source):
             embedding_model = MPNetAdapter()
         embeddings = embedding_model.get_embeddings(descriptions)
         # variable identify descriptions -> variable to embedding
-        variable_to_embedding: Dict[str, list] = dict(zip(df["variable"], embeddings))
+        variable_to_embedding: Dict[str, Sequence[float]] = dict(zip(df["variable"], embeddings))
         return variable_to_embedding
         
 
@@ -144,4 +143,5 @@ class ConceptSource:
     identifier -> description
     """
 
+    pass
     pass
