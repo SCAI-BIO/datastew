@@ -826,8 +826,76 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to store object in Weaviate: {e}")
 
-    def import_json(self, input_path: str):
-        return None
+    def import_from_json(self, json_path: str, object_type: str, chunk_size: int = 100):
+        """
+        Imports data from a JSON file and stores it in the Weaviate database.
+
+        :param json_path: Path to the JSON file.
+        :param object_type: The type of objects to import ("terminology", "concept", "mapping").
+        :param chunk_size: The number of items to process in each batch.
+        """
+        if not self.client:
+            raise ValueError("Client is not initialized or is invalid.")
+        try:
+            collection = self.client.collections.get(object_type.capitalize())
+            chunk = []
+
+            # Open and load the entire JSON file
+            with open(json_path, "r") as file:
+                data = json.load(file)  # Load the entire file into memory
+
+            # Ensure the data is in a list
+            if not isinstance(data, list):
+                data = [data]
+
+            # Iterate over the data in chunks
+            for item in data:
+                chunk.append(item)
+                if len(chunk) >= chunk_size:
+                    with collection.batch.dynamic() as batch:
+                        for item in chunk:
+                            object_id = item["id"]
+                            properties = item["properties"]
+                            vector = (
+                                None
+                                if self.use_weaviate_vectorizer
+                                else item.get("vector", {}).get("default")
+                            )
+                            references = item.get("references")
+
+                            batch.add_object(
+                                uuid=object_id,
+                                properties=properties,
+                                vector=vector,
+                                references=references,
+                            )
+                    chunk = []
+
+            # Process the remaining items in the last chunk
+            if chunk:
+                with collection.batch.dynamic() as batch:
+                    for item in chunk:
+                        object_id = item["id"]
+                        properties = item["properties"]
+                        vector = (
+                            None
+                            if self.use_weaviate_vectorizer
+                            else item.get("vector", {}).get("default")
+                        )
+                        references = item.get("references")
+                        batch.add_object(
+                            uuid=object_id,
+                            properties=properties,
+                            vector=vector,
+                            references=references,
+                        )
+
+        except FileNotFoundError:
+            raise FileNotFoundError(f"JSON file not found at path: {json_path}")
+        except ValueError as e:
+            raise ValueError(f"Error in loading JSON file: {e}")
+        except Exception as e:
+            raise RuntimeError(f"An unexpected error occurred: {e}")
 
     def close(self):
         if not self.client:
@@ -927,53 +995,6 @@ class WeaviateRepository(BaseRepository):
 
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")
-
-    def import_from_json(self, json_path: str, object_type: str):
-        """
-        Imports data from a JSON file and stores it in the Weaviate database.
-
-        Parameters:
-        - json_path: Path to the JSON file.
-        - object_type: The type of objects to import ("terminology", "concept", "mapping").
-
-        Returns:
-        - None
-        """
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-        try:
-            with open(json_path, "r") as file:
-                data = json.load(file)
-
-            if not isinstance(data, list):
-                data = [data]
-
-            collection = self.client.collections.get(object_type.capitalize())
-
-            with collection.batch.dynamic() as batch:
-                for item in data:
-                    try:
-                        object_id = item["id"]
-                        properties = item["properties"]
-                        vector = item.get("vector", {}).get("default")
-                        references = item.get("references")
-
-                        batch.add_object(
-                            uuid=object_id,
-                            properties=properties,
-                            vector=vector,
-                            references=references,
-                        )
-                    except KeyError as e:
-                        print(f"Skipping object due to missing key: {e}")
-        except FileNotFoundError:
-            raise FileNotFoundError(f"JSON file not found at path: {json_path}")
-        except ValueError as e:
-            raise ValueError(f"Error in loading JSON file: {e}")
-        except Exception as e:
-            raise RuntimeError(f"An unexpected error occurred: {e}")
-
-        return None
 
     def _create_schema_if_not_exists(self, schema):
         """Creates a new schema in Weaviate if it does not already exist. The schema is defined in the provided `schema`
