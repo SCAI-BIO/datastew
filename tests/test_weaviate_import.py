@@ -172,7 +172,7 @@ class TestWeaviateRepositoryImport(TestCase):
             file_path, [{"class": "Terminology", "properties": {"name": "missing_id"}}]
         )
 
-        with self.assertRaises(KeyError):
+        with self.assertRaises(ValueError):
             self.repository.import_from_jsonl(file_path, "terminology")
 
     def test_import_empty_file(self):
