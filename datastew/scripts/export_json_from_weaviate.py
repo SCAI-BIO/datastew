@@ -1,10 +1,10 @@
-from datastew import MPNetAdapter, Concept, Mapping, Terminology
-from datastew.process.json_adapter import WeaviateJsonConverter
+from datastew import Concept, Mapping, MPNetAdapter, Terminology
+from datastew.process.jsonl_adapter import WeaviateJsonlConverter
 from datastew.repository import WeaviateRepository
 
 repository = WeaviateRepository(mode='memory', path='localhost', port=8080)
 
-converter = WeaviateJsonConverter(dest_dir="export")
+converter = WeaviateJsonlConverter(dest_dir="export")
 
 # Compute and store some exemplary Mappings
 embedding_model = MPNetAdapter()

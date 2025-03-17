@@ -3,7 +3,7 @@ import logging
 import requests
 
 from datastew.embedding import EmbeddingModel
-from datastew.process.json_adapter import WeaviateJsonConverter
+from datastew.process.jsonl_adapter import WeaviateJsonlConverter
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import Concept, Mapping, Terminology
 
@@ -85,7 +85,7 @@ class OLSTerminologyImportTask:
         """
         Fetches concepts and descriptions from the OLS API and stores them in a JSON file.
         """
-        converter = WeaviateJsonConverter(dest_path)
+        converter = WeaviateJsonlConverter(dest_path)
         # start with the terminology
         with open(f"{dest_path}/terminology.json", "w") as f:
             f.write(self.terminology.to_json())
