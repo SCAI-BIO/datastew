@@ -848,19 +848,19 @@ class WeaviateRepository(BaseRepository):
             chunk = []
 
             with open(jsonl_path, "r") as file:
-                for line_number, line in enumerate(file, start=1):
+                for idx, line in enumerate(file):
                     line = line.strip()
                     if not line:
                         continue  # Skip empty lines
                     try:
                         item = json.loads(line)
                     except json.JSONDecodeError as e:
-                        raise ValueError(f"Invalid JSON on line {line_number}: {e}")
+                        raise ValueError(f"Invalid JSON on line {idx}: {e}")
 
                     # Validate essential fields
                     if "id" not in item or "properties" not in item:
                         raise ValueError(
-                            f"Missing 'id' or 'properties' on line {line_number}"
+                            f"Missing 'id' or 'properties' on line {idx}"
                         )
                     chunk.append(item)
                     if len(chunk) >= chunk_size:
