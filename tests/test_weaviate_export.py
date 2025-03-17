@@ -2,8 +2,8 @@ import os
 import shutil
 from unittest import TestCase
 
-from datastew import Terminology, Mapping, Concept, MPNetAdapter
-from datastew.process.json_adapter import WeaviateJsonConverter
+from datastew import Concept, Mapping, MPNetAdapter, Terminology
+from datastew.process.jsonl_adapter import WeaviateJsonlConverter
 from datastew.repository import WeaviateRepository
 
 
@@ -29,7 +29,7 @@ class TestWeaviateRepositoryExport(TestCase):
         shutil.rmtree(os.path.join(os.getcwd(), "db"))
 
     def test_json_export(self):
-        converter = WeaviateJsonConverter(dest_dir="test_export")
+        converter = WeaviateJsonlConverter(dest_dir="test_export")
         converter.from_repository(self.repository)
         # assert that the dest dir
         self.assertTrue(converter.dest_dir)

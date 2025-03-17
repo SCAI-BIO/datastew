@@ -12,9 +12,9 @@ from datastew.repository.weaviate_schema import (concept_schema,
                                                  terminology_schema)
 
 
-class WeaviateJsonConverter(object):
+class WeaviateJsonlConverter(object):
     """
-    Converts data to our JSON format for Weaviate schema.
+    Converts data to our JSONL format for Weaviate schema.
     """
 
     def __init__(
@@ -48,11 +48,11 @@ class WeaviateJsonConverter(object):
         :param collection: The collection name (e.g., "terminology", "concept", "mapping").
         :return: The full file path.
         """
-        return os.path.join(self.dest_dir, f"{collection}.json")
+        return os.path.join(self.dest_dir, f"{collection}.jsonl")
 
-    def _write_to_json(self, file_path: str, data):
+    def _write_to_jsonl(self, file_path: str, data):
         """
-        Writes data to a JSON file for the specified collection using a buffer.
+        Writes data to a JSONL file for the specified collection using a buffer.
 
         :param file_path: The file path for the collection.
         :param data: The data to write (individual JSON objects).
@@ -83,7 +83,7 @@ class WeaviateJsonConverter(object):
 
     def from_repository(self, repository: WeaviateRepository) -> None:
         """
-        Converts data from a WeaviateRepository to our JSON format.
+        Converts data from a WeaviateRepository to our JSONL format.
 
         :param repository: WeaviateRepository
         :return: None
@@ -91,7 +91,7 @@ class WeaviateJsonConverter(object):
         # Process terminology first
         terminology_file_path = self._get_file_path("terminology")
         for terminology in repository.get_iterator(self.terminology_schema["class"]):
-            self._write_to_json(
+            self._write_to_jsonl(
                 terminology_file_path,
                 self._weaviate_object_to_dict(terminology),
             )
@@ -100,7 +100,7 @@ class WeaviateJsonConverter(object):
         # Process concept next
         concept_file_path = self._get_file_path("concept")
         for concept in repository.get_iterator(self.concept_schema["class"]):
-            self._write_to_json(
+            self._write_to_jsonl(
                 concept_file_path, self._weaviate_object_to_dict(concept)
             )
         self._flush_to_file(concept_file_path)
@@ -110,14 +110,14 @@ class WeaviateJsonConverter(object):
         for mapping in repository.get_iterator(
             self.mapping_schema_user_vectors["class"]
         ):
-            self._write_to_json(
+            self._write_to_jsonl(
                 mapping_file_path, self._weaviate_object_to_dict(mapping)
             )
         self._flush_to_file(mapping_file_path)
 
     def from_ohdsi(self, src: str, embedding_model: EmbeddingModel):
         """
-        Converts data from OHDSI to our JSON format.
+        Converts data from OHDSI to our JSONL format.
 
         :param src: The file path to the OHDSI CONCEPT.csv file.
         """
@@ -140,7 +140,7 @@ class WeaviateJsonConverter(object):
             "properties": terminology_properties,
         }
 
-        self._write_to_json(terminology_file_path, ohdsi_terminology)
+        self._write_to_jsonl(terminology_file_path, ohdsi_terminology)
         self._flush_to_file(terminology_file_path)
 
         # Process concepts one at a time
@@ -197,10 +197,10 @@ class WeaviateJsonConverter(object):
 
             # Write results in batch
             for concept_data in concepts:
-                self._write_to_json(concept_file_path, concept_data)
+                self._write_to_jsonl(concept_file_path, concept_data)
             self._flush_to_file(concept_file_path)
             for mapping_data in mappings:
-                self._write_to_json(mapping_file_path, mapping_data)
+                self._write_to_jsonl(mapping_file_path, mapping_data)
             self._flush_to_file(mapping_file_path)
 
     @staticmethod

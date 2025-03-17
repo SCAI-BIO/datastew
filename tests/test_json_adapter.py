@@ -7,7 +7,7 @@ import unittest
 import pandas as pd
 
 from datastew.embedding import MPNetAdapter
-from datastew.process.json_adapter import WeaviateJsonConverter
+from datastew.process.jsonl_adapter import WeaviateJsonlConverter
 
 
 class MockMPNetAdapter(MPNetAdapter):
@@ -52,7 +52,7 @@ class TestWeaviateJsonConverter(unittest.TestCase):
         data.to_csv(self.mock_concept_file, sep="\t", index=False)
 
         # Initialize WeaviateJsonConverter
-        self.converter = WeaviateJsonConverter(dest_dir=self.temp_dir)
+        self.converter = WeaviateJsonlConverter(dest_dir=self.temp_dir)
 
         # Inject Mock Embedding Model
         self.mock_embedding_model = MockMPNetAdapter()
