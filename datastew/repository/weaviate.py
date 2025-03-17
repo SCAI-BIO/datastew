@@ -845,10 +845,6 @@ class WeaviateRepository(BaseRepository):
 
         try:
             collection = self.client.collections.get(object_type.capitalize())
-            if not collection:
-                raise ValueError(
-                    f"Collection '{object_type}' does not exist in Weaviate."
-                )
             chunk = []
 
             with open(jsonl_path, "r") as file:
@@ -872,6 +868,12 @@ class WeaviateRepository(BaseRepository):
                         chunk = []
                 if chunk:
                     self._process_batch(chunk, collection)
+        except ValueError:
+            raise
+        except FileNotFoundError as e:
+            raise RuntimeError(f"File not found: {e}")
+        except IOError as e:
+            raise RuntimeError(f"File reading error: {e}")
         except Exception as e:
             raise RuntimeError(f"An unexpected error occurred during import: {e}")
 
