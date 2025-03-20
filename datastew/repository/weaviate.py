@@ -18,8 +18,14 @@ from datastew.repository.base import BaseRepository
 from datastew.repository.model import MappingResult
 from datastew.repository.pagination import Page
 from datastew.repository.weaviate_schema import (
-    concept_schema, mapping_schema_preconfigured_embeddings,
-    mapping_schema_user_vectors, terminology_schema)
+    ConceptSchema,
+    MappingSchema,
+    TerminologySchema,
+    concept_schema,
+    mapping_schema_preconfigured_embeddings,
+    mapping_schema_user_vectors,
+    terminology_schema,
+)
 
 
 class WeaviateRepository(BaseRepository):
@@ -34,6 +40,9 @@ class WeaviateRepository(BaseRepository):
         port: int = 80,
         http_port: int = 8079,
         grpc_port: int = 50050,
+        terminology_schema: TerminologySchema = terminology_schema,
+        concept_schema: ConceptSchema = concept_schema,
+        mapping_schema: MappingSchema = mapping_schema_user_vectors,
     ):
         """Initialize the WeaviateRepository instance, connecting to either a local or remote Weaviate instance and
         setting up the appropriate schemas based on the specific options.
@@ -55,6 +64,9 @@ class WeaviateRepository(BaseRepository):
         """
         self.use_weaviate_vectorizer = use_weaviate_vectorizer
         self.mode = mode
+        self.terminology_schema = terminology_schema
+        self.concept_schema = concept_schema
+        self.mapping_schema = mapping_schema
         self.client: Optional[WeaviateClient] = None
         self.headers = None
         if self.use_weaviate_vectorizer:
@@ -74,14 +86,15 @@ class WeaviateRepository(BaseRepository):
             )
 
         try:
-            self._create_schema_if_not_exists(terminology_schema)
-            self._create_schema_if_not_exists(concept_schema)
-            if not self.use_weaviate_vectorizer:
-                self._create_schema_if_not_exists(mapping_schema_user_vectors)
-            else:
-                self._create_schema_if_not_exists(
-                    mapping_schema_preconfigured_embeddings
-                )
+            self._create_schema_if_not_exists(self.terminology_schema.schema)
+            self._create_schema_if_not_exists(self.concept_schema.schema)
+            if (
+                self.use_weaviate_vectorizer
+                and self.mapping_schema == mapping_schema_user_vectors
+            ):
+                self.mapping_schema = mapping_schema_preconfigured_embeddings
+            self._create_schema_if_not_exists(self.mapping_schema.schema)
+
         except Exception as e:
             raise RuntimeError(f"Failed to create schema: {e}")
 
@@ -251,7 +264,7 @@ class WeaviateRepository(BaseRepository):
             concept_collection = self.client.collections.get("Concept")
 
             total_count = (
-                self.client.collections.get(concept_schema["class"])
+                self.client.collections.get(self.concept_schema.schema["class"])
                 .aggregate.over_all(total_count=True)
                 .total_count
             )
@@ -500,7 +513,7 @@ class WeaviateRepository(BaseRepository):
 
             # Fetch the total count of mappings for pagination
             total_count = (
-                self.client.collections.get(mapping_schema_user_vectors["class"])
+                self.client.collections.get(self.mapping_schema.schema["class"])
                 .aggregate.over_all(total_count=True)
                 .total_count
             )
@@ -859,9 +872,7 @@ class WeaviateRepository(BaseRepository):
 
                     # Validate essential fields
                     if "id" not in item or "properties" not in item:
-                        raise ValueError(
-                            f"Missing 'id' or 'properties' on line {idx}"
-                        )
+                        raise ValueError(f"Missing 'id' or 'properties' on line {idx}")
                     chunk.append(item)
                     if len(chunk) >= chunk_size:
                         self._process_batch(chunk, collection)
