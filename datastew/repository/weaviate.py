@@ -49,15 +49,21 @@ class WeaviateRepository(BaseRepository):
 
         :param use_weaviate_vectorizer: Specifies whether to use pre-configured embeddings (True) or custom vectors
             provided by the user (False). Defaults to False.
-        :param huggingface_key: API key for Hugging Face if using pre-configured embeddings. Required if `use_weaviate_vectorizer`
-            is True. Defaults to None.
+        :param huggingface_key: API key for Hugging Face if using pre-configured embeddings. Required if
+            `use_weaviate_vectorizer` is True. Defaults to None.
         :param mode: Defines the connection mode for the repository. Can be either "memory" (in-memory), or "remote"
             (remote Weaviate instance). Defaults to "memory".
         :param path: The path for the local disk connection, used only in "memory" mode. Defaults to "db".
         :param port: The port number for remote Weaviate connection, used only in "remote" mode. Defaults to 80.
         :param http_port: The HTTP port for the local connection in "memory" mode. Defaults to 8079.
         :param grpc_port: The gRPC port for the local connection in "memory" mode. Defaults to 50050.
-
+        :param terminology_schema: Terminology schema to use for the repository. Defaults to pre-configured
+            `terminology_schema`.
+        :param concept_schema: Concept schema to use for the repository. Defaults to pre-configured `concept_schema`.
+        :param mapping_schema: Mapping schema to use for the repository. Defaults to pre-configured
+            `mapping_schema_user_vectors`. If `use_weaviate_vectorizer` is set to True and `mapping_schema` does not
+            include a `vectorizer_config` key, the schema will default to pre-configured
+            `mapping_schema_preconfigured_embeddings`.
         :raises ValueError: If the `huggingface_key` is not provided when `use_weaviate_vectorizer` is True or if an
             invalid `mode` is specified.
         :raises RuntimeError: If there is a failure in creating the schema or connecting to Weaviate.
@@ -90,8 +96,13 @@ class WeaviateRepository(BaseRepository):
             self._create_schema_if_not_exists(self.concept_schema.schema)
             if (
                 self.use_weaviate_vectorizer
-                and self.mapping_schema == mapping_schema_user_vectors
+                and not self.mapping_schema.schema["vectorizer_config"]
             ):
+                self.logger.warning(
+                    "Provided mapping schema lacks `vectorizer_config` even though"
+                    "`use_weaviate_vectorizer` is set to True. Defaulting to"
+                    f"{mapping_schema_preconfigured_embeddings.schema}"
+                )
                 self.mapping_schema = mapping_schema_preconfigured_embeddings
             self._create_schema_if_not_exists(self.mapping_schema.schema)
 
