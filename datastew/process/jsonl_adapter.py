@@ -7,9 +7,11 @@ from weaviate.util import generate_uuid5
 
 from datastew.embedding import EmbeddingModel
 from datastew.repository import WeaviateRepository
-from datastew.repository.weaviate_schema import (concept_schema,
-                                                 mapping_schema_user_vectors,
-                                                 terminology_schema)
+from datastew.repository.weaviate_schema import (
+    concept_schema,
+    mapping_schema_user_vectors,
+    terminology_schema,
+)
 
 
 class WeaviateJsonlConverter(object):
@@ -20,9 +22,9 @@ class WeaviateJsonlConverter(object):
     def __init__(
         self,
         dest_dir: str,
-        terminology_schema: dict = terminology_schema,
-        concept_schema: dict = concept_schema,
-        mapping_schema: dict = mapping_schema_user_vectors,
+        terminology_schema: dict = terminology_schema.schema,
+        concept_schema: dict = concept_schema.schema,
+        mapping_schema: dict = mapping_schema_user_vectors.schema,
         buffer_size: int = 1000,
     ):
         self.dest_dir = dest_dir

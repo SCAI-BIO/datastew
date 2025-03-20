@@ -7,6 +7,7 @@ from datastew import MPNetAdapter
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.weaviate import WeaviateRepository
+from datastew.repository.weaviate_schema import mapping_schema_preconfigured_embeddings
 
 load_dotenv()
 hf_key = os.getenv("HUGGINGFACE_KEY")
@@ -19,7 +20,9 @@ class TestPreconfiguredWeaviateRepository(TestCase):
     def setUpClass(cls):
         """Set up reusable components for the tests."""
         cls.repository = WeaviateRepository(
-            use_weaviate_vectorizer=True, huggingface_key=hf_key
+            use_weaviate_vectorizer=True,
+            huggingface_key=hf_key,
+            mapping_schema=mapping_schema_preconfigured_embeddings,
         )
         cls.embedding_model = MPNetAdapter()
         cls.target_vector = "sentence_transformers_all_mpnet_base_v2"
