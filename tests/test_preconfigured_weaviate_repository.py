@@ -7,10 +7,8 @@ from datastew import MPNetAdapter
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.weaviate import WeaviateRepository
-from datastew.repository.weaviate_schema import mapping_schema_preconfigured_embeddings
 
 load_dotenv()
-hf_key = os.getenv("HUGGINGFACE_KEY")
 
 
 class TestPreconfiguredWeaviateRepository(TestCase):
@@ -19,13 +17,9 @@ class TestPreconfiguredWeaviateRepository(TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up reusable components for the tests."""
-        cls.repository = WeaviateRepository(
-            use_weaviate_vectorizer=True,
-            huggingface_key=hf_key,
-            mapping_schema=mapping_schema_preconfigured_embeddings,
-        )
+        cls.repository = WeaviateRepository(use_weaviate_vectorizer=True)
         cls.embedding_model = MPNetAdapter()
-        cls.target_vector = "sentence_transformers_all_mpnet_base_v2"
+        cls.target_vector = "nomic_embed_text"
         # Terminologies
         cls.terminology1 = Terminology("snomed CT", "SNOMED")
         cls.terminology2 = Terminology("NCI Thesaurus OBO Edition", "NCIT")
@@ -141,7 +135,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
             test_embedding, sentence_embedder=self.target_vector
         )
         self.assertEqual(len(closest_mappings), 5)
-        self.assertEqual(closest_mappings[0].text, "Influenza")
+        self.assertEqual(closest_mappings[0].text, "Asthma")
 
     def test_terminology_and_model_specific_mappings(self):
         """Test retrieval of mappings filtered by terminology and model."""
@@ -160,11 +154,9 @@ class TestPreconfiguredWeaviateRepository(TestCase):
             test_embedding, True, sentence_embedder=self.target_vector
         )
         self.assertEqual(len(closest_mappings_with_similarities), 5)
-        self.assertEqual(
-            closest_mappings_with_similarities[0].mapping.text, "Influenza"
-        )
+        self.assertEqual(closest_mappings_with_similarities[0].mapping.text, "Asthma")
         self.assertAlmostEqual(
-            closest_mappings_with_similarities[0].similarity, 0.5877506, 3
+            closest_mappings_with_similarities[0].similarity, 0.0856835, 3
         )
 
     def test_terminology_and_model_specific_mappings_with_similarities(self):
@@ -180,7 +172,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
             "snomed CT",
         )
         self.assertAlmostEqual(
-            specific_mappings_with_similarities[0].similarity, 0.2154954, 3
+            specific_mappings_with_similarities[0].similarity, 0.0856835, 3
         )
 
     def test_import_data_dictionary(self):
@@ -216,9 +208,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
     def test_repository_restart(self):
         """Test the repository restart functionality to ensure no data is lost or corrupted."""
         # Re-initialize repository
-        repository = WeaviateRepository(
-            use_weaviate_vectorizer=True, huggingface_key=hf_key
-        )
+        repository = WeaviateRepository(use_weaviate_vectorizer=True)
 
         # Try storing the same data again (should not create duplicates)
         repository.store_all(

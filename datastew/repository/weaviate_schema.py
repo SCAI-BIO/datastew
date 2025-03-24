@@ -76,10 +76,12 @@ mapping_schema_user_vectors = MappingSchema()
 mapping_schema_preconfigured_embeddings = MappingSchema(
     properties=[Property(name="text", data_type=DataType.TEXT)],
     vectorizer_config=[
-        Configure.NamedVectors.text2vec_huggingface(
-            name="sentence_transformers_all_mpnet_base_v2",
+        Configure.NamedVectors.text2vec_ollama(
+            name="nomic_embed_text",
             source_properties=["text"],
-            model="sentence-transformers/all-mpnet-base-v2",
+            api_endpoint="http://localhost:11434",
+            model="nomic-embed-text",
+            vectorize_collection_name=False,
         )
     ],
 )
