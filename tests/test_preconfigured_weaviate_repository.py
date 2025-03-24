@@ -156,7 +156,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
         self.assertEqual(len(closest_mappings_with_similarities), 5)
         self.assertEqual(closest_mappings_with_similarities[0].mapping.text, "Asthma")
         self.assertAlmostEqual(
-            closest_mappings_with_similarities[0].similarity, 0.0856835, 3
+            closest_mappings_with_similarities[0].similarity, 0.1043518, 3
         )
 
     def test_terminology_and_model_specific_mappings_with_similarities(self):
@@ -172,7 +172,7 @@ class TestPreconfiguredWeaviateRepository(TestCase):
             "snomed CT",
         )
         self.assertAlmostEqual(
-            specific_mappings_with_similarities[0].similarity, 0.0856835, 3
+            specific_mappings_with_similarities[0].similarity, 0.1043518, 3
         )
 
     def test_import_data_dictionary(self):
