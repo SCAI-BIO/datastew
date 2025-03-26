@@ -28,20 +28,5 @@ jobs:
     - name: Install dependencies
       run: poetry install
 
-    - name: Pull Ollama Docker image
-      run: docker pull ghcr.io/scai-bio/ollama-docker/nomic-embed-text:latest
-    
-    - name: Start Ollama Docker container
-      run: |
-        docker run --rm -d -p 11434:11434 ghcr.io/scai-bio/ollama-docker/nomic-embed-text:latest
-
-    - name: Wait for Ollama to be ready
-      run: |
-        until curl -s http://localhost:11434/v1/models; do
-          echo "Waiting for Ollama to start..."
-          sleep 5
-        done
-        echo "Ollama is ready!"
-
     - name: Run tests
       run: poetry run pytest
