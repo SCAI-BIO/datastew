@@ -1,10 +1,10 @@
 from abc import ABC
-from typing import Dict, Optional, Sequence
+from typing import Dict, Sequence
 
 import numpy as np
 import pandas as pd
 
-from datastew.embedding import EmbeddingModel, MPNetAdapter
+from datastew.embedding import Vectorizer
 
 
 class Source(ABC):
@@ -71,16 +71,16 @@ class DataDictionarySource(Source):
 
     def to_dataframe(self, dropna: bool = True) -> pd.DataFrame:
         """
-        Load the data dictionary file into a pandas DataFrame, select the variable and 
-        description fields, and ensure they exist. Optionally remove rows with missing 
+        Load the data dictionary file into a pandas DataFrame, select the variable and
+        description fields, and ensure they exist. Optionally remove rows with missing
         variables or descriptions based on the 'dropna' parameter.
 
-        :param dropna: If True, rows with missing 'variable' or 'description' values are 
+        :param dropna: If True, rows with missing 'variable' or 'description' values are
                        dropped. Defaults to True.
         :return: A DataFrame containing two columns:
                  - 'variable': The variable names from the data dictionary.
                  - 'description': The descriptions corresponding to each variable.
-        :raises ValueError: If either the variable field or the description field is not 
+        :raises ValueError: If either the variable field or the description field is not
                             found in the data dictionary file.
         """
         df = super().to_dataframe()
@@ -94,27 +94,26 @@ class DataDictionarySource(Source):
         if dropna:
             df.dropna(subset=["variable", "description"], inplace=True)
         return df
-    
-    def get_embeddings(self, embedding_model: Optional[EmbeddingModel] = None) -> Dict[str, Sequence[float]]:
+
+    def get_embeddings(self, vectorizer: Vectorizer = Vectorizer()) -> Dict[str, Sequence[float]]:
         """
-        Compute embedding vectors for each description in the data dictionary. The 
-        resulting vectors are mapped to their respective variables and returned as a 
+        Compute embedding vectors for each description in the data dictionary. The
+        resulting vectors are mapped to their respective variables and returned as a
         dictionary.
 
-        :param embedding_model: The embedding model used to compute embeddings for the descriptions. Defaults to None.
+        :param vectorizer: The embedding model used to compute embeddings for the descriptions.
+            Defaults to Vectorizer().
         :return: A dictionary where each key is a variable name and the value is the  embedding vector for the
             corresponding description.
         """
         # Compute vectors for all descriptions
         df: pd.DataFrame = self.to_dataframe()
         descriptions: list[str] = df["description"].tolist()
-        if embedding_model is None:
-            embedding_model = MPNetAdapter()
-        embeddings = embedding_model.get_embeddings(descriptions)
+        embeddings = vectorizer.get_embeddings(descriptions)
         # variable identify descriptions -> variable to embedding
         variable_to_embedding: Dict[str, Sequence[float]] = dict(zip(df["variable"], embeddings))
         return variable_to_embedding
-        
+
 
 class EmbeddingSource:
     def __init__(self, source_path: str):
@@ -142,6 +141,4 @@ class ConceptSource:
     """
     identifier -> description
     """
-
-    pass
     pass

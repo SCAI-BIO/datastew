@@ -1,15 +1,14 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from datastew.embedding import EmbeddingModel
 from datastew.process.parsing import DataDictionarySource
-from datastew.repository.model import Mapping, Concept, Terminology
+from datastew.repository.model import Concept, Mapping, Terminology
 
 
 class BaseRepository(ABC):
 
     @abstractmethod
-    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str, embedding_model: Optional[EmbeddingModel] = None):
+    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str):
         """Store a data dictionary"""
 
     @abstractmethod
@@ -24,12 +23,12 @@ class BaseRepository(ABC):
 
     @abstractmethod
     def get_all_concepts(self) -> List[Concept]:
-        """ Retrieve all concepts from the database."""
+        """Retrieve all concepts from the database."""
         pass
 
     @abstractmethod
     def get_all_terminologies(self) -> List[Terminology]:
-        """ Retrieve all terminologies from the database."""
+        """Retrieve all terminologies from the database."""
         pass
 
     @abstractmethod

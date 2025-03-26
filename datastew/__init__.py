@@ -1,10 +1,10 @@
-from .visualisation import *
-from .embedding import *
 from ._version import __version__
+from .embedding import *
 
 # Importing submodules to expose their attributes if needed
 from .process import mapping, parsing
-from .repository import model, sqllite, base, weaviate, Terminology, Concept, Mapping
+from .repository import Concept, Mapping, Terminology, base, model, sqllite, weaviate
+from .visualisation import *
 
 __all__ = [
     "mapping",
@@ -14,7 +14,7 @@ __all__ = [
     "sqllite",
     "weaviate",
     "DataDictionarySource",
-    "MPNetAdapter",
+    "HuggingFaceAdapter",
     "Terminology",
     "Concept",
     "Mapping",

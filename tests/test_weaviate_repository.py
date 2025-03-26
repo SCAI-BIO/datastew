@@ -2,7 +2,7 @@ import os
 import shutil
 from unittest import TestCase
 
-from datastew import MPNetAdapter
+from datastew.embedding import Vectorizer
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.weaviate import WeaviateRepository
@@ -14,11 +14,11 @@ class TestWeaviateRepository(TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up reusable components for the tests."""
-        cls.repository = WeaviateRepository()
-        cls.embedding_model1 = MPNetAdapter()
-        cls.embedding_model2 = MPNetAdapter("FremyCompany/BioLORD-2023")
-        cls.model_name1 = cls.embedding_model1.get_model_name()
-        cls.model_name2 = cls.embedding_model2.get_model_name()
+        cls.repository = WeaviateRepository(vectorizer=Vectorizer("sentence-transformers/all-mpnet-base-v2"))
+        cls.vectorizer1 = Vectorizer("sentence-transformers/all-mpnet-base-v2")
+        cls.vectorizer2 = Vectorizer("FremyCompany/BioLORD-2023")
+        cls.model_name1 = cls.vectorizer1.model_name
+        cls.model_name2 = cls.vectorizer2.model_name
 
         # Terminologies
         cls.terminology1 = Terminology("snomed CT", "SNOMED")
@@ -26,17 +26,17 @@ class TestWeaviateRepository(TestCase):
 
         # Concepts and mappings
         cls.concepts_mappings = [
-            cls._create_mapping(cls.terminology1, "Diabetes mellitus (disorder)", "Concept ID: 11893007",
-                                cls.embedding_model1),
-            cls._create_mapping(cls.terminology1, "Hypertension (disorder)", "Concept ID: 73211009",
-                                cls.embedding_model2),
-            cls._create_mapping(cls.terminology1, "Asthma", "Concept ID: 195967001", cls.embedding_model1),
-            cls._create_mapping(cls.terminology1, "Heart attack", "Concept ID: 22298006", cls.embedding_model2),
-            cls._create_mapping(cls.terminology2, "Common cold", "Concept ID: 13260007", cls.embedding_model1),
-            cls._create_mapping(cls.terminology2, "Stroke", "Concept ID: 422504002", cls.embedding_model2),
-            cls._create_mapping(cls.terminology2, "Migraine", "Concept ID: 386098009", cls.embedding_model1),
-            cls._create_mapping(cls.terminology2, "Influenza", "Concept ID: 57386000", cls.embedding_model2),
-            cls._create_mapping(cls.terminology2, "Osteoarthritis", "Concept ID: 399206004", cls.embedding_model1),
+            cls._create_mapping(
+                cls.terminology1, "Diabetes mellitus (disorder)", "Concept ID: 11893007", cls.vectorizer1
+            ),
+            cls._create_mapping(cls.terminology1, "Hypertension (disorder)", "Concept ID: 73211009", cls.vectorizer2),
+            cls._create_mapping(cls.terminology1, "Asthma", "Concept ID: 195967001", cls.vectorizer1),
+            cls._create_mapping(cls.terminology1, "Heart attack", "Concept ID: 22298006", cls.vectorizer2),
+            cls._create_mapping(cls.terminology2, "Common cold", "Concept ID: 13260007", cls.vectorizer1),
+            cls._create_mapping(cls.terminology2, "Stroke", "Concept ID: 422504002", cls.vectorizer2),
+            cls._create_mapping(cls.terminology2, "Migraine", "Concept ID: 386098009", cls.vectorizer1),
+            cls._create_mapping(cls.terminology2, "Influenza", "Concept ID: 57386000", cls.vectorizer2),
+            cls._create_mapping(cls.terminology2, "Osteoarthritis", "Concept ID: 399206004", cls.vectorizer1),
         ]
 
         cls.test_text = "The flu"
@@ -54,14 +54,14 @@ class TestWeaviateRepository(TestCase):
         shutil.rmtree(os.path.join(os.getcwd(), "db"))
 
     @staticmethod
-    def _create_mapping(terminology, text, concept_id, embedding_model):
+    def _create_mapping(terminology: Terminology, text: str, concept_id: str, vectorizer: Vectorizer):
         """Helper function to create a concept and mapping."""
         concept = Concept(terminology, text, concept_id)
         mapping = Mapping(
             concept,
             text,
-            embedding_model.get_embedding(text),
-            embedding_model.get_model_name(),
+            vectorizer.get_embedding(text),
+            vectorizer.model_name,
         )
         return concept, mapping
 
@@ -98,7 +98,7 @@ class TestWeaviateRepository(TestCase):
 
     def test_closest_mappings(self):
         """Test retrieval of the closest mappings based on a test embedding."""
-        test_embedding = self.embedding_model1.get_embedding(self.test_text)
+        test_embedding = self.vectorizer1.get_embedding(self.test_text)
         closest_mappings = self.repository.get_closest_mappings(test_embedding)
         self.assertEqual(len(closest_mappings), 5)
         self.assertEqual(closest_mappings[0].text, "Common cold")
@@ -106,10 +106,8 @@ class TestWeaviateRepository(TestCase):
 
     def test_terminology_and_model_specific_mappings(self):
         """Test retrieval of mappings filtered by terminology and model."""
-        test_embedding = self.embedding_model1.get_embedding(self.test_text)
-        specific_mappings = self.repository.get_closest_mappings(
-            test_embedding, False, "snomed CT", self.model_name1
-        )
+        test_embedding = self.vectorizer1.get_embedding(self.test_text)
+        specific_mappings = self.repository.get_closest_mappings(test_embedding, False, "snomed CT", self.model_name1)
         self.assertEqual(len(specific_mappings), 2)
         self.assertEqual(specific_mappings[0].text, "Asthma")
         self.assertEqual(specific_mappings[0].concept.terminology.name, "snomed CT")
@@ -117,25 +115,19 @@ class TestWeaviateRepository(TestCase):
 
     def test_closest_mappings_with_similarities(self):
         """Test retrieval of closest mappings with similarity scores."""
-        test_embedding = self.embedding_model1.get_embedding(self.test_text)
-        closest_mappings_with_similarities = (
-            self.repository.get_closest_mappings(test_embedding, True)
-        )
+        test_embedding = self.vectorizer1.get_embedding(self.test_text)
+        closest_mappings_with_similarities = self.repository.get_closest_mappings(test_embedding, True)
         self.assertEqual(len(closest_mappings_with_similarities), 5)
-        self.assertEqual(
-            closest_mappings_with_similarities[0].mapping.text, "Common cold"
-        )
+        self.assertEqual(closest_mappings_with_similarities[0].mapping.text, "Common cold")
         self.assertEqual(
             closest_mappings_with_similarities[0].mapping.sentence_embedder,
             self.model_name1,
         )
-        self.assertAlmostEqual(
-            closest_mappings_with_similarities[0].similarity, 0.6747197, 3
-        )
+        self.assertAlmostEqual(closest_mappings_with_similarities[0].similarity, 0.6747197, 3)
 
     def test_terminology_and_model_specific_mappings_with_similarities(self):
         """Test retrieval of terminology and model-specific mappings with similarity scores."""
-        test_embedding = self.embedding_model1.get_embedding(self.test_text)
+        test_embedding = self.vectorizer1.get_embedding(self.test_text)
         specific_mappings_with_similarities = self.repository.get_closest_mappings(
             test_embedding, True, "snomed CT", self.model_name1
         )
@@ -149,9 +141,7 @@ class TestWeaviateRepository(TestCase):
             specific_mappings_with_similarities[0].mapping.sentence_embedder,
             self.model_name1,
         )
-        self.assertAlmostEqual(
-            specific_mappings_with_similarities[0].similarity, 0.3947341, 3
-        )
+        self.assertAlmostEqual(specific_mappings_with_similarities[0].similarity, 0.3947341, 3)
 
     def test_import_data_dictionary(self):
         """Test importing a data dictionary."""
@@ -160,9 +150,7 @@ class TestWeaviateRepository(TestCase):
             "VAR_1",
             "DESC",
         )
-        self.repository.import_data_dictionary(
-            data_dictionary_source, terminology_name="import_test"
-        )
+        self.repository.import_data_dictionary(data_dictionary_source, terminology_name="import_test")
         terminology = self.repository.get_terminology("import_test")
         self.assertEqual("import_test", terminology.name)
 
@@ -179,9 +167,7 @@ class TestWeaviateRepository(TestCase):
             self.assertIn(description, mapping_texts)
             for mapping in mappings:
                 if mapping.text == description:
-                    self.assertEqual(
-                        mapping.concept.concept_identifier, f"import_test:{variable}"
-                    )
+                    self.assertEqual(mapping.concept.concept_identifier, f"import_test:{variable}")
                     self.assertEqual(
                         mapping.sentence_embedder,
                         "sentence-transformers/all-mpnet-base-v2",
@@ -190,7 +176,7 @@ class TestWeaviateRepository(TestCase):
     def test_repository_restart(self):
         """Test the repository restart functionality to ensure no data is lost or corrupted."""
         # Re-initialize repository
-        repository = WeaviateRepository()
+        repository = WeaviateRepository(vectorizer=Vectorizer("sentence-transformers/all-mpnet-base-v2"))
 
         # Try storing the same data again (should not create duplicates)
         repository.store_all(

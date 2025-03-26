@@ -1,12 +1,11 @@
 import os
 
-from datastew.process.parsing import MappingSource, DataDictionarySource
-
-from datastew.embedding import GPT4Adapter, MPNetAdapter
-from datastew.evaluation import MatchingMethod, enrichment_analysis, evaluate
-from datastew._mapping import _MappingTable
 from dotenv import load_dotenv
 
+from datastew._mapping import _MappingTable
+from datastew.embedding import Vectorizer
+from datastew.evaluation import MatchingMethod, enrichment_analysis, evaluate
+from datastew.process.parsing import DataDictionarySource, MappingSource
 from datastew.visualisation import enrichment_plot, scatter_plot_all_cohorts, scatter_plot_two_distributions
 
 EVAL_PD = True
@@ -37,8 +36,9 @@ LUXPARK_DICT_SRC = "resources/dictionaries/pd/luxpark.xlsx"
 BIOFIND_DICT_SRC = "resources/dictionaries/pd/biofind.csv"
 
 load_dotenv()
-gpt4 = GPT4Adapter(api_key=os.getenv("GPT_KEY"))
-mpnet = MPNetAdapter()
+api_key=os.getenv("GPT_KEY")
+gpt4 = Vectorizer("text-embedding-ada-002", api_key)
+mpnet = Vectorizer("sentence-transformers/all-mpnet-base-v2")
 
 # PD Mappings
 
