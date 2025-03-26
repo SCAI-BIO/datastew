@@ -29,6 +29,4 @@ jobs:
       run: poetry install
 
     - name: Run tests
-      env:
-        HUGGINGFACE_KEY: ${{ secrets.HF_API_TOKEN }}
       run: poetry run pytest

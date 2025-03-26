@@ -18,8 +18,14 @@ from datastew.repository.base import BaseRepository
 from datastew.repository.model import MappingResult
 from datastew.repository.pagination import Page
 from datastew.repository.weaviate_schema import (
-    concept_schema, mapping_schema_preconfigured_embeddings,
-    mapping_schema_user_vectors, terminology_schema)
+    ConceptSchema,
+    MappingSchema,
+    TerminologySchema,
+    concept_schema,
+    mapping_schema_preconfigured_embeddings,
+    mapping_schema_user_vectors,
+    terminology_schema,
+)
 
 
 class WeaviateRepository(BaseRepository):
@@ -34,36 +40,44 @@ class WeaviateRepository(BaseRepository):
         port: int = 80,
         http_port: int = 8079,
         grpc_port: int = 50050,
+        terminology_schema: TerminologySchema = terminology_schema,
+        concept_schema: ConceptSchema = concept_schema,
+        mapping_schema: MappingSchema = mapping_schema_user_vectors,
     ):
         """Initialize the WeaviateRepository instance, connecting to either a local or remote Weaviate instance and
         setting up the appropriate schemas based on the specific options.
 
         :param use_weaviate_vectorizer: Specifies whether to use pre-configured embeddings (True) or custom vectors
             provided by the user (False). Defaults to False.
-        :param huggingface_key: API key for Hugging Face if using pre-configured embeddings. Required if `use_weaviate_vectorizer`
-            is True. Defaults to None.
+        :param huggingface_key: API key for Hugging Face if using pre-configured embeddings. Required if
+            `use_weaviate_vectorizer` is True. Defaults to None.
         :param mode: Defines the connection mode for the repository. Can be either "memory" (in-memory), or "remote"
             (remote Weaviate instance). Defaults to "memory".
         :param path: The path for the local disk connection, used only in "memory" mode. Defaults to "db".
         :param port: The port number for remote Weaviate connection, used only in "remote" mode. Defaults to 80.
         :param http_port: The HTTP port for the local connection in "memory" mode. Defaults to 8079.
         :param grpc_port: The gRPC port for the local connection in "memory" mode. Defaults to 50050.
-
+        :param terminology_schema: Terminology schema to use for the repository. Defaults to pre-configured
+            `terminology_schema`.
+        :param concept_schema: Concept schema to use for the repository. Defaults to pre-configured `concept_schema`.
+        :param mapping_schema: Mapping schema to use for the repository. Defaults to pre-configured
+            `mapping_schema_user_vectors`. If `use_weaviate_vectorizer` is set to True and `mapping_schema` does not
+            include a `vectorizer_config` key, the schema will default to pre-configured
+            `mapping_schema_preconfigured_embeddings`.
         :raises ValueError: If the `huggingface_key` is not provided when `use_weaviate_vectorizer` is True or if an
             invalid `mode` is specified.
         :raises RuntimeError: If there is a failure in creating the schema or connecting to Weaviate.
         """
         self.use_weaviate_vectorizer = use_weaviate_vectorizer
         self.mode = mode
+        self.terminology_schema = terminology_schema
+        self.concept_schema = concept_schema
+        self.mapping_schema = mapping_schema
         self.client: Optional[WeaviateClient] = None
         self.headers = None
         if self.use_weaviate_vectorizer:
             if huggingface_key:
                 self.headers = {"X-HuggingFace-Api-Key": huggingface_key}
-            else:
-                raise ValueError(
-                    "A HuggingFace API key is required for generating vectors."
-                )
         if self.mode == "memory":
             self._connect_to_memory(path, http_port, grpc_port)
         elif self.mode == "remote":
@@ -74,14 +88,20 @@ class WeaviateRepository(BaseRepository):
             )
 
         try:
-            self._create_schema_if_not_exists(terminology_schema)
-            self._create_schema_if_not_exists(concept_schema)
-            if not self.use_weaviate_vectorizer:
-                self._create_schema_if_not_exists(mapping_schema_user_vectors)
-            else:
-                self._create_schema_if_not_exists(
-                    mapping_schema_preconfigured_embeddings
+            self._create_schema_if_not_exists(self.terminology_schema.schema)
+            self._create_schema_if_not_exists(self.concept_schema.schema)
+            if (
+                self.use_weaviate_vectorizer
+                and not self.mapping_schema.schema["vectorizer_config"]
+            ):
+                self.logger.warning(
+                    "Provided mapping schema lacks `vectorizer_config` even though"
+                    "`use_weaviate_vectorizer` is set to True. Defaulting to"
+                    f"{mapping_schema_preconfigured_embeddings.schema}"
                 )
+                self.mapping_schema = mapping_schema_preconfigured_embeddings
+            self._create_schema_if_not_exists(self.mapping_schema.schema)
+
         except Exception as e:
             raise RuntimeError(f"Failed to create schema: {e}")
 
@@ -142,7 +162,7 @@ class WeaviateRepository(BaseRepository):
                     mapping = Mapping(
                         concept=concept,
                         text=description,
-                        embedding=variable_to_embedding[variable],
+                        embedding=list(variable_to_embedding[variable]),
                         sentence_embedder=embedding_model_name,
                     )
                 else:
@@ -171,17 +191,18 @@ class WeaviateRepository(BaseRepository):
             self.store(instance)
 
     def get_iterator(self, collection: Literal["Concept", "Mapping", "Terminology"]):
-        if collection == "Concept":
-            return_references = QueryReference(link_on="hasTerminology")
-        elif collection == "Mapping":
-            return_references = QueryReference(link_on="hasConcept")
-        elif collection == "Terminology":
-            return_references = None
-        else:
-            raise ValueError(f"Collection {collection} is not supported.")
-        return self.client.collections.get(collection).iterator(
-            include_vector=True, return_references=return_references
-        )
+        if self.client:
+            if collection == "Concept":
+                return_references = QueryReference(link_on="hasTerminology")
+            elif collection == "Mapping":
+                return_references = QueryReference(link_on="hasConcept")
+            elif collection == "Terminology":
+                return_references = None
+            else:
+                raise ValueError(f"Collection {collection} is not supported.")
+            return self.client.collections.get(collection).iterator(
+                include_vector=True, return_references=return_references
+            )
 
     def get_all_sentence_embedders(self) -> List[str]:
         """Retrieves the names of all sentence embedders used in the "Mapping" collection. If
@@ -251,7 +272,7 @@ class WeaviateRepository(BaseRepository):
             concept_collection = self.client.collections.get("Concept")
 
             total_count = (
-                self.client.collections.get(concept_schema["class"])
+                self.client.collections.get(self.concept_schema.schema["class"])
                 .aggregate.over_all(total_count=True)
                 .total_count
             )
@@ -500,7 +521,7 @@ class WeaviateRepository(BaseRepository):
 
             # Fetch the total count of mappings for pagination
             total_count = (
-                self.client.collections.get(mapping_schema_user_vectors["class"])
+                self.client.collections.get(self.mapping_schema.schema["class"])
                 .aggregate.over_all(total_count=True)
                 .total_count
             )
@@ -658,7 +679,7 @@ class WeaviateRepository(BaseRepository):
         embedding: Sequence[float],
         sentence_embedder: Optional[str] = None,
         limit=5,
-    ) -> List[MappingResult]:
+    ) -> Sequence[MappingResult]:
         """Fetches the closest mappings based on an embedding vector and includes similarity scores for each mapping.
 
         :param embedding: The embedding vector to find the closest mappings.
@@ -686,7 +707,7 @@ class WeaviateRepository(BaseRepository):
         terminology_name: str,
         sentence_embedder_name: str,
         limit: int = 5,
-    ) -> List[Mapping]:
+    ) -> Sequence[Mapping]:
         """Fetches the closest mappings for a given terminology and sentence embedder model.
 
         This function is deprecated and will be removed in a future release. It is recommended to use
@@ -717,7 +738,7 @@ class WeaviateRepository(BaseRepository):
         terminology_name: str,
         sentence_embedder_name: str,
         limit: int = 5,
-    ) -> List[MappingResult]:
+    ) -> Sequence[MappingResult]:
         """Fetches the closest mappings for a given terminology and sentence embedder model, includes similarity scores.
 
         This function is deprecated and will be removed in a future release. It is recommended to use
@@ -859,9 +880,7 @@ class WeaviateRepository(BaseRepository):
 
                     # Validate essential fields
                     if "id" not in item or "properties" not in item:
-                        raise ValueError(
-                            f"Missing 'id' or 'properties' on line {idx}"
-                        )
+                        raise ValueError(f"Missing 'id' or 'properties' on line {idx}")
                     chunk.append(item)
                     if len(chunk) >= chunk_size:
                         self._process_batch(chunk, collection)
@@ -1037,7 +1056,9 @@ class WeaviateRepository(BaseRepository):
                 )
             else:
                 self.client = weaviate.connect_to_embedded(
-                    persistence_data_path=path, headers=self.headers
+                    persistence_data_path=path,
+                    headers=self.headers,
+                    environment_variables={"ENABLE_MODULES": "text2vec-ollama"},
                 )
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Weaviate client: {e}")

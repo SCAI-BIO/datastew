@@ -7,9 +7,11 @@ from weaviate.util import generate_uuid5
 
 from datastew.embedding import EmbeddingModel
 from datastew.repository import WeaviateRepository
-from datastew.repository.weaviate_schema import (concept_schema,
-                                                 mapping_schema_user_vectors,
-                                                 terminology_schema)
+from datastew.repository.weaviate_schema import (
+    concept_schema,
+    mapping_schema_user_vectors,
+    terminology_schema,
+)
 
 
 class WeaviateJsonlConverter(object):
@@ -20,15 +22,15 @@ class WeaviateJsonlConverter(object):
     def __init__(
         self,
         dest_dir: str,
-        terminology_schema: dict = terminology_schema,
-        concept_schema: dict = concept_schema,
-        mapping_schema: dict = mapping_schema_user_vectors,
+        terminology_schema: dict = terminology_schema.schema,
+        concept_schema: dict = concept_schema.schema,
+        mapping_schema: dict = mapping_schema_user_vectors.schema,
         buffer_size: int = 1000,
     ):
         self.dest_dir = dest_dir
         self.terminology_schema = terminology_schema
         self.concept_schema = concept_schema
-        self.mapping_schema_user_vectors = mapping_schema
+        self.mapping_schema = mapping_schema
         self._buffer = []
         self._buffer_size = buffer_size
         self._ensure_directories_exist()
@@ -107,9 +109,7 @@ class WeaviateJsonlConverter(object):
 
         # Process mapping last
         mapping_file_path = self._get_file_path("mapping")
-        for mapping in repository.get_iterator(
-            self.mapping_schema_user_vectors["class"]
-        ):
+        for mapping in repository.get_iterator(self.mapping_schema["class"]):
             self._write_to_jsonl(
                 mapping_file_path, self._weaviate_object_to_dict(mapping)
             )
@@ -184,7 +184,7 @@ class WeaviateJsonlConverter(object):
                 mapping_uuid = generate_uuid5({"text": concept_names[i]})
                 mappings.append(
                     {
-                        "class": self.mapping_schema_user_vectors["class"],
+                        "class": self.mapping_schema["class"],
                         "id": mapping_uuid,
                         "properties": {
                             "text": concept_names[i],
