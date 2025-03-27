@@ -302,7 +302,7 @@ class Vectorizer:
         elif model == "text-embedding-ada-002" and api_key:
             return GPT4Adapter(api_key, model, cache)
         else:
-            return HuggingFaceAdapter(cache=cache)
+            raise NotImplementedError(f"The model '{model}' is not supported.")
 
     def get_embedding(self, text: str):
         return self.model.get_embedding(text)
