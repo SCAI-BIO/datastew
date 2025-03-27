@@ -60,7 +60,7 @@ A simple example how to initialize an in memory database and compute a similarit
     from datastew.repository.model import Terminology, Concept, Mapping
 
     repository = WeaviateRepository(mode='remote', path='localhost', port=8080)
-    vectorizer = Vectorizer
+    vectorizer = Vectorizer()
     # vectorizer = Vectorizer("text-embedding-ada-002", key="your_key") # Use this line for higher accuracy if you have an OpenAI API key
     ```
 
