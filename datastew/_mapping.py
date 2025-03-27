@@ -2,11 +2,13 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+from typing_extensions import deprecated
 
 from datastew.embedding import Vectorizer
 from datastew.process.parsing import DataDictionarySource, EmbeddingSource, MappingSource
 
 
+@deprecated("_Terminology class is deprecated and will be removed in the next major release, use Terminology instead")
 class _Terminology:
 
     def __int__(self, identifier: str, name: str):
@@ -14,6 +16,7 @@ class _Terminology:
         self.name = name
 
 
+@deprecated("_Concept class is deprecated and will be removed in the next major release, use Concept instead")
 class _Concept:
 
     def __init__(self, identifier: str, terminology: _Terminology):
@@ -21,6 +24,7 @@ class _Concept:
         self.terminology = terminology
 
 
+@deprecated("_Embedding class is deprecated and will be removed in the next major release due to refactoring")
 class _Embedding:
 
     def __init__(self, embedding: List[float], source: str):
@@ -31,6 +35,7 @@ class _Embedding:
         return pd.DataFrame(self.embedding, columns=[self.source])
 
 
+@deprecated("_Variable class is deprecated and will be removed in the next major release due to refactoring")
 class _Variable:
 
     def __init__(self, name: str, description: str, source: str, embedding: Optional[_Embedding] = None):
@@ -40,6 +45,7 @@ class _Variable:
         self.embedding = embedding
 
 
+@deprecated("_Mapping class is deprecated and will be removed in the next major release, use Mapping instead")
 class _Mapping:
 
     def __init__(self, concept: _Concept, variable: _Variable, source: str):
@@ -57,6 +63,7 @@ class _Mapping:
         return f"{self.variable.name} ({self.variable.description}) -> {self.concept.identifier}"
 
 
+@deprecated("_MappingTable is deprecated and will be removed in the next major release due to refactoring")
 class _MappingTable:
 
     def __init__(
