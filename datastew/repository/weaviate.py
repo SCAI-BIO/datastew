@@ -2,10 +2,10 @@ import json
 import logging
 import shutil
 import socket
-import warnings
 from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 
 import weaviate
+from typing_extensions import deprecated
 from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery, QueryReference
 from weaviate.collections import Collection
@@ -288,13 +288,8 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch concepts: {e}")
         return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)
 
+    @deprecated("get_all_concepts is deprecated and will be removed in a future release, use get_concepts instead")
     def get_all_concepts(self) -> List[Concept]:
-        # will be infeasible to load the whole database into memory, we use pagination instead
-        warnings.warn(
-            "get_all_concepts is deprecated and will be removed in a future release. Use get_concepts instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         if not self.client:
             raise ValueError("Client is not initialized or is invalid.")
         concepts = []
@@ -580,6 +575,10 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch closest mappings: {e}")
         return mappings
 
+    @deprecated(
+        "get_closest_mappings_with_similarities is deprecated and will be removed in the next major release, use "
+        "get_closest_mappings instead"
+    )
     def get_closest_mappings_with_similarities(
         self, embedding: Sequence[float], sentence_embedder: Optional[str] = None, limit=5
     ) -> Sequence[MappingResult]:
@@ -591,12 +590,6 @@ class WeaviateRepository(BaseRepository):
         :param limit: The maximum number of closest mappings to return, defaults to 5.
         :return: A list of MappingResult objects, each containing a mapping and its similarity score.
         """
-        # Emit a deprecation warning as this function is deprecated
-        warnings.warn(
-            "get_closest_mappings_with_similarities is deprecated and will be removed in a future release. Use get_closest_mappings instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         return self.get_closest_mappings(
             embedding=embedding,
             similarities=True,
@@ -604,13 +597,14 @@ class WeaviateRepository(BaseRepository):
             limit=limit,
         )
 
+    @deprecated(
+        "get_terminology_and_model_specific_closest_mappings is deprecated and will be removed in the next major "
+        "release, use get_closest_mappings instead"
+    )
     def get_terminology_and_model_specific_closest_mappings(
         self, embedding: Sequence[float], terminology_name: str, sentence_embedder_name: str, limit: int = 5
     ) -> Sequence[Mapping]:
         """Fetches the closest mappings for a given terminology and sentence embedder model.
-
-        This function is deprecated and will be removed in a future release. It is recommended to use
-        `get_closest_mappings` instead.
 
         :param embedding: The embedding vector to find the closest mappings.
         :param terminology_name: The name of the terminology to filter the mappings.
@@ -618,12 +612,6 @@ class WeaviateRepository(BaseRepository):
         :param limit: The maximum number of closest mappings to return, defaults to 5
         :return: A list of the closest Mapping objects that match the specific filters.
         """
-        # Emit a deprecation warning as this function is deprecated
-        warnings.warn(
-            "get_terminology_and_model_specific_closest_mappings is deprecated and will be removed in a future release. Use get_closest_mappings instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         return self.get_closest_mappings(
             embedding=embedding,
             terminology_name=terminology_name,
@@ -631,13 +619,14 @@ class WeaviateRepository(BaseRepository):
             limit=limit,
         )
 
+    @deprecated(
+        "get_terminology_and_model_specific_closest_mappings_with_similarities is deprecated and will be removed in "
+        "the next major release, use get_closest_mappings instead"
+    )
     def get_terminology_and_model_specific_closest_mappings_with_similarities(
         self, embedding: Sequence[float], terminology_name: str, sentence_embedder_name: str, limit: int = 5
     ) -> Sequence[MappingResult]:
         """Fetches the closest mappings for a given terminology and sentence embedder model, includes similarity scores.
-
-        This function is deprecated and will be removed in a future release. It is recommended to use
-        `get_closest_mappings` instead.
 
         :param embedding: The embedding vector to find the closest mappings.
         :param terminology_name: The name of the terminology to filter the mappings.
@@ -645,12 +634,6 @@ class WeaviateRepository(BaseRepository):
         :param limit: The maximum number closest mapping to return, defaults to 5
         :return: A list of MappingResults objects, each containing a mapping and its similarity score.
         """
-        # Emit a deprecation warning as this function is deprecated
-        warnings.warn(
-            "get_terminology_and_model_specific_closest_mappings_with_similarities is deprecated and will be removed in a future release. Use get_closest_mappings instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         return self.get_closest_mappings(
             embedding=embedding,
             similarities=True,
