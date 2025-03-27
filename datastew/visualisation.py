@@ -18,12 +18,12 @@ from datastew.repository.base import BaseRepository
 
 
 class PlotSide(Enum):
-    LEFT = (1,)
-    RIGHT = (2,)
+    LEFT = 1
+    RIGHT = 2
     BOTH = 3
 
 
-def size_array_to_boundaries(array: np.array):
+def size_array_to_boundaries(array: np.ndarray):
     for i in range(1, len(array)):
         array[i] += array[i - 1]
     return array
@@ -66,7 +66,7 @@ def enrichment_plot(acc_gpt, acc_mpnet, acc_fuzzy, title, save_plot=False, save_
     plt.show()
 
 
-def concat_embeddings(tables1: [_MappingTable], tables2: [_MappingTable]):
+def concat_embeddings(tables1: List[_MappingTable], tables2: List[_MappingTable]):
     # remove entries that do not contain an embedding -> have no corresponding vector
     tables1_cleaned = [copy.deepcopy(table) for table in tables1]
     tables2_cleaned = [copy.deepcopy(table) for table in tables2]
@@ -133,8 +133,8 @@ def bar_chart_average_acc_two_distributions(
 
 
 def scatter_plot_two_distributions(
-    tables1: [_MappingTable],
-    tables2: [_MappingTable],
+    tables1: List[_MappingTable],
+    tables2: List[_MappingTable],
     label1: str,
     label2: str,
     store_html: bool = True,
@@ -181,10 +181,10 @@ def scatter_plot_two_distributions(
 
 
 def scatter_plot_all_cohorts(
-    tables1: [_MappingTable],
-    tables2: [_MappingTable],
-    labels1: [str],
-    labels2: [str],
+    tables1: List[_MappingTable],
+    tables2: List[_MappingTable],
+    labels1: List[str],
+    labels2: List[str],
     plot_side: PlotSide = PlotSide.BOTH,
     store_html: bool = True,
     legend_font_size: int = 16,
