@@ -40,7 +40,7 @@ class TestGetClosestEmbedding(unittest.TestCase):
         mapping_3 = Mapping(concept=concept, text="Text 3", embedding=[1.2, 2.3, 3.4], sentence_embedder=model_name)
         self.repository.store_all([terminology, concept, mapping_1, mapping_2, mapping_3])
         sample_embedding = [0.2, 0.4, 0.35]
-        closest_mappings, distances = self.repository.get_closest_mappings(sample_embedding, limit=3)
+        closest_mappings, _ = self.repository.get_closest_mappings(sample_embedding, limit=3)
         self.assertEqual(len(closest_mappings), 3)
         self.assertEqual(mapping_2.text, closest_mappings[0].text)
 
@@ -58,7 +58,9 @@ class TestGetClosestEmbedding(unittest.TestCase):
         self.assertEqual(sentence_embedders[1], "text-embedding-ada-002")
 
     def test_import_data_dictionary(self):
-        data_dictionary_source = DataDictionarySource(os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC")
+        data_dictionary_source = DataDictionarySource(
+            os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC"
+        )
         self.repository.import_data_dictionary(data_dictionary_source, terminology_name="import_test")
         terminologies = [terminology.name for terminology in self.repository.get_all_terminologies()]
         concept_identifiers = [concept.concept_identifier for concept in self.repository.get_all_concepts()]
@@ -72,4 +74,4 @@ class TestGetClosestEmbedding(unittest.TestCase):
             for mapping in self.repository.get_mappings("import_test"):
                 if mapping.text == description:
                     self.assertEqual(mapping.concept_identifier, f"import_test:{variable}")
-                    self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
+                    self.assertEqual(mapping.sentence_embedder, self.repository.vectorizer.model_name)

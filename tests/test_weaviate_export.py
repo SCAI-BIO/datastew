@@ -2,7 +2,8 @@ import os
 import shutil
 from unittest import TestCase
 
-from datastew import Concept, Mapping, MPNetAdapter, Terminology
+from datastew import Concept, Mapping, Terminology
+from datastew.embedding import Vectorizer
 from datastew.process.jsonl_adapter import WeaviateJsonlConverter
 from datastew.repository import WeaviateRepository
 
@@ -15,11 +16,11 @@ class TestWeaviateRepositoryExport(TestCase):
         cls.repository = WeaviateRepository()
         terminology = Terminology("snomed CT", "SNOMED")
 
-        embedding_model = MPNetAdapter()
+        vectorizer = Vectorizer()
 
         text1 = "Diabetes mellitus (disorder)"
         concept1 = Concept(terminology, text1, "Concept ID: 11893007")
-        mapping1 = Mapping(concept1, text1, embedding_model.get_embedding(text1), embedding_model.get_model_name())
+        mapping1 = Mapping(concept1, text1, vectorizer.get_embedding(text1), vectorizer.model_name)
 
         cls.repository.store_all([terminology, concept1, mapping1])
 

@@ -1,20 +1,26 @@
 import logging
+import os
+from typing import List, Tuple
 
 import requests
 
-from datastew.embedding import EmbeddingModel
-from datastew.process.jsonl_adapter import WeaviateJsonlConverter
+from datastew.embedding import Vectorizer
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import Concept, Mapping, Terminology
 
 
 class OLSTerminologyImportTask:
 
-    def __init__(self, embedding_model: EmbeddingModel, ontology_name: str,
-                 ontology_id: str, ols_api_base_url: str = "https://www.ebi.ac.uk/ols4/api/",
-                 page_size: int = 200):
+    def __init__(
+        self,
+        vectorizer: Vectorizer,
+        ontology_name: str,
+        ontology_id: str,
+        ols_api_base_url: str = "https://www.ebi.ac.uk/ols4/api/",
+        page_size: int = 200,
+    ):
         logging.getLogger().setLevel(logging.INFO)
-        self.embedding_model = embedding_model
+        self.vectorizer = vectorizer
         self.ontology_id = ontology_id
         self.ontology_name = ontology_name
         self.terminology = Terminology(self.ontology_name, self.ontology_id)
@@ -23,7 +29,7 @@ class OLSTerminologyImportTask:
         self.num_pages = self.get_number_of_pages()
         self.current_page = 0
 
-    def get_number_of_pages(self):
+    def get_number_of_pages(self) -> int:
         url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?size={self.page_size}"
         try:
             response = requests.get(url)
@@ -32,8 +38,9 @@ class OLSTerminologyImportTask:
             return data["page"]["totalPages"]
         except Exception as e:
             logging.error(f"Failed to fetch concepts and descriptions from OLS: {str(e)}")
+            return 0
 
-    def __process_page(self, page: int) -> ([Concept], [Mapping]):
+    def __process_page(self, page: int) -> Tuple[List[Concept], List[Mapping]]:
         url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?page={page}&size={self.page_size}"
         logging.info(f"Processing page {self.current_page}/{self.num_pages}.")
         try:
@@ -49,8 +56,8 @@ class OLSTerminologyImportTask:
                     descriptions.append(term["description"])
                 else:
                     descriptions.append(term["label"])
-            embeddings = self.embedding_model.get_embeddings(descriptions)
-            model_name = self.embedding_model.get_model_name()
+            embeddings = self.vectorizer.get_embeddings(descriptions)
+            model_name = self.vectorizer.model_name
             concepts = []
             mappings = []
             for identifier, label, description, embedding in zip(identifiers, labels, descriptions, embeddings):
@@ -61,6 +68,7 @@ class OLSTerminologyImportTask:
             return concepts, mappings
         except Exception as e:
             logging.error(f"Failed to fetch concepts and descriptions from OLS for page {page}: {str(e)}")
+            return [], []
 
     def process_to_weaviate(self, repository: BaseRepository):
         """
@@ -85,7 +93,7 @@ class OLSTerminologyImportTask:
         """
         Fetches concepts and descriptions from the OLS API and stores them in a JSON file.
         """
-        converter = WeaviateJsonlConverter(dest_path)
+        os.makedirs(dest_path, exist_ok=True)
         # start with the terminology
         with open(f"{dest_path}/terminology.json", "w") as f:
             f.write(self.terminology.to_json())

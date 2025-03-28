@@ -5,7 +5,7 @@ import pandas as pd
 from tqdm import tqdm
 from weaviate.util import generate_uuid5
 
-from datastew.embedding import EmbeddingModel
+from datastew.embedding import Vectorizer
 from datastew.repository import WeaviateRepository
 from datastew.repository.weaviate_schema import (
     concept_schema,
@@ -93,39 +93,31 @@ class WeaviateJsonlConverter(object):
         # Process terminology first
         terminology_file_path = self._get_file_path("terminology")
         for terminology in repository.get_iterator(self.terminology_schema["class"]):
-            self._write_to_jsonl(
-                terminology_file_path,
-                self._weaviate_object_to_dict(terminology),
-            )
+            self._write_to_jsonl(terminology_file_path, self._weaviate_object_to_dict(terminology))
         self._flush_to_file(terminology_file_path)
 
         # Process concept next
         concept_file_path = self._get_file_path("concept")
         for concept in repository.get_iterator(self.concept_schema["class"]):
-            self._write_to_jsonl(
-                concept_file_path, self._weaviate_object_to_dict(concept)
-            )
+            self._write_to_jsonl(concept_file_path, self._weaviate_object_to_dict(concept))
         self._flush_to_file(concept_file_path)
 
         # Process mapping last
         mapping_file_path = self._get_file_path("mapping")
         for mapping in repository.get_iterator(self.mapping_schema["class"]):
-            self._write_to_jsonl(
-                mapping_file_path, self._weaviate_object_to_dict(mapping)
-            )
+            self._write_to_jsonl(mapping_file_path, self._weaviate_object_to_dict(mapping))
         self._flush_to_file(mapping_file_path)
 
-    def from_ohdsi(self, src: str, embedding_model: EmbeddingModel):
+    def from_ohdsi(self, src: str, vectorizer: Vectorizer):
         """
         Converts data from OHDSI to our JSONL format.
 
         :param src: The file path to the OHDSI CONCEPT.csv file.
+        :param vectorizer: Vectorizer model to be utilized for vector generation.
         """
 
         if not os.path.exists(src):
-            raise FileNotFoundError(
-                f"OHDSI concept file '{src}' does not exist or is not a file."
-            )
+            raise FileNotFoundError(f"OHDSI concept file '{src}' does not exist or is not a file.")
 
         terminology_file_path = self._get_file_path("terminology")
         concept_file_path = self._get_file_path("concept")
@@ -161,13 +153,10 @@ class WeaviateJsonlConverter(object):
             concept_ids = chunk["concept_id"].astype(str).tolist()
 
             # Compute batch embeddings
-            embeddings = embedding_model.get_embeddings(concept_names)
+            embeddings = vectorizer.get_embeddings(concept_names)
 
             for i in range(len(concept_names)):
-                concept_properties = {
-                    "conceptID": str(concept_ids[i]),
-                    "prefLabel": concept_names[i],
-                }
+                concept_properties = {"conceptID": str(concept_ids[i]), "prefLabel": concept_names[i]}
                 concept_uuid = generate_uuid5(concept_properties)
 
                 # Concept JSON
@@ -188,7 +177,7 @@ class WeaviateJsonlConverter(object):
                         "id": mapping_uuid,
                         "properties": {
                             "text": concept_names[i],
-                            "hasSentenceEmbedder": embedding_model.get_model_name(),
+                            "hasSentenceEmbedder": vectorizer.model_name,
                         },
                         "references": {"hasConcept": concept_uuid},
                         "vector": {"default": embeddings[i]},

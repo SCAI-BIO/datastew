@@ -1,10 +1,14 @@
-import pandas as pd
+from typing import List, Optional
+
 import numpy as np
+import pandas as pd
+from typing_extensions import deprecated
 
-from datastew.embedding import EmbeddingModel
-from datastew.process.parsing import MappingSource, DataDictionarySource, EmbeddingSource
+from datastew.embedding import Vectorizer
+from datastew.process.parsing import DataDictionarySource, EmbeddingSource, MappingSource
 
 
+@deprecated("_Terminology class is deprecated and will be removed in the next major release, use Terminology instead")
 class _Terminology:
 
     def __int__(self, identifier: str, name: str):
@@ -12,6 +16,7 @@ class _Terminology:
         self.name = name
 
 
+@deprecated("_Concept class is deprecated and will be removed in the next major release, use Concept instead")
 class _Concept:
 
     def __init__(self, identifier: str, terminology: _Terminology):
@@ -19,9 +24,10 @@ class _Concept:
         self.terminology = terminology
 
 
+@deprecated("_Embedding class is deprecated and will be removed in the next major release due to refactoring")
 class _Embedding:
 
-    def __init__(self, embedding: [float], source: str):
+    def __init__(self, embedding: List[float], source: str):
         self.embedding = embedding
         self.source = source
 
@@ -29,15 +35,17 @@ class _Embedding:
         return pd.DataFrame(self.embedding, columns=[self.source])
 
 
+@deprecated("_Variable class is deprecated and will be removed in the next major release due to refactoring")
 class _Variable:
 
-    def __init__(self, name: str, description: str, source: str, embedding: _Embedding = None):
+    def __init__(self, name: str, description: str, source: str, embedding: Optional[_Embedding] = None):
         self.name = name
         self.description = description
         self.source = source
         self.embedding = embedding
 
 
+@deprecated("_Mapping class is deprecated and will be removed in the next major release, use Mapping instead")
 class _Mapping:
 
     def __init__(self, concept: _Concept, variable: _Variable, source: str):
@@ -55,15 +63,19 @@ class _Mapping:
         return f"{self.variable.name} ({self.variable.description}) -> {self.concept.identifier}"
 
 
+@deprecated("_MappingTable is deprecated and will be removed in the next major release due to refactoring")
 class _MappingTable:
 
-    def __init__(self, mapping_source: MappingSource,
-                 data_dictionary_source: DataDictionarySource = None,
-                 embedding_source: EmbeddingSource = None,
-                 terminology: _Terminology = None):
+    def __init__(
+        self,
+        mapping_source: MappingSource,
+        data_dictionary_source: Optional[DataDictionarySource] = None,
+        embedding_source: Optional[EmbeddingSource] = None,
+        terminology: Optional[_Terminology] = None,
+    ):
         self.mapping_source: MappingSource = mapping_source
-        self.data_dictionary_source: DataDictionarySource = data_dictionary_source
-        self.embedding_source: EmbeddingSource = embedding_source
+        self.data_dictionary_source: Optional[DataDictionarySource] = data_dictionary_source
+        self.embedding_source: Optional[EmbeddingSource] = embedding_source
         self.terminology = terminology
         self.joined_mapping_table: pd.DataFrame = self.mapping_source.to_dataframe()
         if self.data_dictionary_source is not None:
@@ -84,17 +96,16 @@ class _MappingTable:
         self.data_dictionary_source = data_dictionary_source
         data_dictionary_df = data_dictionary_source.to_dataframe()
         # FIXME: Join results in duplicate entries
-        self.joined_mapping_table = pd.merge(self.joined_mapping_table, data_dictionary_df,
-                                             left_on="variable",
-                                             right_on="variable",
-                                             how="left").drop_duplicates()
+        self.joined_mapping_table = pd.merge(
+            self.joined_mapping_table, data_dictionary_df, left_on="variable", right_on="variable", how="left"
+        ).drop_duplicates()
 
     def add_embeddings(self, embedding_source: EmbeddingSource):
         self.embedding_source = embedding_source
         # FIXME: Join results in duplicate entries
-        self.joined_mapping_table = pd.merge(self.joined_mapping_table, embedding_source.to_dataframe(),
-                                             left_on="description",
-                                             right_on="description")
+        self.joined_mapping_table = pd.merge(
+            self.joined_mapping_table, embedding_source.to_dataframe(), left_on="description", right_on="description"
+        )
 
     def get_embeddings(self):
         if "embedding" not in self.joined_mapping_table.columns:
@@ -111,17 +122,16 @@ class _MappingTable:
         self.get_embeddings().to_csv(output_path, index=False)
         self.embedding_source = EmbeddingSource(output_path)
 
-    def compute_embeddings(self, model: EmbeddingModel):
+    def compute_embeddings(self, model: Vectorizer):
         descriptions = self.joined_mapping_table["description"].dropna().unique().tolist()
         embeddings = model.get_embeddings(descriptions)
         embedding_df = pd.DataFrame({"description": descriptions, "embedding": embeddings})
-        self.joined_mapping_table = pd.merge(self.joined_mapping_table, embedding_df,
-                                             left_on="description",
-                                             right_on="description",
-                                             how="left")
+        self.joined_mapping_table = pd.merge(
+            self.joined_mapping_table, embedding_df, left_on="description", right_on="description", how="left"
+        )
 
     def export_embeddings(self, output_path: str):
-        descriptions = self.joined_mapping_table["description"].dropna().unique().tolist()
+        descriptions = list(self.joined_mapping_table["description"].dropna().unique())
         embedding_df = pd.DataFrame({"description": descriptions, "embedding": self.joined_mapping_table["embedding"]})
         embedding_df.to_csv(output_path)
 
@@ -132,7 +142,7 @@ class _MappingTable:
     def get_mapping_table(self) -> pd.DataFrame:
         return self.joined_mapping_table
 
-    def get_mappings(self) -> [_Mapping]:
+    def get_mappings(self) -> List[_Mapping]:
         mappings = []
         for index, row in self.joined_mapping_table.iterrows():
             concept_id = row["identifier"]
@@ -143,15 +153,17 @@ class _MappingTable:
                 description = None
             if not pd.isna(concept_id) and not pd.isna(variable_name):
                 concept = _Concept(concept_id, self.terminology)
-                variable = _Variable(variable_name, description,
-                                     self.data_dictionary_source.file_path
-                                    if self.data_dictionary_source is not None else None)
+                variable = _Variable(
+                    variable_name,
+                    description,
+                    self.data_dictionary_source.file_path if self.data_dictionary_source is not None else None,
+                )
                 mapping = _Mapping(concept, variable, self.mapping_source.file_path)
                 mappings.append(mapping)
         # remove duplicates
         return list(dict.fromkeys(mappings))
 
-    def to_mapping_dto(self) -> [_Mapping]:
+    def to_mapping_dto(self) -> List[_Mapping]:
         mappings = []
         for index, row in self.joined_mapping_table.iterrows():
             concept_id = row["identifier"]
@@ -162,9 +174,11 @@ class _MappingTable:
                 description = None
             if not pd.isna(concept_id) and not pd.isna(variable_name):
                 concept = _Concept(concept_id, self.terminology)
-                variable = _Variable(variable_name, description,
-                                     self.data_dictionary_source.file_path
-                                    if self.data_dictionary_source is not None else None)
+                variable = _Variable(
+                    variable_name,
+                    description,
+                    self.data_dictionary_source.file_path if self.data_dictionary_source is not None else None,
+                )
                 mapping = _Mapping(concept, variable, self.mapping_source.file_path)
                 mappings.append(mapping)
         # remove duplicates

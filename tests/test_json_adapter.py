@@ -6,18 +6,15 @@ import unittest
 
 import pandas as pd
 
-from datastew.embedding import MPNetAdapter
+from datastew.embedding import Vectorizer
 from datastew.process.jsonl_adapter import WeaviateJsonlConverter
 
 
-class MockMPNetAdapter(MPNetAdapter):
-    """Mock embedding model to return fixed values for testing."""
+class MockVectorizer(Vectorizer):
+    """Mock vectorizer model to return fixed values for testing."""
 
     def get_embeddings(self, texts):
-        return [[0.1, 0.2, 0.3] for _ in texts]  # Fixed vector for testing
-
-    def get_model_name(self):
-        return "MockMPNet"
+        return [[0.1, 0.2, 0.3] for _ in texts]
 
 
 class TestWeaviateJsonlConverter(unittest.TestCase):
@@ -55,7 +52,7 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
         self.converter = WeaviateJsonlConverter(dest_dir=self.temp_dir)
 
         # Inject Mock Embedding Model
-        self.mock_embedding_model = MockMPNetAdapter()
+        self.mock_vectorizer_model = MockVectorizer()
 
     def tearDown(self):
         """Removes the temporary directory after tests"""
@@ -65,7 +62,7 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
         """Tests that from_ohdsi creates the expected L files"""
 
         # Run the OHDSI to JSONL conversion
-        self.converter.from_ohdsi(self.mock_concept_file, self.mock_embedding_model)
+        self.converter.from_ohdsi(self.mock_concept_file, self.mock_vectorizer_model)
 
         # Expected output files
         terminology_file = os.path.join(self.temp_dir, "terminology.jsonl")
@@ -73,30 +70,24 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
         mapping_file = os.path.join(self.temp_dir, "mapping.jsonl")
 
         # Check if all files are created
-        self.assertTrue(
-            os.path.exists(terminology_file), "Terminology file was not created."
-        )
+        self.assertTrue(os.path.exists(terminology_file), "Terminology file was not created.")
         self.assertTrue(os.path.exists(concept_file), "Concept file was not created.")
         self.assertTrue(os.path.exists(mapping_file), "Mapping file was not created.")
 
     def test_terminology_file_content(self):
         """Tests the correctness of the terminology.jsonl file"""
-        self.converter.from_ohdsi(self.mock_concept_file, self.mock_embedding_model)
+        self.converter.from_ohdsi(self.mock_concept_file, self.mock_vectorizer_model)
 
         terminology_file = os.path.join(self.temp_dir, "terminology.jsonl")
         with open(terminology_file, "r") as f:
             data = [json.loads(line) for line in f.readlines()]
 
-        self.assertEqual(
-            len(data), 1, "Terminology file should contain only one entry."
-        )
-        self.assertEqual(
-            data[0]["properties"]["name"], "OHDSI", "Incorrect terminology name."
-        )
+        self.assertEqual(len(data), 1, "Terminology file should contain only one entry.")
+        self.assertEqual(data[0]["properties"]["name"], "OHDSI", "Incorrect terminology name.")
 
     def test_concept_file_content(self):
         """Tests the correctness of the concept.jsonl file"""
-        self.converter.from_ohdsi(self.mock_concept_file, self.mock_embedding_model)
+        self.converter.from_ohdsi(self.mock_concept_file, self.mock_vectorizer_model)
 
         concept_file = os.path.join(self.temp_dir, "concept.jsonl")
         with open(concept_file, "r") as f:
@@ -114,7 +105,7 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
 
     def test_mapping_file_content(self):
         """Tests the correctness of the mapping.jsonl file"""
-        self.converter.from_ohdsi(self.mock_concept_file, self.mock_embedding_model)
+        self.converter.from_ohdsi(self.mock_concept_file, self.mock_vectorizer_model)
 
         mapping_file = os.path.join(self.temp_dir, "mapping.jsonl")
         with open(mapping_file, "r") as f:
@@ -135,5 +126,5 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             self.converter.from_ohdsi(
                 os.path.join(self.temp_dir, "missing_file.csv"),
-                self.mock_embedding_model,
+                self.mock_vectorizer_model,
             )

@@ -1,5 +1,6 @@
 import copy
 from enum import Enum
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,22 +9,21 @@ import plotly.express as px
 import plotly.graph_objects as go
 import seaborn as sns
 from sklearn.manifold import TSNE
-from typing import Optional, List
 
-from datastew.process.parsing import DataDictionarySource
-from datastew.embedding import EmbeddingModel, MPNetAdapter
-from datastew.conf import COLORS_AD, COLORS_PD
 from datastew._mapping import _MappingTable
+from datastew.conf import COLORS_AD, COLORS_PD
+from datastew.embedding import Vectorizer
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository.base import BaseRepository
 
 
 class PlotSide(Enum):
-    LEFT = 1,
-    RIGHT = 2,
+    LEFT = 1
+    RIGHT = 2
     BOTH = 3
 
 
-def size_array_to_boundaries(array: np.array):
+def size_array_to_boundaries(array: np.ndarray):
     for i in range(1, len(array)):
         array[i] += array[i - 1]
     return array
@@ -42,8 +42,12 @@ def get_cohort_specific_color_code(cohort_name: str):
 def enrichment_plot(acc_gpt, acc_mpnet, acc_fuzzy, title, save_plot=False, save_dir="resources/results/plots"):
     if not (len(acc_gpt) == len(acc_fuzzy) == len(acc_mpnet)):
         raise ValueError("acc_gpt, acc_mpnet and acc_fuzzy should be of the same length!")
-    data = {"Maximum Considered Rank": list(range(1, len(acc_gpt) + 1)), "GPT": acc_gpt,
-            "MPNet": acc_mpnet, "Fuzzy": acc_fuzzy}
+    data = {
+        "Maximum Considered Rank": list(range(1, len(acc_gpt) + 1)),
+        "GPT": acc_gpt,
+        "MPNet": acc_mpnet,
+        "Fuzzy": acc_fuzzy,
+    }
     df = pd.DataFrame(data)
     sns.set(style="whitegrid")
     sns.lineplot(data=df, x="Maximum Considered Rank", y="GPT", label="GPT")
@@ -62,7 +66,7 @@ def enrichment_plot(acc_gpt, acc_mpnet, acc_fuzzy, title, save_plot=False, save_
     plt.show()
 
 
-def concat_embeddings(tables1: [_MappingTable], tables2: [_MappingTable]):
+def concat_embeddings(tables1: List[_MappingTable], tables2: List[_MappingTable]):
     # remove entries that do not contain an embedding -> have no corresponding vector
     tables1_cleaned = [copy.deepcopy(table) for table in tables1]
     tables2_cleaned = [copy.deepcopy(table) for table in tables2]
@@ -81,17 +85,28 @@ def concat_embeddings(tables1: [_MappingTable], tables2: [_MappingTable]):
     return vectors_concatenated, descriptions_concatenated, boundaries_concatenated
 
 
-def bar_chart_average_acc_two_distributions(dist1_fuzzy: pd.DataFrame, dist1_gpt: pd.DataFrame,
-                                            dist1_mpnet: pd.DataFrame, dist2_fuzzy: pd.DataFrame,
-                                            dist2_gpt: pd.DataFrame, dist2_mpnet: pd.DataFrame,
-                                            title: str, label1: str, label2: str):
-    if not all(dist.shape == fuzzy.shape == mpnet.shape for dist, mpnet, fuzzy in
-               [(dist1_gpt, dist1_mpnet, dist1_fuzzy), (dist2_gpt, dist2_mpnet, dist2_fuzzy)]):
+def bar_chart_average_acc_two_distributions(
+    dist1_fuzzy: pd.DataFrame,
+    dist1_gpt: pd.DataFrame,
+    dist1_mpnet: pd.DataFrame,
+    dist2_fuzzy: pd.DataFrame,
+    dist2_gpt: pd.DataFrame,
+    dist2_mpnet: pd.DataFrame,
+    title: str,
+    label1: str,
+    label2: str,
+):
+    if not all(
+        dist.shape == fuzzy.shape == mpnet.shape
+        for dist, mpnet, fuzzy in [(dist1_gpt, dist1_mpnet, dist1_fuzzy), (dist2_gpt, dist2_mpnet, dist2_fuzzy)]
+    ):
         raise ValueError("Each pair of dist and fuzzy DataFrames must have the same dimensions")
     if not all(dist.shape[0] == dist.shape[1] for dist in [dist1_fuzzy, dist2_fuzzy]):
         raise ValueError("Each dist DataFrame must be square")
-    if not all(dist.index.equals(fuzzy.index) and dist.columns.equals(fuzzy.columns) for dist, fuzzy in
-               [(dist1_fuzzy, dist1_gpt), (dist2_fuzzy, dist2_gpt)]):
+    if not all(
+        dist.index.equals(fuzzy.index) and dist.columns.equals(fuzzy.columns)
+        for dist, fuzzy in [(dist1_fuzzy, dist1_gpt), (dist2_fuzzy, dist2_gpt)]
+    ):
         raise ValueError("All row and column labels within each pair of dist and fuzzy DataFrames must be equal")
     # average value without the diagonal, since diagonal contains matching of the same pair
     avg_acc_fuzzy1 = np.mean(dist1_fuzzy.values[~np.eye(dist1_fuzzy.shape[0], dtype=bool)])
@@ -100,8 +115,11 @@ def bar_chart_average_acc_two_distributions(dist1_fuzzy: pd.DataFrame, dist1_gpt
     avg_acc_gpt2 = np.mean(dist2_gpt.values[~np.eye(dist2_gpt.shape[0], dtype=bool)])
     avg_acc_mpnet1 = np.mean(dist1_mpnet.values[~np.eye(dist1_mpnet.shape[0], dtype=bool)])
     avg_acc_mpnet2 = np.mean(dist2_mpnet.values[~np.eye(dist2_mpnet.shape[0], dtype=bool)])
-    data = {"Fuzzy String Matching": [avg_acc_fuzzy1, avg_acc_fuzzy2], "GPT Embeddings": [avg_acc_gpt1, avg_acc_gpt2],
-            "MPNet Embeddings": [avg_acc_mpnet1, avg_acc_mpnet2]}
+    data = {
+        "Fuzzy String Matching": [avg_acc_fuzzy1, avg_acc_fuzzy2],
+        "GPT Embeddings": [avg_acc_gpt1, avg_acc_gpt2],
+        "MPNet Embeddings": [avg_acc_mpnet1, avg_acc_mpnet2],
+    }
     df = pd.DataFrame(data, index=[label1, label2])
     print(df)
     df_melted = df.reset_index().melt(id_vars="index", var_name="Method", value_name="Accuracy")
@@ -114,9 +132,15 @@ def bar_chart_average_acc_two_distributions(dist1_fuzzy: pd.DataFrame, dist1_gpt
     plt.show()
 
 
-def scatter_plot_two_distributions(tables1: [_MappingTable], tables2: [_MappingTable], label1: str, label2: str,
-                                   store_html: bool = True, legend_font_size: int = 16,
-                                   store_destination: str = "resources/results/plots/ad_vs_pd.html"):
+def scatter_plot_two_distributions(
+    tables1: List[_MappingTable],
+    tables2: List[_MappingTable],
+    label1: str,
+    label2: str,
+    store_html: bool = True,
+    legend_font_size: int = 16,
+    store_destination: str = "resources/results/plots/ad_vs_pd.html",
+):
     vectors_tables1 = np.concatenate([table.get_embeddings_numpy() for table in tables1])
     vectors_tables2 = np.concatenate([table.get_embeddings_numpy() for table in tables2])
     # remove entries that do not contain an embedding -> have no corresponding vector
@@ -133,18 +157,39 @@ def scatter_plot_two_distributions(tables1: [_MappingTable], tables2: [_MappingT
     fig = go.Figure()
     # bigger legend size
     fig.update_layout(legend=dict(font=dict(size=legend_font_size)))
-    fig.add_trace(go.Scatter(x=tsne_result[:class_boundary, 0], y=tsne_result[:class_boundary, 1],
-                             mode="markers", name=label1, text=labels_table1))
-    fig.add_trace(go.Scatter(x=tsne_result[class_boundary:, 0], y=tsne_result[class_boundary:, 1],
-                             mode="markers", name=label2, text=labels_table2))
+    fig.add_trace(
+        go.Scatter(
+            x=tsne_result[:class_boundary, 0],
+            y=tsne_result[:class_boundary, 1],
+            mode="markers",
+            name=label1,
+            text=labels_table1,
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=tsne_result[class_boundary:, 0],
+            y=tsne_result[class_boundary:, 1],
+            mode="markers",
+            name=label2,
+            text=labels_table2,
+        )
+    )
     fig.show()
     if store_html:
         fig.write_html(store_destination)
 
 
-def scatter_plot_all_cohorts(tables1: [_MappingTable], tables2: [_MappingTable], labels1: [str], labels2: [str],
-                             plot_side: PlotSide = PlotSide.BOTH, store_html: bool = True,
-                             legend_font_size: int = 16, store_base_dir: str = "resources/results/plots"):
+def scatter_plot_all_cohorts(
+    tables1: List[_MappingTable],
+    tables2: List[_MappingTable],
+    labels1: List[str],
+    labels2: List[str],
+    plot_side: PlotSide = PlotSide.BOTH,
+    store_html: bool = True,
+    legend_font_size: int = 16,
+    store_base_dir: str = "resources/results/plots",
+):
     if not len(tables1) == len(labels1) or not len(tables2) == len(labels2):
         raise ValueError("Length of corresponding tables and labels must be equal!")
     tables_boundary = len(tables1)
@@ -160,27 +205,35 @@ def scatter_plot_all_cohorts(tables1: [_MappingTable], tables2: [_MappingTable],
     boundaries = np.insert(boundaries, 0, 0)
     for idx in range(len(tables1)):
         if labels1[idx]:
-            fig.add_trace(go.Scatter(x=tsne_result[boundaries[idx]: boundaries[idx + 1], 0],
-                                     y=tsne_result[boundaries[idx]: boundaries[idx + 1], 1],
-                                     mode="markers", name=labels1[idx],
-                                     text=descriptions[boundaries[idx]: boundaries[idx + 1]],
-                                     # line=dict(color=get_cohort_specific_color_code(labels1[idx]))
-                                     ))
+            fig.add_trace(
+                go.Scatter(
+                    x=tsne_result[boundaries[idx] : boundaries[idx + 1], 0],
+                    y=tsne_result[boundaries[idx] : boundaries[idx + 1], 1],
+                    mode="markers",
+                    name=labels1[idx],
+                    text=descriptions[boundaries[idx] : boundaries[idx + 1]],
+                    # line=dict(color=get_cohort_specific_color_code(labels1[idx]))
+                )
+            )
     for idy in range(len(tables1), len(boundaries) - 1):
-        fig.add_trace(go.Scatter(x=tsne_result[boundaries[idy]: boundaries[idy + 1], 0],
-                                 y=tsne_result[boundaries[idy]: boundaries[idy + 1], 1],
-                                 mode="markers",
-                                 name=labels2[idy - len(tables1)],
-                                 text=descriptions[boundaries[idy]: boundaries[idy + 1]],
-                                 # line=dict(color=get_cohort_specific_color_code(labels2[idy - len(tables1)]))
-                                 ))
+        fig.add_trace(
+            go.Scatter(
+                x=tsne_result[boundaries[idy] : boundaries[idy + 1], 0],
+                y=tsne_result[boundaries[idy] : boundaries[idy + 1], 1],
+                mode="markers",
+                name=labels2[idy - len(tables1)],
+                text=descriptions[boundaries[idy] : boundaries[idy + 1]],
+                # line=dict(color=get_cohort_specific_color_code(labels2[idy - len(tables1)]))
+            )
+        )
     if store_html:
         fig.write_html(store_base_dir + "/tsne_all_cohorts.html")
     fig.show()
 
 
-def get_plot_for_current_database_state(repository: BaseRepository, terminology: Optional[str] = None,
-                                        perplexity: int = 5, return_type="html") -> str:
+def get_plot_for_current_database_state(
+    repository: BaseRepository, terminology: Optional[str] = None, perplexity: int = 5, return_type="html"
+) -> str:
     if not terminology:
         mappings = repository.get_mappings()
     else:
@@ -198,13 +251,9 @@ def get_plot_for_current_database_state(repository: BaseRepository, terminology:
             x=tsne_embeddings[:, 0],
             y=tsne_embeddings[:, 1],
             mode="markers",
-            marker=dict(
-                size=8,
-                color="blue",
-                opacity=0.5
-            ),
+            marker=dict(size=8, color="blue", opacity=0.5),
             text=[str(mapping) for mapping in mappings],
-            hoverinfo="text"
+            hoverinfo="text",
         )
         layout = go.Layout(
             title="t-SNE Embeddings of Database Mappings",
@@ -223,8 +272,9 @@ def get_plot_for_current_database_state(repository: BaseRepository, terminology:
     return plot
 
 
-def plot_embeddings(data_dictionaries: List[DataDictionarySource], embedding_model: Optional[EmbeddingModel] = None,
-                    perplexity: int = 5):
+def plot_embeddings(
+    data_dictionaries: List[DataDictionarySource], vectorizer: Vectorizer = Vectorizer(), perplexity: int = 5
+):
     """
     Plots a t-SNE representation of embeddings from multiple data dictionaries and displays the plot.
 
@@ -232,16 +282,14 @@ def plot_embeddings(data_dictionaries: List[DataDictionarySource], embedding_mod
     :param embedding_model: The embedding model used to compute embeddings. Defaults to MPNetAdapter.
     :param perplexity: The perplexity for the t-SNE algorithm. Higher values give more global structure.
     """
-    if embedding_model is None:
-        embedding_model = MPNetAdapter()
     all_embeddings = []
     all_texts = []
     all_colors = []
     plotly_colors = px.colors.qualitative.Plotly
     for idx, dictionary in enumerate(data_dictionaries):
-        embeddings_dict = dictionary.get_embeddings(embedding_model=embedding_model)
+        embeddings_dict = dictionary.get_embeddings(vectorizer)
         embeddings = list(embeddings_dict.values())
-        texts = dictionary.to_dataframe()['description']
+        texts = dictionary.to_dataframe()["description"]
         color = plotly_colors[idx % len(plotly_colors)]
         all_embeddings.extend(embeddings)
         all_texts.extend(texts)
@@ -258,13 +306,9 @@ def plot_embeddings(data_dictionaries: List[DataDictionarySource], embedding_mod
             x=tsne_embeddings[:, 0],
             y=tsne_embeddings[:, 1],
             mode="markers",
-            marker=dict(
-                size=8,
-                color=all_colors,  # Use the assigned colors from Plotly palette
-                opacity=0.7
-            ),
+            marker=dict(size=8, color=all_colors, opacity=0.7),  # Use the assigned colors from Plotly palette
             text=all_texts,
-            hoverinfo="text"
+            hoverinfo="text",
         )
         layout = go.Layout(
             title="t-SNE Embeddings of Data Dictionaries",
@@ -275,5 +319,7 @@ def plot_embeddings(data_dictionaries: List[DataDictionarySource], embedding_mod
         # Display the plot
         fig.show()
     else:
-        print("Too few data dictionary entries to visualize. Adjust param 'perplexity' to a value less then the number "
-              "of data points.")
+        print(
+            "Too few data dictionary entries to visualize. Adjust param 'perplexity' to a value less then the number "
+            "of data points."
+        )
