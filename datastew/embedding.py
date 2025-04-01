@@ -1,4 +1,3 @@
-import concurrent.futures
 import logging
 from abc import ABC, abstractmethod
 from threading import Lock
@@ -6,8 +5,9 @@ from typing import List, Optional, Sequence, Tuple
 
 import openai
 from cachetools import LRUCache
-from openai.error import OpenAIError
+from ollama import Client
 from sentence_transformers import SentenceTransformer
+from typing_extensions import deprecated
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -17,8 +17,8 @@ class EmbeddingModel(ABC):
         """Initialize the embedding model with an optional caching mechanism.
 
         :param model_name: Name of the embedding model.
-        :param cache: Enable or disable caching (default: False).
-        :param cache_size: Maximum cache size when caching is enabled (default: 10,000).
+        :param cache: Enable or disable caching, defaults to False.
+        :param cache_size: Maximum cache size when caching is enabled, defaults to 10,000.
         """
         self.model_name = model_name
         self._cache = LRUCache(maxsize=cache_size) if cache else None
@@ -90,7 +90,7 @@ class EmbeddingModel(ABC):
         :param message: The input text message.
         :return: Sanitized text.
         """
-        return message.strip().lower()
+        return message.strip().lower().replace("\n", " ").replace("\t", " ")
 
 
 class GPT4Adapter(EmbeddingModel):
@@ -103,8 +103,8 @@ class GPT4Adapter(EmbeddingModel):
         """Initialize the GPT-4 adapter with OpenAI API key and model name.
 
         :param api_key: The API key for accessing OpenAI services.
-        :param model_name: The specific embedding model to use.
-        :param cache: Enable or disable caching (default: False).
+        :param model_name: The specific embedding model to use, defaults to text-embedding-ada-002.
+        :param cache: Enable or disable caching, defaults to False.
         """
         super().__init__(model_name, cache)
         self.api_key = api_key
@@ -116,10 +116,10 @@ class GPT4Adapter(EmbeddingModel):
         :param text: The input text to embed.
         :return: A sequence of floats representing the embedding.
         """
-        if not text or not isinstance(text, str):
-            logging.warning("Empty or invalid text passed to get_embedding")
+        if not text:
+            logging.warning("Empty text passed to get_embedding")
             return []
-        text = self.sanitize(text.replace("\n", " "))
+        text = self.sanitize(text)
 
         if self._cache:
             # Check cache
@@ -133,23 +133,16 @@ class GPT4Adapter(EmbeddingModel):
             embedding = response["data"][0]["embedding"]
             self.add_to_cache(text, embedding)
             return embedding
-        except OpenAIError as e:
-            logging.error(f"OpenAI API error: {e}")
+        except Exception as e:
+            logging.error(f"Error getting embedding for {text}: {e}")
             return []
 
-    def get_embeddings(
-        self, messages: List[str], max_length: int = 2048, num_workers: int = 4
-    ) -> Sequence[Sequence[float]]:
-        """Retrieve embeddings for a list of text messages using batching and multithreading.
+    def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
+        """Retrieve embeddings for a list of text messages.
 
         :param messages: A list of text messages to embed.
-        :param max_length: Maximum length of each batch of messages.
-        :param num_workers: Number of threads for parallel processing.
         :return: A sequence of embedding vectors.
         """
-        if max_length <= 0:
-            logging.warning(f"max_length is set to {max_length}, using default value 2048")
-            max_length = 2048
 
         sanitized_messages = [self.sanitize(msg) for msg in messages]
 
@@ -157,57 +150,33 @@ class GPT4Adapter(EmbeddingModel):
             embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(sanitized_messages)
 
             if uncached_messages:
-                chunks = [uncached_messages[i : i + max_length] for i in range(0, len(uncached_messages), max_length)]
-                with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-                    futures = {executor.submit(self._process_chunk, chunk): chunk for chunk in chunks}
-                    for future in concurrent.futures.as_completed(futures):
-                        try:
-                            chunk_embeddings = future.result()
-                            for idx, embedding in zip(uncached_indices, chunk_embeddings):
-                                self.add_to_cache(sanitized_messages[idx], embedding)
-                                embeddings[idx] = embedding
-                        except Exception as e:
-                            logging.error(f"Error in processing chunk: {e}")
-                            return []
-
-            cache_hits = len(messages) - len(uncached_messages)
-            logging.info(f"Processed {len(messages)} messages ({cache_hits} cache hits).")
-            return [emb for emb in embeddings if emb is not None]
-
-        chunks = [sanitized_messages[i : i + max_length] for i in range(0, len(sanitized_messages), max_length)]
-        embeddings = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(self._process_chunk, chunk): chunk for chunk in chunks}
-            for future in concurrent.futures.as_completed(futures):
                 try:
-                    embeddings.extend(future.result())
+                    response = openai.Embedding.create(model=self.model_name, input=uncached_messages)
+                    new_embeddings = [item["embedding"] for item in response["data"]]
+                    for idx, embedding in zip(uncached_indices, new_embeddings):
+                        self.add_to_cache(sanitized_messages[idx], embedding)
+                        embeddings[idx] = embedding
                 except Exception as e:
                     logging.error(f"Error in processing chunk: {e}")
-        return embeddings
+                    return []
 
-    def _process_chunk(self, chunk: List[str], retries: int = 3) -> Sequence[Sequence[float]]:
-        """Process a batch of text messages to retrieve embeddings.
+            return [emb for emb in embeddings if emb is not None]
 
-        :param chunk: A list of sanitized messages.
-        :param retries: Maximum number of attempts to retrieve embeddings.
-        :return: A sequence of embedding vectors.
-        """
-        for attempt in range(retries):
-            try:
-                response = openai.Embedding.create(input=chunk, model=self.model_name)
-                return [item["embedding"] for item in response["data"]]
-            except Exception as e:
-                logging.error(f"Attempt {attempt + 1}/{retries} failed for chunk: {e}")
-        logging.error(f"All attempts failed for chunk: {chunk}")
-        return []
+        try:
+            response = openai.Embedding.create(model=self.model_name, input=sanitized_messages)
+            embeddings = [item["embedding"] for item in response["data"]]
+            return embeddings
+        except Exception as e:
+            logging.error(f"Failed processing messages: {e}")
+            return []
 
 
 class HuggingFaceAdapter(EmbeddingModel):
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2", cache: bool = False):
-        """Initialize the Hugging Face adapter with a specified model name and threading settings.
+        """Initialize the Hugging Face adapter with a specified model name.
 
-        :param model_name: The model name for sentence transformers. Defaults to sentence-transformers/all-MiniLM-L6-v2
-        :param cache: Enable or disable caching. Defaults to False.
+        :param model_name: The model name for sentence transformers, defaults to sentence-transformers/all-MiniLM-L6-v2.
+        :param cache: Enable or disable caching, defaults to False.
         """
         super().__init__(model_name, cache)
         self.model = SentenceTransformer(model_name)
@@ -221,13 +190,12 @@ class HuggingFaceAdapter(EmbeddingModel):
         if not text or not isinstance(text, str):
             logging.warning("Empty or invalid text passed to get_embedding")
             return []
-        text = self.sanitize(text.replace("\n", " "))
+        text = self.sanitize(text)
 
         # Check cache
         if self._cache:
             cached = self.get_from_cache(text)
             if cached:
-                logging.info("Cache hit for single text.")
                 return cached
 
         try:
@@ -239,23 +207,19 @@ class HuggingFaceAdapter(EmbeddingModel):
             logging.error(f"Error getting embedding for {text}: {e}")
             return []
 
-    def get_embeddings(self, messages: List[str], batch_size: int = 64) -> Sequence[Sequence[float]]:
+    def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
         """Retrieve embeddings for a list of text messages using MPNet.
 
         :param messages: A list of text messages to embed.
-        :param batch_size: The batch size for processing.
         :return: A sequence of embedding vectors.
         """
         sanitized_messages = [self.sanitize(msg) for msg in messages]
-
         if self._cache:
             embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(messages)
 
             if uncached_messages:
                 try:
-                    new_embeddings = self.model.encode(
-                        uncached_messages, batch_size=batch_size, show_progress_bar=True
-                    )
+                    new_embeddings = self.model.encode(uncached_messages, show_progress_bar=True)
                     flattened_embeddings = [
                         [float(element) for element in row] for row in new_embeddings if row is not None
                     ]
@@ -266,12 +230,10 @@ class HuggingFaceAdapter(EmbeddingModel):
                     logging.error(f"Failed processing messages: {e}")
                     return []
 
-            cache_hits = len(messages) - len(uncached_messages)
-            logging.info(f"Processed {len(messages)} messages ({cache_hits} cache hits).")
             return [emb for emb in embeddings if emb is not None]
 
         try:
-            embeddings = self.model.encode(sanitized_messages, batch_size=batch_size, show_progress_bar=True)
+            embeddings = self.model.encode(sanitized_messages, show_progress_bar=True)
             flattened_embeddings = [[float(element) for element in row] for row in embeddings]
             return flattened_embeddings
         except Exception as e:
@@ -279,20 +241,74 @@ class HuggingFaceAdapter(EmbeddingModel):
             return []
 
 
+class OllamaAdapter(EmbeddingModel):
+    def __init__(
+        self, model_name: str = "nomic-embed-text", host: str = "http://localhost:11434", cache: bool = False
+    ):
+        super().__init__(model_name, cache)
+        self.client = Client(host)
+
+    def get_embedding(self, text: str) -> Sequence[float]:
+        if not text:
+            logging.warning("Empty text passed to get_embedding")
+            return []
+        text = self.sanitize(text)
+        if self._cache:
+            cached = self.get_from_cache(text)
+            if cached:
+                return cached
+        try:
+            embedding = self.client.embed(self.model_name, text).get("embeddings")[0]
+            self.add_to_cache(text, embedding)
+            return embedding
+        except Exception as e:
+            logging.error(f"Error getting embedding for {text}: {e}")
+            return []
+
+    def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
+        sanitized_messages = [self.sanitize(msg) for msg in messages]
+
+        if self._cache:
+            embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(messages)
+
+            if uncached_messages:
+                try:
+                    new_embeddings = self.client.embed(self.model_name, uncached_messages).get("embeddings")
+                    for idx, embedding in zip(uncached_indices, new_embeddings):
+                        self.add_to_cache(sanitized_messages[idx], embedding)
+                        embeddings[idx] = embedding
+                except Exception as e:
+                    logging.error(f"Failed processing messages: {e}")
+                    return []
+
+            return [emb for emb in embeddings if emb is not None]
+
+        try:
+            return self.client.embed(self.model_name, sanitized_messages).get("embeddings")
+        except Exception as e:
+            logging.error(f"Failed processing messages: {e}")
+            return []
+
+
 class Vectorizer:
     def __init__(
-        self, model: str = "sentence-transformers/all-MiniLM-L6-v2", api_key: Optional[str] = None, cache: bool = False
+        self,
+        model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        api_key: Optional[str] = None,
+        host: str = "http://localhost:11434",
+        cache: bool = False,
     ):
         """Initializes the Vectorizer with the specified model and settings.
 
-        :param model: The model to use for generating embeddings, defaults to "sentence-transformers/all-MiniLM-L6-v2"
-        :param api_key: The API key for GPT-based models, defaults to None
-        :param cache: Whether to enable caching for embeddings, defaults to False
+        :param model: The model to use for generating embeddings, defaults to sentence-transformers/all-MiniLM-L6-v2.
+        :param api_key: The API key for GPT-based models, defaults to None.
+        :param host: The host URL for locally hosted Ollama models. defaults to http://localhost:11434.
+        :param cache: Whether to enable caching for embeddings, defaults to False.
         """
-        self.model = self.initialize_model(model, api_key, cache)
+        self.model = self.initialize_model(model, api_key, host, cache)
         self.model_name = self.model.model_name
 
-    def initialize_model(self, model: str, api_key: Optional[str], cache: bool):
+    def initialize_model(self, model: str, api_key: Optional[str], host: str, cache: bool):
         if model == "sentence-transformers/all-MiniLM-L6-v2":
             return HuggingFaceAdapter(model, cache)
         elif model == "sentence-transformers/all-mpnet-base-v2":
@@ -301,16 +317,23 @@ class Vectorizer:
             return HuggingFaceAdapter(model, cache)
         elif model == "text-embedding-ada-002" and api_key:
             return GPT4Adapter(api_key, model, cache)
+        elif model == "text-embedding-3-large" and api_key:
+            return GPT4Adapter(api_key, model, cache)
+        elif model == "text-embedding-3-small" and api_key:
+            return GPT4Adapter(api_key, model, cache)
+        elif model == "nomic-embed-text":
+            return OllamaAdapter(model, host, cache)
         else:
             raise NotImplementedError(f"The model '{model}' is not supported.")
 
     def get_embedding(self, text: str):
         return self.model.get_embedding(text)
 
-    def get_embeddings(self, messages: List[str], batch_size: int = 64):
-        return self.model.get_embeddings(messages, batch_size)
+    def get_embeddings(self, messages: List[str]):
+        return self.model.get_embeddings(messages)
 
 
+@deprecated("This class is deprecated and will be removed in the next major release due to refactoring of artifacts.")
 class TextEmbedding:
     def __init__(self, text: str, embedding: List[float]):
         self.text = text
