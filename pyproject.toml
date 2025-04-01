@@ -61,6 +61,7 @@ requests = "^2.31.0"
 uuid = "^1.30"
 weaviate-client = "^4.6.5"
 cachetools = "^5.5.1"
+ollama = "^0.4.7"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^7.1.2"
