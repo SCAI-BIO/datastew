@@ -108,12 +108,13 @@ class WeaviateJsonlConverter(object):
             self._write_to_jsonl(mapping_file_path, self._weaviate_object_to_dict(mapping))
         self._flush_to_file(mapping_file_path)
 
-    def from_ohdsi(self, src: str, vectorizer: Vectorizer):
+    def from_ohdsi(self, src: str, vectorizer: Vectorizer = Vectorizer(), include_vectors: bool = True):
         """
         Converts data from OHDSI to our JSONL format.
 
         :param src: The file path to the OHDSI CONCEPT.csv file.
-        :param vectorizer: Vectorizer model to be utilized for vector generation.
+        :param vectorizer: Vectorizer model to be utilized for vector generation, defaults to Vectorizer.
+        :param include_vectors: Whether to include vectors in JSONL file, defaults to True.
         """
 
         if not os.path.exists(src):
@@ -152,8 +153,9 @@ class WeaviateJsonlConverter(object):
             concept_names = chunk["concept_name"].astype(str).tolist()
             concept_ids = chunk["concept_id"].astype(str).tolist()
 
-            # Compute batch embeddings
-            embeddings = vectorizer.get_embeddings(concept_names)
+            if include_vectors:
+                # Compute batch embeddings
+                embeddings = vectorizer.get_embeddings(concept_names)
 
             for i in range(len(concept_names)):
                 concept_properties = {"conceptID": str(concept_ids[i]), "prefLabel": concept_names[i]}
@@ -171,18 +173,30 @@ class WeaviateJsonlConverter(object):
 
                 # Mapping JSON
                 mapping_uuid = generate_uuid5({"text": concept_names[i]})
-                mappings.append(
-                    {
-                        "class": self.mapping_schema["class"],
-                        "id": mapping_uuid,
-                        "properties": {
-                            "text": concept_names[i],
-                            "hasSentenceEmbedder": vectorizer.model_name,
-                        },
-                        "references": {"hasConcept": concept_uuid},
-                        "vector": {"default": embeddings[i]},
-                    }
-                )
+                if include_vectors:
+                    mappings.append(
+                        {
+                            "class": self.mapping_schema["class"],
+                            "id": mapping_uuid,
+                            "properties": {
+                                "text": concept_names[i],
+                                "hasSentenceEmbedder": vectorizer.model_name,
+                            },
+                            "references": {"hasConcept": concept_uuid},
+                            "vector": {"default": embeddings[i]},
+                        }
+                    )
+                else:
+                    mappings.append(
+                        {
+                            "class": self.mapping_schema["class"],
+                            "id": mapping_uuid,
+                            "properties": {
+                                "text": concept_names[i],
+                            },
+                            "references": {"hasConcept": concept_uuid},
+                        }
+                    )
 
             # Write results in batch
             for concept_data in concepts:
