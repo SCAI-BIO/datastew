@@ -349,7 +349,11 @@ class WeaviateRepository(BaseRepository):
         return terminologies
 
     def get_mappings(
-        self, terminology_name: Optional[str] = None, sentence_embedder: Optional[str] = None, limit=1000, offset=0
+        self,
+        terminology_name: Optional[str] = None,
+        sentence_embedder: Optional[str] = None,
+        limit: int = 1000,
+        offset: int = 0,
     ) -> Page[Mapping]:
         """Fetches a list of mappings from the Weaviate client, with optional filters for terminology and sentence
         embedder. The function can limit and offset the number of results returned

@@ -28,8 +28,8 @@ class TestGetClosestEmbedding(unittest.TestCase):
         self.repository.store_all([terminology1, terminology2, concept1, concept2, mapping_1, mapping_2, mapping_3])
         filtered_mappings1 = self.repository.get_mappings(terminology_name="Terminology 1")
         filtered_mappings2 = self.repository.get_mappings(terminology_name="Terminology 2")
-        self.assertEqual(len(filtered_mappings1), 2)
-        self.assertEqual(len(filtered_mappings2), 1)
+        self.assertEqual(len(filtered_mappings1.items), 2)
+        self.assertEqual(len(filtered_mappings2.items), 1)
 
     def test_get_closest_mappings(self):
         terminology = Terminology(name="Terminology 1", id="1")
@@ -40,9 +40,9 @@ class TestGetClosestEmbedding(unittest.TestCase):
         mapping_3 = Mapping(concept=concept, text="Text 3", embedding=[1.2, 2.3, 3.4], sentence_embedder=model_name)
         self.repository.store_all([terminology, concept, mapping_1, mapping_2, mapping_3])
         sample_embedding = [0.2, 0.4, 0.35]
-        closest_mappings, _ = self.repository.get_closest_mappings(sample_embedding, limit=3)
+        closest_mappings = self.repository.get_closest_mappings(sample_embedding, limit=3)
         self.assertEqual(len(closest_mappings), 3)
-        self.assertEqual(mapping_2.text, closest_mappings[0].text)
+        self.assertEqual(mapping_2.text, closest_mappings[0].mapping.text)
 
     def test_get_all_sentence_embedders(self):
         terminology = Terminology(name="Terminology 1", id="1")
@@ -63,7 +63,7 @@ class TestGetClosestEmbedding(unittest.TestCase):
         )
         self.repository.import_data_dictionary(data_dictionary_source, terminology_name="import_test")
         terminologies = [terminology.name for terminology in self.repository.get_all_terminologies()]
-        concept_identifiers = [concept.concept_identifier for concept in self.repository.get_all_concepts()]
+        concept_identifiers = [concept.concept_identifier for concept in self.repository.get_concepts()]
         self.assertIn("import_test", terminologies)
 
         data_frame = data_dictionary_source.to_dataframe()
@@ -71,7 +71,7 @@ class TestGetClosestEmbedding(unittest.TestCase):
             variable = data_frame.loc[row, "variable"]
             description = data_frame.loc[row, "description"]
             self.assertIn(f"import_test:{variable}", concept_identifiers)
-            for mapping in self.repository.get_mappings("import_test"):
+            for mapping in self.repository.get_mappings("import_test").items:
                 if mapping.text == description:
                     self.assertEqual(mapping.concept_identifier, f"import_test:{variable}")
                     self.assertEqual(mapping.sentence_embedder, self.repository.vectorizer.model_name)
