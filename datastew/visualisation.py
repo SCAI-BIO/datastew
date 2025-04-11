@@ -232,12 +232,17 @@ def scatter_plot_all_cohorts(
 
 
 def get_plot_for_current_database_state(
-    repository: BaseRepository, terminology: Optional[str] = None, perplexity: int = 5, return_type="html"
+    repository: BaseRepository,
+    terminology: Optional[str] = None,
+    sentence_embedder: Optional[str] = None,
+    limit: int = 1000,
+    offset: int = 0,
+    perplexity: int = 5,
+    return_type: str = "html",
 ) -> str:
-    if not terminology:
-        mappings = repository.get_mappings()
-    else:
-        mappings = repository.get_mappings(terminology_name=terminology)
+    mappings = repository.get_mappings(
+        terminology_name=terminology, sentence_embedder=sentence_embedder, limit=limit, offset=offset
+    ).items
     # Extract embeddings
     embeddings = np.array([mapping.embedding for mapping in mappings])
     # Increase perplexity up to 30 if applicable
