@@ -924,11 +924,31 @@ class WeaviateRepository(BaseRepository):
         :param chunk: List of items to process.
         :param collection: Weaviate collection instance.
         """
+    def _process_batch(self, chunk: List[Dict[str, Any]], collection: Collection):
+        """Processes a batch of items and adds them to the Weaviate collection.
+
+        :param chunk: List of items to process.
+        :param collection: Weaviate collection instance.
+        """
+        vectors = None
+
+        if collection.name == "Mapping" and not self.use_weaviate_vectorizer:
+            if "vector" not in chunk[0]:
+                texts = [item["properties"]["text"] for item in chunk]
+                vectors = self.vectorizer.get_embeddings(texts)
+
         with collection.batch.dynamic() as batch:
-            for item in chunk:
+            for i, item in enumerate(chunk):
                 object_id = item.get("id")
                 properties = item.get("properties", {})
-                vector = None if self.use_weaviate_vectorizer else item.get("vector", {}).get("default")
                 references = item.get("references")
+
+                if self.use_weaviate_vectorizer:
+                    vector = None
+                elif vectors is not None:
+                    vector = vectors[i]
+                    item["sentence_embedder"] = self.vectorizer.model_name
+                else:
+                    vector = item.get("vector", {}).get("default")
 
                 batch.add_object(uuid=object_id, properties=properties, vector=vector, references=references)
