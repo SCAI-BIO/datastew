@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Sequence, Union
 
 from datastew.process.parsing import DataDictionarySource
-from datastew.repository.model import Concept, Mapping, Terminology
+from datastew.repository.model import Concept, Mapping, MappingResult, Terminology
+from datastew.repository.pagination import Page
 
 
 class BaseRepository(ABC):
@@ -22,7 +23,7 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def get_all_concepts(self) -> List[Concept]:
+    def get_concepts(self) -> List[Concept]:
         """Retrieve all concepts from the database."""
         pass
 
@@ -32,7 +33,13 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def get_mappings(self, terminology_name: Optional[str] = None, limit=1000) -> List[Mapping]:
+    def get_mappings(
+        self,
+        terminology_name: Optional[str] = None,
+        sentence_embedder: Optional[str] = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> Page[Mapping]:
         """Get all embeddings up to a limit"""
         pass
 
@@ -41,7 +48,14 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def get_closest_mappings(self, embedding, limit=5):
+    def get_closest_mappings(
+        self,
+        embedding: Sequence[float],
+        similarities: bool = False,
+        terminology_name: Optional[str] = None,
+        sentence_embedder: Optional[str] = None,
+        limit=5,
+    ) -> Union[List[Mapping], List[MappingResult]]:
         """Get the closest mappings based on embedding."""
         pass
 
