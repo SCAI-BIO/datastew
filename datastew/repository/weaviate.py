@@ -244,7 +244,7 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch concept {concept_id}: {e}")
         return concept
 
-    def get_concepts(self, limit: int, offset: int, terminology_name: Optional[str] = None) -> Page[Concept]:
+    def get_concepts(self, limit: int = 100, offset: int = 0, terminology_name: Optional[str] = None) -> Page[Concept]:
         if not self.client:
             raise ValueError("Client is not initialized or is invalid.")
         try:
@@ -918,12 +918,6 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
 
-    def _process_batch(self, chunk: List[Dict[str, Any]], collection: Collection):
-        """Processes a batch of items and adds them to the Weaviate collection.
-
-        :param chunk: List of items to process.
-        :param collection: Weaviate collection instance.
-        """
     def _process_batch(self, chunk: List[Dict[str, Any]], collection: Collection):
         """Processes a batch of items and adds them to the Weaviate collection.
 
