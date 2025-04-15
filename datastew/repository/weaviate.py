@@ -244,7 +244,7 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch concept {concept_id}: {e}")
         return concept
 
-    def get_concepts(self, limit: int, offset: int, terminology_name: Optional[str] = None) -> Page[Concept]:
+    def get_concepts(self, limit: int = 100, offset: int = 0, terminology_name: Optional[str] = None) -> Page[Concept]:
         if not self.client:
             raise ValueError("Client is not initialized or is invalid.")
         try:
@@ -924,11 +924,25 @@ class WeaviateRepository(BaseRepository):
         :param chunk: List of items to process.
         :param collection: Weaviate collection instance.
         """
+        vectors = None
+
+        if collection.name == "Mapping" and not self.use_weaviate_vectorizer:
+            if "vector" not in chunk[0]:
+                texts = [item["properties"]["text"] for item in chunk]
+                vectors = self.vectorizer.get_embeddings(texts)
+
         with collection.batch.dynamic() as batch:
-            for item in chunk:
+            for i, item in enumerate(chunk):
                 object_id = item.get("id")
                 properties = item.get("properties", {})
-                vector = None if self.use_weaviate_vectorizer else item.get("vector", {}).get("default")
                 references = item.get("references")
+
+                if self.use_weaviate_vectorizer:
+                    vector = None
+                elif vectors is not None:
+                    vector = vectors[i]
+                    item["sentence_embedder"] = self.vectorizer.model_name
+                else:
+                    vector = item.get("vector", {}).get("default")
 
                 batch.add_object(uuid=object_id, properties=properties, vector=vector, references=references)
