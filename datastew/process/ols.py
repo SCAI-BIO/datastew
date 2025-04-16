@@ -55,7 +55,10 @@ class OLSTerminologyImportTask:
             descriptions = []
             for term in terms:
                 if "description" in term and len(term["description"]) > 0:
-                    descriptions.append(term["description"])
+                    if isinstance(term["description"], list):
+                        descriptions.append(term["description"][0])
+                    else:
+                        descriptions.append(term["description"])
                 else:
                     descriptions.append(term["label"])
             if not self.use_weaviate_vectorizer:
