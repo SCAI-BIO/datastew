@@ -443,12 +443,15 @@ class WeaviateRepository(BaseRepository):
                         id=str(o.uuid),
                         text=str(o.properties["text"]),
                         concept=concept,
-                        embedding=o.vector,
+                        embedding=next(iter(o.vector.values()), None),
                         sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
                     )
                 else:
                     mapping = Mapping(
-                        id=str(o.uuid), text=str(o.properties["text"]), concept=concept, embedding=o.vector
+                        id=str(o.uuid),
+                        text=str(o.properties["text"]),
+                        concept=concept,
+                        embedding=next(iter(o.vector.values()), None),
                     )
                 mappings.append(mapping)
 
@@ -564,11 +567,13 @@ class WeaviateRepository(BaseRepository):
                     mapping = Mapping(
                         concept=concept,
                         text=str(o.properties["text"]),
-                        embedding=o.vector,
+                        embedding=next(iter(o.vector.values()), None),
                         sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
                     )
                 else:
-                    mapping = Mapping(concept=concept, text=str(o.properties["text"]), embedding=o.vector)
+                    mapping = Mapping(
+                        concept=concept, text=str(o.properties["text"]), embedding=next(iter(o.vector.values()), None)
+                    )
 
                 # Append MappingResult if similarities is True, else just Mapping
                 if similarities:
