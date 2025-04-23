@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, Optional, Union
+from typing import Optional, Sequence
 
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import declarative_base, relationship
@@ -43,7 +43,14 @@ class Mapping(Base):
     embedding_json = Column(Text)
     sentence_embedder = Column(Text)
 
-    def __init__(self, concept: Concept, text: str, embedding: Optional[Union[List[float], Dict[str, List[float]]]] = None, sentence_embedder: Optional[str] = None, id: Optional[str] = None):
+    def __init__(
+        self,
+        concept: Concept,
+        text: str,
+        embedding: Optional[Sequence[float]] = None,
+        sentence_embedder: Optional[str] = None,
+        id: Optional[str] = None,
+    ):
         self.concept = concept
         self.text = text
         self.embedding_json = json.dumps(embedding)  # Store embedding as JSON

@@ -437,19 +437,22 @@ class WeaviateRepository(BaseRepository):
                         id=str(concept_data.uuid),
                     )
 
+                id = str(o.uuid)
+                text = str(o.properties["text"])
+                # o.vector is a dictionary with varying key
+                embedding = next(iter(o.vector.values()), None)
+
                 # Create a Mapping object and add to the mappings list
                 if not self.use_weaviate_vectorizer:
                     mapping = Mapping(
-                        id=str(o.uuid),
-                        text=str(o.properties["text"]),
+                        id=id,
+                        text=text,
                         concept=concept,
-                        embedding=o.vector,
+                        embedding=embedding,
                         sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
                     )
                 else:
-                    mapping = Mapping(
-                        id=str(o.uuid), text=str(o.properties["text"]), concept=concept, embedding=o.vector
-                    )
+                    mapping = Mapping(id=id, text=text, concept=concept, embedding=embedding)
                 mappings.append(mapping)
 
             # Fetch the total count of mappings for pagination
@@ -559,16 +562,20 @@ class WeaviateRepository(BaseRepository):
                         id=str(concept_data.uuid),
                     )
 
+                text = str(o.properties["text"])
+                # o.vector is a dictionary with varying key
+                embedding = next(iter(o.vector.values()), None)
+
                 # Create Mapping objects and append them to the list
                 if not self.use_weaviate_vectorizer:
                     mapping = Mapping(
                         concept=concept,
-                        text=str(o.properties["text"]),
-                        embedding=o.vector,
+                        text=text,
+                        embedding=embedding,
                         sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
                     )
                 else:
-                    mapping = Mapping(concept=concept, text=str(o.properties["text"]), embedding=o.vector)
+                    mapping = Mapping(concept=concept, text=text, embedding=embedding)
 
                 # Append MappingResult if similarities is True, else just Mapping
                 if similarities:

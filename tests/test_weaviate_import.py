@@ -153,7 +153,7 @@ class TestWeaviateRepositoryImport(TestCase):
                     mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2"
                 )
             with self.subTest(f"Vector Length for {mapping.text}"):
-                self.assertEqual(len(mapping.embedding["default"]), 2)
+                self.assertEqual(len(mapping.embedding), 2)
             with self.subTest(f"Concept Reference for Mapping {mapping.text}"):
                 expected_label = "G" if mapping.text == "pancreas" else "H"
                 self.assertEqual(mapping.concept.pref_label, expected_label)
