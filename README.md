@@ -87,7 +87,7 @@ descriptions can point to the same Concept.
 
 ```python
 text_to_map = "Sugar sickness" # Semantically similar to "Diabetes mellitus (disorder)"
-embedding = embedding_model.get_embedding(text_to_map)
+embedding = vectorizer.get_embedding(text_to_map)
 
 results = repository.get_closest_mappings(embedding, similarities=True, limit=2)
 
