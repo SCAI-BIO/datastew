@@ -129,8 +129,8 @@ class TestWeaviateRepository(TestCase):
         )
         self.assertAlmostEqual(closest_mappings_with_similarities[0].similarity, 0.6747197, 3)
 
-    def test_closes_mapping_with_similarity_for_indetical_entry(self):
-        """Test retrieval of closes mapping for an identical entry"""
+    def test_closest_mapping_with_similarity_for_indetical_entry(self):
+        """Test retrieval of closest mapping for an identical entry"""
         test_embedding = self.vectorizer1.get_embedding("Cancer")
         closest_mappings_with_similarities = self.repository.get_closest_mappings(test_embedding, True)
         self.assertEqual(closest_mappings_with_similarities[0].mapping.text, "Cancer")
