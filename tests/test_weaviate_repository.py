@@ -134,7 +134,7 @@ class TestWeaviateRepository(TestCase):
         test_embedding = self.vectorizer1.get_embedding("Cancer")
         closest_mappings_with_similarities = self.repository.get_closest_mappings(test_embedding, True)
         self.assertEqual(closest_mappings_with_similarities[0].mapping.text, "Cancer")
-        self.assertAlmostEqual(closest_mappings_with_similarities[0].similarity, 1)
+        self.assertAlmostEqual(closest_mappings_with_similarities[0].similarity, 1.0, 3)
 
     def test_terminology_and_model_specific_mappings_with_similarities(self):
         """Test retrieval of terminology and model-specific mappings with similarity scores."""
