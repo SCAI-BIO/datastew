@@ -32,6 +32,10 @@ class TestWeaviateRepository(TestCase):
             cls._create_mapping(cls.terminology1, "Hypertension (disorder)", "Concept ID: 73211009", cls.vectorizer2),
             cls._create_mapping(cls.terminology1, "Asthma", "Concept ID: 195967001", cls.vectorizer1),
             cls._create_mapping(cls.terminology1, "Heart attack", "Concept ID: 22298006", cls.vectorizer2),
+            cls._create_mapping(
+                cls.terminology1, "Complex General Surgical Oncology", "Concept ID: 45756764", cls.vectorizer1
+            ),
+            cls._create_mapping(cls.terminology1, "Cancer", "Concept ID: 45877275", cls.vectorizer1),
             cls._create_mapping(cls.terminology2, "Common cold", "Concept ID: 13260007", cls.vectorizer1),
             cls._create_mapping(cls.terminology2, "Stroke", "Concept ID: 422504002", cls.vectorizer2),
             cls._create_mapping(cls.terminology2, "Migraine", "Concept ID: 386098009", cls.vectorizer1),
@@ -72,12 +76,12 @@ class TestWeaviateRepository(TestCase):
 
     def test_concept_retrieval(self):
         """Test retrieval of individual and all concepts."""
-        concepts = self.repository.get_all_concepts()
+        concepts = self.repository.get_concepts()
         concept = self.repository.get_concept("Concept ID: 11893007")
         self.assertEqual(concept.concept_identifier, "Concept ID: 11893007")
         self.assertEqual(concept.pref_label, "Diabetes mellitus (disorder)")
         self.assertEqual(concept.terminology.name, "snomed CT")
-        self.assertEqual(len(concepts), 9)
+        self.assertEqual(len(concepts.items), 11)
 
     def test_terminology_retrieval(self):
         """Test retrieval of individual and all terminologies."""
@@ -108,7 +112,7 @@ class TestWeaviateRepository(TestCase):
         """Test retrieval of mappings filtered by terminology and model."""
         test_embedding = self.vectorizer1.get_embedding(self.test_text)
         specific_mappings = self.repository.get_closest_mappings(test_embedding, False, "snomed CT", self.model_name1)
-        self.assertEqual(len(specific_mappings), 2)
+        self.assertEqual(len(specific_mappings), 4)
         self.assertEqual(specific_mappings[0].text, "Asthma")
         self.assertEqual(specific_mappings[0].concept.terminology.name, "snomed CT")
         self.assertEqual(specific_mappings[0].sentence_embedder, self.model_name1)
@@ -125,13 +129,20 @@ class TestWeaviateRepository(TestCase):
         )
         self.assertAlmostEqual(closest_mappings_with_similarities[0].similarity, 0.6747197, 3)
 
+    def test_closes_mapping_with_similarity_for_indetical_entry(self):
+        """Test retrieval of closes mapping for an identical entry"""
+        test_embedding = self.vectorizer1.get_embedding("Cancer")
+        closest_mappings_with_similarities = self.repository.get_closest_mappings(test_embedding, True)
+        self.assertEqual(closest_mappings_with_similarities[0].mapping.text, "Cancer")
+        self.assertAlmostEqual(closest_mappings_with_similarities[0].similarity, 1)
+
     def test_terminology_and_model_specific_mappings_with_similarities(self):
         """Test retrieval of terminology and model-specific mappings with similarity scores."""
         test_embedding = self.vectorizer1.get_embedding(self.test_text)
         specific_mappings_with_similarities = self.repository.get_closest_mappings(
             test_embedding, True, "snomed CT", self.model_name1
         )
-        self.assertEqual(len(specific_mappings_with_similarities), 2)
+        self.assertEqual(len(specific_mappings_with_similarities), 4)
         self.assertEqual(specific_mappings_with_similarities[0].mapping.text, "Asthma")
         self.assertEqual(
             specific_mappings_with_similarities[0].mapping.concept.terminology.name,
@@ -189,5 +200,5 @@ class TestWeaviateRepository(TestCase):
         mappings = repository.get_mappings(limit=5).items
         self.assertEqual(len(mappings), 5)
 
-        concepts = repository.get_all_concepts()
-        self.assertEqual(len(concepts), 20)
+        concepts = repository.get_concepts()
+        self.assertEqual(len(concepts.items), 22)
