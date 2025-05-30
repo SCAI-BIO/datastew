@@ -658,54 +658,67 @@ class WeaviateRepository(BaseRepository):
             raise ValueError("Client is not initialized or is invalid.")
         try:
             if isinstance(model_object_instance, Terminology):
-                if not self._terminology_exists(str(model_object_instance.name)):
-                    properties = {"name": model_object_instance.name}
+                properties = {"name": model_object_instance.name}
+                terminology_uuid = generate_uuid5(properties)
+                if not self._uuid_exists("Terminology", terminology_uuid):
                     terminology_collection = self.client.collections.get("Terminology")
-                    terminology_collection.data.insert(properties=properties, uuid=generate_uuid5(properties))
+                    terminology_collection.data.insert(properties=properties, uuid=terminology_uuid)
                 else:
-                    self.logger.info(f"Terminology with name {model_object_instance.name} already exists. Skipping.")
+                    self.logger.info(
+                        f"[SKIPPED] Terminology '{model_object_instance.name}' already exists with UUID {terminology_uuid}"
+                    )
             elif isinstance(model_object_instance, Concept):
-                if not self._concept_exists(str(model_object_instance.concept_identifier)):
+                properties = {
+                    "conceptID": model_object_instance.concept_identifier,
+                    "prefLabel": model_object_instance.pref_label,
+                }
+                concept_uuid = generate_uuid5(properties)
+                if not self._uuid_exists("Concept", concept_uuid):
                     # recursion: create terminology if not existing
-                    if not self._terminology_exists(model_object_instance.terminology.name):
+                    terminology_properties = {"name": model_object_instance.terminology.name}
+                    terminology_uuid = generate_uuid5(terminology_properties)
+                    if not self._uuid_exists("Terminology", terminology_uuid):
                         self.store(model_object_instance.terminology)
-                    properties = {
-                        "conceptID": model_object_instance.concept_identifier,
-                        "prefLabel": model_object_instance.pref_label,
-                    }
-                    concept_uuid = generate_uuid5(properties)
-                    terminology = self.get_terminology(model_object_instance.terminology.name)
                     concept_collection = self.client.collections.get("Concept")
                     concept_collection.data.insert(properties=properties, uuid=concept_uuid)
                     concept_collection.data.reference_add(
-                        from_uuid=concept_uuid, from_property="hasTerminology", to=str(terminology.id)
+                        from_uuid=concept_uuid,
+                        from_property="hasTerminology",
+                        to=str(terminology_uuid),
                     )
                 else:
                     self.logger.info(
-                        f"Concept with identifier {model_object_instance.concept_identifier} already exists. Skipping."
+                        f"[SKIPPED] Concept '{model_object_instance.concept_identifier}' already exists with UUID {concept_uuid}."
                     )
             elif isinstance(model_object_instance, Mapping):
-                if not self._mapping_exists(model_object_instance):
-                    if not self._concept_exists(model_object_instance.concept.concept_identifier):
+                if not self.use_weaviate_vectorizer:
+                    properties = {
+                        "text": model_object_instance.text,
+                        "hasSentenceEmbedder": model_object_instance.sentence_embedder,
+                    }
+                else:
+                    properties = {"text": model_object_instance.text}
+                mapping_uuid = generate_uuid5(properties)
+                if not self._uuid_exists("Mapping", mapping_uuid):
+                    concept_properties = {
+                        "conceptID": model_object_instance.concept.concept_identifier,
+                        "prefLabel": model_object_instance.concept.pref_label,
+                    }
+                    concept_uuid = generate_uuid5(concept_properties)
+                    if not self._uuid_exists("Concept", concept_uuid):
                         self.store(model_object_instance.concept)
-                    if not self.use_weaviate_vectorizer:
-                        properties = {
-                            "text": model_object_instance.text,
-                            "hasSentenceEmbedder": model_object_instance.sentence_embedder,
-                        }
-                    else:
-                        properties = {"text": model_object_instance.text}
-                    mapping_uuid = generate_uuid5(properties)
-                    concept = self.get_concept(model_object_instance.concept.concept_identifier)
+
                     mapping_collection = self.client.collections.get("Mapping")
                     mapping_collection.data.insert(
                         properties=properties, uuid=mapping_uuid, vector=model_object_instance.embedding
                     )
                     mapping_collection.data.reference_add(
-                        from_uuid=mapping_uuid, from_property="hasConcept", to=str(concept.id)
+                        from_uuid=mapping_uuid, from_property="hasConcept", to=str(concept_uuid)
                     )
                 else:
-                    self.logger.info("Mapping with same embedding already exists. Skipping.")
+                    self.logger.info(
+                        f"[SKIPPED] Mapping for text '{model_object_instance.text}' already exists with UUID {mapping_uuid}."
+                    )
             else:
                 raise ValueError("Unsupported model object instance type.")
 
@@ -825,7 +838,12 @@ class WeaviateRepository(BaseRepository):
             if not self.client:
                 raise ValueError("Client is not initialized or is invalid.")
             # Check if the concept exists first
-            concept_exists = self._concept_exists(mapping.concept.concept_identifier)
+            concept_properties = {
+                "conceptID": mapping.concept.concept_identifier,
+                "prefLabel": mapping.concept.pref_label,
+            }
+            concept_uuid = generate_uuid5(concept_properties)
+            concept_exists = self._uuid_exists("Concept", concept_uuid)
             if not concept_exists:
                 return False
 
@@ -850,6 +868,24 @@ class WeaviateRepository(BaseRepository):
 
         except Exception as e:
             raise RuntimeError(f"Failed to check if mapping exists: {e}")
+
+    def _uuid_exists(self, collection_name: str, uuid: str) -> bool:
+        """Check if an object with the specified UUID exists in the given Weaviate collection.
+
+        :param collection_name: The name of the Weaviate collection to search in.
+        :param uuid: The UUID of the object to check for existence.
+        :raises ValueError: If the client is not initialized.
+        :raises RuntimeError: If an error occurs during the query.
+        :return: True if the object with the given UUID exists, False otherwise.
+        """
+        try:
+            if not self.client:
+                raise ValueError("Client is not initialized or is invalid.")
+            collection = self.client.collections.get(collection_name)
+            obj = collection.query.fetch_object_by_id(uuid)
+            return obj is not None
+        except Exception as e:
+            raise RuntimeError(f"Failed to check if UUID exists in {collection_name}: {e}")
 
     def _create_schema_if_not_exists(self, schema):
         """Creates a new schema in Weaviate if it does not already exist. The schema is defined in the provided `schema`
