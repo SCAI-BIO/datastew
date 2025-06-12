@@ -1,8 +1,10 @@
+import logging
 from typing import List, Optional, Union
 
 import numpy as np
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, func, inspect
+from sqlalchemy.orm import joinedload, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from datastew.embedding import Vectorizer
 from datastew.process.parsing import DataDictionarySource
@@ -10,10 +12,17 @@ from datastew.repository.base import BaseRepository
 from datastew.repository.model import Base, Concept, Mapping, MappingResult, Terminology
 from datastew.repository.pagination import Page
 
+logger = logging.getLogger(__name__)
+
 
 class SQLLiteRepository(BaseRepository):
 
-    def __init__(self, mode: str = "memory", path: Optional[str] = None, vectorizer: Vectorizer = Vectorizer()):
+    def __init__(
+        self,
+        mode: str = "memory",
+        path: Optional[str] = None,
+        vectorizer: Vectorizer = Vectorizer(),
+    ):
         """Initializes the repository with a SQLite backend.
 
         :param mode: Storage mode control, defaults to "memory".
@@ -25,7 +34,9 @@ class SQLLiteRepository(BaseRepository):
             self.engine = create_engine(f"sqlite:///{path}")
         # for tests
         elif mode == "memory":
-            self.engine = create_engine("sqlite:///:memory:")
+            self.engine = create_engine(
+                "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+            )
         else:
             raise ValueError(f"DB mode {mode} is not defined. Use either disk or memory.")
         Base.metadata.create_all(self.engine)
@@ -40,10 +51,14 @@ class SQLLiteRepository(BaseRepository):
         :raises IOError: If the object cannot be stored (e.g., due to DB errors).
         """
         try:
+            if self._is_duplicate(model_object_instance):
+                return
+
             self.session.add(model_object_instance)
             self.session.commit()
         except Exception as e:
             self.session.rollback()
+            logger.exception("Failed to store object.")
             raise IOError(e)
 
     def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
@@ -51,8 +66,11 @@ class SQLLiteRepository(BaseRepository):
 
         :param model_object_instances: List of model objects to store.
         """
-        self.session.add_all(model_object_instances)
-        self.session.commit()
+        for obj in model_object_instances:
+            try:
+                self.store(obj)
+            except IOError:
+                logger.warning(f"Skipping failed insert for {obj}")
 
     def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str):
         """Imports a data dictionary, generating concepts and embeddings, and stores them in the database.
@@ -62,34 +80,49 @@ class SQLLiteRepository(BaseRepository):
         :raises RuntimeError: If the import or transformation fails.
         """
         try:
-            model_object_instances: List[Union[Terminology, Concept, Mapping]] = []
-            data_frame = data_dictionary.to_dataframe()
-            descriptions = data_frame["description"].tolist()
-            vectorizer_name = self.vectorizer.model_name
-            variable_to_embedding = data_dictionary.get_embeddings(self.vectorizer)
-            terminology = Terminology(terminology_name, terminology_name)
-            model_object_instances.append(terminology)
-            for variable, description in zip(variable_to_embedding.keys(), descriptions):
-                concept_id = f"{terminology_name}:{variable}"
-                concept = Concept(terminology=terminology, pref_label=variable, concept_identifier=concept_id)
-                mapping = Mapping(
-                    concept=concept,
-                    text=description,
-                    embedding=variable_to_embedding[variable],
-                    sentence_embedder=vectorizer_name,
-                )
-                model_object_instances.append(concept)
-                model_object_instances.append(mapping)
-            self.store_all(model_object_instances)
+            objects = self._parse_data_dictionary(data_dictionary, terminology_name)
+            self.store_all(objects)
         except Exception as e:
+            logger.exception("Failed to import data dictionary.")
             raise RuntimeError(f"Failed to import data dictionary source: {e}")
 
-    def get_concepts(self) -> List[Concept]:
+    def get_concept(self, concept_id: str) -> Concept:
+        """Retrieves a Concept by its ID.
+
+        :param concept_id: ID of the Concept.
+        :raises ValueError: If no Concept with given ID is found.
+        :return: Concept object.
+        """
+        concept = self.session.query(Concept).filter_by(concept_identifier=concept_id).first()
+        if concept is None:
+            raise ValueError(f"No Concept found with ID: {concept_id}")
+        return concept
+
+    def get_concepts(self, terminology_name: Optional[str] = None, offset: int = 0, limit: int = 100) -> Page[Concept]:
         """Retrieves all concepts from the database.
 
         :return: All stored Concept objects.
         """
-        return self.session.query(Concept).all()
+        query = self.session.query(Concept).options(joinedload(Concept.terminology))
+
+        if terminology_name:
+            query = query.join(Concept.terminology).filter(Terminology.name == terminology_name)
+
+        total_count = query.with_entities(func.count()).scalar()
+        concepts = query.offset(offset).limit(limit).all()
+        return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)
+
+    def get_terminology(self, terminology_name: str) -> Terminology:
+        """Retrieves a Terminology objects by its name.
+
+        :param terminology_name: Name of the terminology.
+        :raises ValueError: If no terminology with the given name is found.
+        :return: Terminology object.
+        """
+        terminology = self.session.query(Terminology).filter_by(name=terminology_name).first()
+        if terminology is None:
+            raise ValueError(f"No Terminology found with name: {terminology_name}")
+        return terminology
 
     def get_all_terminologies(self) -> List[Terminology]:
         """Retrieves all terminologies from the database.
@@ -186,3 +219,64 @@ class SQLLiteRepository(BaseRepository):
         Closes the SQLAlchemy session and releases database resources.
         """
         self.session.close()
+
+    def clear_all(self):
+        """Deletes all Terminology, Concept, and Mapping entries from the database.
+
+        This method is primarily intended for test environments to ensure a clean
+        state before or after test execution. It performs bulk deletions in the
+        correct dependency order (Mappings → Concepts → Terminologies) and commits
+        the changes.
+        """
+        self.session.query(Mapping).delete()
+        self.session.query(Concept).delete()
+        self.session.query(Terminology).delete()
+        self.session.commit()
+
+    def _parse_data_dictionary(
+        self, data_dictionary: DataDictionarySource, terminology_name: str
+    ) -> List[Union[Concept, Mapping, Terminology]]:
+        df = data_dictionary.to_dataframe()
+        descriptions = df["description"].tolist()
+        vectorizer_name = self.vectorizer.model_name
+        variable_to_embedding = data_dictionary.get_embeddings(self.vectorizer)
+
+        terminology = Terminology(name=terminology_name, id=terminology_name)
+        objects: List[Union[Concept, Mapping, Terminology]] = [terminology]
+
+        for variable, description in zip(variable_to_embedding.keys(), descriptions):
+            concept_id = f"{terminology_name}:{variable}"
+            concept = Concept(terminology=terminology, pref_label=variable, concept_identifier=concept_id)
+            mapping = Mapping(
+                concept=concept,
+                text=description,
+                embedding=variable_to_embedding[variable],
+                sentence_embedder=vectorizer_name,
+            )
+            objects.extend([concept, mapping])
+
+        return objects
+
+    def _is_duplicate(self, model_object_instance: Union[Terminology, Concept, Mapping]) -> bool:
+        """Checks whether an object with the same primary key already exists.
+
+        :param model_object_instance: SQLAlchemy model instance.
+        :return: True if a duplicate exists, False otherwise.
+        """
+        cls = type(model_object_instance)
+        pk_attrs = inspect(cls).primary_key
+
+        if len(pk_attrs) != 1:
+            logger.warning(
+                f"Duplicate check only supports single-column primary keys. Skipping check for {cls.__name__}"
+            )
+            return False
+
+        pk_attr = pk_attrs[0].name
+        pk_value = getattr(model_object_instance, pk_attr)
+        existing = self.session.get(cls, pk_value)
+
+        if existing:
+            logger.info(f"Skipped storing existing {cls.__name__} with {pk_attr}={pk_value}")
+            return True
+        return False
