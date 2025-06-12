@@ -23,8 +23,18 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def get_concepts(self) -> List[Concept]:
+    def get_concept(self, concept_id: str) -> Concept:
+        """Retrieve a Concept by ID from the database."""
+        pass
+
+    @abstractmethod
+    def get_concepts(self) -> Page[Concept]:
         """Retrieve all concepts from the database."""
+        pass
+
+    @abstractmethod
+    def get_terminology(self, terminology_name: str) -> Terminology:
+        """Retrieve a Terminology by name from the database."""
         pass
 
     @abstractmethod
@@ -62,4 +72,9 @@ class BaseRepository(ABC):
     @abstractmethod
     def shut_down(self):
         """Shut down the repository."""
+        pass
+
+    @abstractmethod
+    def clear_all(self):
+        """Clear all entries in the database."""
         pass
