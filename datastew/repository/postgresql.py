@@ -5,7 +5,6 @@ from sqlalchemy import create_engine, func, inspect, text
 from sqlalchemy.orm import joinedload, sessionmaker
 
 from datastew.embedding import Vectorizer
-from datastew.process.parsing import DataDictionarySource
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import Base, Concept, Mapping, MappingResult, Terminology
 from datastew.repository.pagination import Page
@@ -14,23 +13,32 @@ logger = logging.getLogger(__name__)
 
 
 class PostgreSQLRepository(BaseRepository):
-    def __init__(self, connection_string: str, vectorizer: Vectorizer = Vectorizer()):
+    def __init__(
+        self,
+        connection_string: str,
+        vectorizer: Vectorizer = Vectorizer(),
+        pool_size: int = 10,
+        max_overflow: int = 20,
+        pool_timeout: int = 30,
+    ):
         """Initializes the repository with a PostgreSQL backend.
 
         :param connection_string: Full DB URI (e.g., 'postgresql://user:pass@localhost/dbname').
         :param vectorizer: An instance of Vectorizer for generating embeddings,
             defaults to Vectorizer("FremyCompany/BioLORD-2023").
+        :param pool_size: The number of connections to keep in the connection pool.
+        :param max_overflow: The maximum number of connections to allow in overflow.
+        :param pool_timeout: The maximum time (in seconds) to wait for a connection from
+            the pool before raising an exception.
         """
-        self.vectorizer = vectorizer
-        self.engine = create_engine(connection_string, pool_size=10, max_overflow=20, pool_timeout=30)
-        self.initialize_pgvector()
+        super().__init__(vectorizer)
+        self.engine = create_engine(
+            connection_string, pool_size=pool_size, max_overflow=max_overflow, pool_timeout=pool_timeout
+        )
+        self._initialize_pgvector()
         Base.metadata.create_all(self.engine)
         Session = sessionmaker(bind=self.engine, autoflush=False)
         self.session = Session()
-
-    def initialize_pgvector(self):
-        with self.engine.begin() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
     def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
         """Stores a single Terminology, Concept, or Mapping object in the database.
@@ -59,20 +67,6 @@ class PostgreSQLRepository(BaseRepository):
                 self.store(obj)
             except IOError:
                 logger.warning(f"Skipping failed insert for {obj}")
-
-    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str):
-        """Imports a data dictionary, generating concepts and embeddings, and stores them in the database.
-
-        :param data_dictionary: Source of variable descriptions and metadata.
-        :param terminology_name: Name of the terminology being imported.
-        :raises RuntimeError: If the import or transformation fails.
-        """
-        try:
-            objects = self._parse_data_dictionary(data_dictionary, terminology_name)
-            self.store_all(objects)
-        except Exception as e:
-            logger.exception("Failed to import data dictionary.")
-            raise RuntimeError(f"Failed to import data dictionary source: {e}")
 
     def get_concept(self, concept_id: str) -> Concept:
         """Retrieves a Concept by its ID.
@@ -207,29 +201,9 @@ class PostgreSQLRepository(BaseRepository):
         self.session.query(Terminology).delete()
         self.session.commit()
 
-    def _parse_data_dictionary(
-        self, data_dictionary: DataDictionarySource, terminology_name: str
-    ) -> List[Union[Concept, Mapping, Terminology]]:
-        df = data_dictionary.to_dataframe()
-        descriptions = df["description"].tolist()
-        vectorizer_name = self.vectorizer.model_name
-        variable_to_embedding = data_dictionary.get_embeddings(self.vectorizer)
-
-        terminology = Terminology(name=terminology_name, id=terminology_name)
-        objects: List[Union[Concept, Mapping, Terminology]] = [terminology]
-
-        for variable, description in zip(variable_to_embedding.keys(), descriptions):
-            concept_id = f"{terminology_name}:{variable}"
-            concept = Concept(terminology=terminology, pref_label=variable, concept_identifier=concept_id)
-            mapping = Mapping(
-                concept=concept,
-                text=description,
-                embedding=variable_to_embedding[variable],
-                sentence_embedder=vectorizer_name,
-            )
-            objects.extend([concept, mapping])
-
-        return objects
+    def _initialize_pgvector(self):
+        with self.engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
     def _is_duplicate(self, model_object_instance: Union[Terminology, Concept, Mapping]) -> bool:
         """Checks whether an object with the same primary key already exists.

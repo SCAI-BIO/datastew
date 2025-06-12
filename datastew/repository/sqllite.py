@@ -7,7 +7,6 @@ from sqlalchemy.orm import joinedload, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from datastew.embedding import Vectorizer
-from datastew.process.parsing import DataDictionarySource
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import Base, Concept, Mapping, MappingResult, Terminology
 from datastew.repository.pagination import Page
@@ -30,6 +29,7 @@ class SQLLiteRepository(BaseRepository):
         :param vectorizer: An instance of Vectorizer for generating embeddings, defaults to Vectorizer().
         :raises ValueError: Undefined DB mode.
         """
+        super().__init__(vectorizer)
         if mode == "disk":
             self.engine = create_engine(f"sqlite:///{path}")
         # for tests
@@ -42,7 +42,6 @@ class SQLLiteRepository(BaseRepository):
         Base.metadata.create_all(self.engine)
         Session = sessionmaker(bind=self.engine, autoflush=False)
         self.session = Session()
-        self.vectorizer = vectorizer
 
     def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
         """Stores a single Terminology, Concept, or Mapping object in the database.
@@ -71,20 +70,6 @@ class SQLLiteRepository(BaseRepository):
                 self.store(obj)
             except IOError:
                 logger.warning(f"Skipping failed insert for {obj}")
-
-    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str):
-        """Imports a data dictionary, generating concepts and embeddings, and stores them in the database.
-
-        :param data_dictionary: Source of variable descriptions and metadata.
-        :param terminology_name: Name of the terminology being imported.
-        :raises RuntimeError: If the import or transformation fails.
-        """
-        try:
-            objects = self._parse_data_dictionary(data_dictionary, terminology_name)
-            self.store_all(objects)
-        except Exception as e:
-            logger.exception("Failed to import data dictionary.")
-            raise RuntimeError(f"Failed to import data dictionary source: {e}")
 
     def get_concept(self, concept_id: str) -> Concept:
         """Retrieves a Concept by its ID.
@@ -232,30 +217,6 @@ class SQLLiteRepository(BaseRepository):
         self.session.query(Concept).delete()
         self.session.query(Terminology).delete()
         self.session.commit()
-
-    def _parse_data_dictionary(
-        self, data_dictionary: DataDictionarySource, terminology_name: str
-    ) -> List[Union[Concept, Mapping, Terminology]]:
-        df = data_dictionary.to_dataframe()
-        descriptions = df["description"].tolist()
-        vectorizer_name = self.vectorizer.model_name
-        variable_to_embedding = data_dictionary.get_embeddings(self.vectorizer)
-
-        terminology = Terminology(name=terminology_name, id=terminology_name)
-        objects: List[Union[Concept, Mapping, Terminology]] = [terminology]
-
-        for variable, description in zip(variable_to_embedding.keys(), descriptions):
-            concept_id = f"{terminology_name}:{variable}"
-            concept = Concept(terminology=terminology, pref_label=variable, concept_identifier=concept_id)
-            mapping = Mapping(
-                concept=concept,
-                text=description,
-                embedding=variable_to_embedding[variable],
-                sentence_embedder=vectorizer_name,
-            )
-            objects.extend([concept, mapping])
-
-        return objects
 
     def _is_duplicate(self, model_object_instance: Union[Terminology, Concept, Mapping]) -> bool:
         """Checks whether an object with the same primary key already exists.
