@@ -12,4 +12,8 @@ class TestPostgreSQLRepository(BaseRepositoryTestSetup):
     def setUpClass(cls):
         super().setUpClass()
         cls.repo_args = (cls.POSTGRES_TEST_URL, cls.vectorizer1)
-        cls.repository = PostgreSQLRepository(*cls.repo_args)
+        cls._repository_instance = PostgreSQLRepository(*cls.repo_args)
+
+    def setUp(self):
+        self.repository = self._repository_instance
+        super().setUp()

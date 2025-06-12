@@ -6,4 +6,8 @@ class TestWeaviateRepository(BaseRepositoryTestSetup):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.repository = WeaviateRepository(vectorizer=cls.vectorizer1)
+        cls._repository_instance = WeaviateRepository(vectorizer=cls.vectorizer1)
+
+    def setUp(self):
+        self.repository = self._repository_instance
+        super().setUp()
