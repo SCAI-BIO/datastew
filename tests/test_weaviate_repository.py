@@ -3,11 +3,9 @@ from tests.base_repository_test_setup import BaseRepositoryTestSetup
 
 
 class TestWeaviateRepository(BaseRepositoryTestSetup):
+    __test__ = True
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls._repository_instance = WeaviateRepository(vectorizer=cls.vectorizer1)
-
-    def setUp(self):
-        self.repository = self._repository_instance
-        super().setUp()
+        cls.repository = WeaviateRepository(vectorizer=cls.vectorizer1)

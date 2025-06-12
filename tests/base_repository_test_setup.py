@@ -1,6 +1,5 @@
 import os
 import unittest
-from abc import ABC
 from typing import List, Tuple
 
 from datastew.embedding import Vectorizer
@@ -9,9 +8,9 @@ from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
 
 
-class BaseRepositoryTestSetup(unittest.TestCase, ABC):
+class BaseRepositoryTestSetup(unittest.TestCase):
     """Base class for setting up test data and shared tests for all repository backends."""
-
+    __test__ = False
     repository: BaseRepository
 
     TEST_CONCEPTS = [
