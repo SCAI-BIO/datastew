@@ -12,6 +12,7 @@ from datastew.repository.base import BaseRepository
 class BaseRepositoryTestSetup(unittest.TestCase, ABC):
     """Base class for setting up test data and shared tests for all repository backends."""
 
+    __test__ = False  # prevent test runners from picking this up
     repository: BaseRepository
 
     TEST_CONCEPTS = [
