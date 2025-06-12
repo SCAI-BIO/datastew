@@ -471,7 +471,7 @@ class WeaviateRepository(BaseRepository):
     def get_closest_mappings(
         self,
         embedding: Sequence[float],
-        similarities: bool = False,
+        similarities: bool = True,
         terminology_name: Optional[str] = None,
         sentence_embedder: Optional[str] = None,
         limit=5,
@@ -480,7 +480,7 @@ class WeaviateRepository(BaseRepository):
         embedder.
 
         :param embedding: The embedding vector to find the closest mappings.
-        :param similarities: Whether to include similarity scores in the result, defaults to `False`.
+        :param similarities: Whether to include similarity scores in the result, defaults to `True`.
         :param terminology_name: The name of the terminology to filter the mappings, defaults to None.
         :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if
             `use_weaviate_vectorizer` is `True`, defaults to None.
@@ -781,6 +781,31 @@ class WeaviateRepository(BaseRepository):
             shutil.rmtree("db")
         else:
             self.close()
+
+    def clear_all(self):
+        """Deletes all data and schema classes (Mapping, Concept, Terminology) and re-creates them.
+
+        :raises ValueError: If the Weaviate client is not initialized.
+        """
+        if not self.client:
+            raise ValueError("Client is not initialized or is invalid.")
+
+        for schema in [self.mapping_schema, self.concept_schema, self.terminology_schema]:
+            class_name = schema.schema["class"]
+            if self.client.collections.exists(class_name):
+                self.client.collections.delete(class_name)
+
+        # Re-create in order to statisfy dependencies
+        self._create_schema_if_not_exists(self.terminology_schema.schema)
+        self._create_schema_if_not_exists(self.concept_schema.schema)
+        if self.use_weaviate_vectorizer and not self.mapping_schema.schema["vectorizer_config"]:
+            self.logger.warning(
+                "Provided mapping schema lacks `vectorizer_config` even though"
+                "`use_weaviate_vectorizer` is set to True. Defaulting to"
+                f"{mapping_schema_preconfigured_embeddings.schema}"
+            )
+            self.mapping_schema = mapping_schema_preconfigured_embeddings
+        self._create_schema_if_not_exists(self.mapping_schema.schema)
 
     def _sentence_embedder_exists(self, name: str) -> bool:
         if not self.client:
