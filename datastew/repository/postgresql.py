@@ -23,7 +23,6 @@ class PostgreSQLRepository(BaseRepository):
         """
         self.vectorizer = vectorizer
         self.engine = create_engine(connection_string, pool_size=10, max_overflow=20, pool_timeout=30)
-        self.dialect = inspect(self.engine).dialect.name
         self.initialize_pgvector()
         Base.metadata.create_all(self.engine)
         Session = sessionmaker(bind=self.engine, autoflush=False)
@@ -98,9 +97,7 @@ class PostgreSQLRepository(BaseRepository):
             query = query.join(Concept.terminology).filter(Terminology.name == terminology_name)
 
         total_count = query.with_entities(func.count()).scalar()
-
         concepts = query.offset(offset).limit(limit).all()
-
         return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)
 
     def get_terminology(self, terminology_name: str) -> Terminology:
@@ -196,6 +193,19 @@ class PostgreSQLRepository(BaseRepository):
         """
         self.session.close()
         self.engine.dispose()
+
+    def clear_all(self):
+        """Deletes all Terminology, Concept, and Mapping entries from the database.
+
+        This method is primarily intended for test environments to ensure a clean
+        state before or after test execution. It performs bulk deletions in the
+        correct dependency order (Mappings → Concepts → Terminologies) and commits
+        the changes.
+        """
+        self.session.query(Mapping).delete()
+        self.session.query(Concept).delete()
+        self.session.query(Terminology).delete()
+        self.session.commit()
 
     def _parse_data_dictionary(
         self, data_dictionary: DataDictionarySource, terminology_name: str
