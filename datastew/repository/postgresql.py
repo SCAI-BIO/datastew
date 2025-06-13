@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, func, inspect, text
 from sqlalchemy.orm import joinedload, sessionmaker
 
 from datastew.embedding import Vectorizer
+from datastew.exceptions import ObjectStorageError
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import Base, Concept, Mapping, MappingResult, Terminology
 from datastew.repository.pagination import Page
@@ -44,7 +45,7 @@ class PostgreSQLRepository(BaseRepository):
         """Stores a single Terminology, Concept, or Mapping object in the database.
 
         :param model_object_instance: An instance of Terminology, Concept, or Mapping.
-        :raises IOError: If the object cannot be stored (e.g., due to DB errors).
+        :raises ObjectStorageError: If the object cannot be stored (e.g., due to DB errors).
         """
         try:
             if self._is_duplicate(model_object_instance):
@@ -55,7 +56,7 @@ class PostgreSQLRepository(BaseRepository):
         except Exception as e:
             self.session.rollback()
             logger.exception("Failed to store object.")
-            raise IOError(e)
+            raise ObjectStorageError("Failed to store object in the database.", e)
 
     def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
         """Stores a list of Terminology, Concept, or Mapping objects in the database.
@@ -65,8 +66,8 @@ class PostgreSQLRepository(BaseRepository):
         for obj in model_object_instances:
             try:
                 self.store(obj)
-            except IOError:
-                logger.warning(f"Skipping failed insert for {obj}")
+            except ObjectStorageError as e:
+                logger.warning(f"Import failed for object {obj}: {e}")
 
     def get_concept(self, concept_id: str) -> Concept:
         """Retrieves a Concept by its ID.

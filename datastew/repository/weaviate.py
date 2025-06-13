@@ -12,6 +12,7 @@ from weaviate.collections import Collection
 from weaviate.util import generate_uuid5
 
 from datastew.embedding import Vectorizer
+from datastew.exceptions import ObjectStorageError
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import MappingResult
@@ -668,7 +669,7 @@ class WeaviateRepository(BaseRepository):
                 raise ValueError("Unsupported model object instance type.")
 
         except Exception as e:
-            raise RuntimeError(f"Failed to store object in Weaviate: {e}")
+            raise ObjectStorageError("Failed to store object in the database.", e)
 
     def import_from_jsonl(self, jsonl_path: str, object_type: str, chunk_size: int = 100):
         """Imports data from a JSONL file and stores it in the Weaviate database.
