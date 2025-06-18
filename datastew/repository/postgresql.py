@@ -64,10 +64,7 @@ class PostgreSQLRepository(BaseRepository):
         :param model_object_instances: List of model objects to store.
         """
         for obj in model_object_instances:
-            try:
-                self.store(obj)
-            except ObjectStorageError as e:
-                logger.warning(f"Import failed for object {obj}: {e}")
+            self.store(obj)
 
     def get_concept(self, concept_id: str) -> Concept:
         """Retrieves a Concept by its ID.
