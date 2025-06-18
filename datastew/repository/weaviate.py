@@ -12,7 +12,7 @@ from weaviate.collections import Collection
 from weaviate.util import generate_uuid5
 
 from datastew.embedding import Vectorizer
-from datastew.process.parsing import DataDictionarySource
+from datastew.exceptions import ObjectStorageError
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import MappingResult
@@ -69,12 +69,12 @@ class WeaviateRepository(BaseRepository):
             invalid `mode` is specified.
         :raises RuntimeError: If there is a failure in creating the schema or connecting to Weaviate.
         """
+        super().__init__(vectorizer)
         self.use_weaviate_vectorizer = use_weaviate_vectorizer
         self.mode = mode
         self.terminology_schema = terminology_schema
         self.concept_schema = concept_schema
         self.mapping_schema = mapping_schema
-        self.vectorizer = vectorizer
         self.client: Optional[WeaviateClient] = None
         self.headers = None
         if self.use_weaviate_vectorizer:
@@ -101,60 +101,6 @@ class WeaviateRepository(BaseRepository):
 
         except Exception as e:
             raise RuntimeError(f"Failed to create schema: {e}")
-
-    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str):
-        """Imports a data dictionary into the Weaviate repository by converting the dictionary into a list of model
-        instances (Terminology, Concept, and Mapping). Each variable in the data dictionary is mapped to a concept and
-        a mapping. If `use_weaviate_vectorizer` is False, embeddings are generated using the provided or default
-        embedding model for each variable's description. Otherwise pre-configured HuggingFace model(s) will be used.
-
-        :param data_dictionary: The source data dictionary to be imported.
-        :param terminology_name: The name assigned to the terminology being imported.
-
-        :raises RuntimeError: If there is an error in importing the data dictionary or generating the embeddings.
-        """
-        try:
-            # Initialize an empty list to store the model instances
-            model_object_instances: List[Union[Terminology, Concept, Mapping]] = []
-
-            # Convert the data dictionary to a dataframe for easier manipulation.
-            data_frame = data_dictionary.to_dataframe()
-
-            # Extract variables and descriptions from the dataframe
-            variables = data_frame["variable"].tolist()
-            descriptions = data_frame["description"].tolist()
-
-            # Create a Terminology object and append it to the list of instances
-            terminology = Terminology(terminology_name, terminology_name)
-            model_object_instances.append(terminology)
-
-            if not self.use_weaviate_vectorizer:
-                variable_to_embedding = data_dictionary.get_embeddings(self.vectorizer)
-
-            # Create Concepts and Mappings for each variable with generated embeddings
-            for variable, description in zip(variables, descriptions):
-                concept_id = f"{terminology_name}:{variable}"
-                concept = Concept(terminology=terminology, pref_label=variable, concept_identifier=concept_id)
-
-                # If the user bring vectors, create the Mapping with the embedding
-                if not self.use_weaviate_vectorizer:
-                    mapping = Mapping(
-                        concept=concept,
-                        text=description,
-                        embedding=list(variable_to_embedding[variable]),
-                        sentence_embedder=self.vectorizer.model_name,
-                    )
-                else:
-                    mapping = Mapping(concept=concept, text=description)
-
-                # Add the created Concept and Mapping to the instances list
-                model_object_instances.append(concept)
-                model_object_instances.append(mapping)
-
-            # Store all the created instances in Weaviate
-            self.store_all(model_object_instances)
-        except Exception as e:
-            raise RuntimeError(f"Failed to import data dictionary source: {e}")
 
     def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
         """Stores a list of model objects (Terminology, Concept, Mapping) in the Weaviate database.
@@ -471,7 +417,7 @@ class WeaviateRepository(BaseRepository):
     def get_closest_mappings(
         self,
         embedding: Sequence[float],
-        similarities: bool = False,
+        similarities: bool = True,
         terminology_name: Optional[str] = None,
         sentence_embedder: Optional[str] = None,
         limit=5,
@@ -480,7 +426,7 @@ class WeaviateRepository(BaseRepository):
         embedder.
 
         :param embedding: The embedding vector to find the closest mappings.
-        :param similarities: Whether to include similarity scores in the result, defaults to `False`.
+        :param similarities: Whether to include similarity scores in the result, defaults to `True`.
         :param terminology_name: The name of the terminology to filter the mappings, defaults to None.
         :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if
             `use_weaviate_vectorizer` is `True`, defaults to None.
@@ -723,7 +669,7 @@ class WeaviateRepository(BaseRepository):
                 raise ValueError("Unsupported model object instance type.")
 
         except Exception as e:
-            raise RuntimeError(f"Failed to store object in Weaviate: {e}")
+            raise ObjectStorageError("Failed to store object in the database.", e)
 
     def import_from_jsonl(self, jsonl_path: str, object_type: str, chunk_size: int = 100):
         """Imports data from a JSONL file and stores it in the Weaviate database.
@@ -781,6 +727,31 @@ class WeaviateRepository(BaseRepository):
             shutil.rmtree("db")
         else:
             self.close()
+
+    def clear_all(self):
+        """Deletes all data and schema classes (Mapping, Concept, Terminology) and re-creates them.
+
+        :raises ValueError: If the Weaviate client is not initialized.
+        """
+        if not self.client:
+            raise ValueError("Client is not initialized or is invalid.")
+
+        for schema in [self.mapping_schema, self.concept_schema, self.terminology_schema]:
+            class_name = schema.schema["class"]
+            if self.client.collections.exists(class_name):
+                self.client.collections.delete(class_name)
+
+        # Re-create in order to statisfy dependencies
+        self._create_schema_if_not_exists(self.terminology_schema.schema)
+        self._create_schema_if_not_exists(self.concept_schema.schema)
+        if self.use_weaviate_vectorizer and not self.mapping_schema.schema["vectorizer_config"]:
+            self.logger.warning(
+                "Provided mapping schema lacks `vectorizer_config` even though"
+                "`use_weaviate_vectorizer` is set to True. Defaulting to"
+                f"{mapping_schema_preconfigured_embeddings.schema}"
+            )
+            self.mapping_schema = mapping_schema_preconfigured_embeddings
+        self._create_schema_if_not_exists(self.mapping_schema.schema)
 
     def _sentence_embedder_exists(self, name: str) -> bool:
         if not self.client:

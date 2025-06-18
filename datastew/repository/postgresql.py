@@ -1,10 +1,8 @@
 import logging
-from typing import List, Optional, Union
+from typing import List, Optional, Sequence, Union
 
-import numpy as np
-from sqlalchemy import create_engine, func, inspect
+from sqlalchemy import create_engine, func, inspect, text
 from sqlalchemy.orm import joinedload, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from datastew.embedding import Vectorizer
 from datastew.exceptions import ObjectStorageError
@@ -15,31 +13,30 @@ from datastew.repository.pagination import Page
 logger = logging.getLogger(__name__)
 
 
-class SQLLiteRepository(BaseRepository):
-
+class PostgreSQLRepository(BaseRepository):
     def __init__(
         self,
-        mode: str = "memory",
-        path: Optional[str] = None,
+        connection_string: str,
         vectorizer: Vectorizer = Vectorizer(),
+        pool_size: int = 10,
+        max_overflow: int = 20,
+        pool_timeout: int = 30,
     ):
-        """Initializes the repository with a SQLite backend.
+        """Initializes the repository with a PostgreSQL backend.
 
-        :param mode: Storage mode control, defaults to "memory".
-        :param path: File path to SQLite DB when mode is "disk", defaults to None.
-        :param vectorizer: An instance of Vectorizer for generating embeddings, defaults to Vectorizer().
-        :raises ValueError: Undefined DB mode.
+        :param connection_string: Full DB URI (e.g., 'postgresql://user:pass@localhost/dbname').
+        :param vectorizer: An instance of Vectorizer for generating embeddings,
+            defaults to Vectorizer("FremyCompany/BioLORD-2023").
+        :param pool_size: The number of connections to keep in the connection pool.
+        :param max_overflow: The maximum number of connections to allow in overflow.
+        :param pool_timeout: The maximum time (in seconds) to wait for a connection from
+            the pool before raising an exception.
         """
         super().__init__(vectorizer)
-        if mode == "disk":
-            self.engine = create_engine(f"sqlite:///{path}")
-        # for tests
-        elif mode == "memory":
-            self.engine = create_engine(
-                "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
-            )
-        else:
-            raise ValueError(f"DB mode {mode} is not defined. Use either disk or memory.")
+        self.engine = create_engine(
+            connection_string, pool_size=pool_size, max_overflow=max_overflow, pool_timeout=pool_timeout
+        )
+        self._initialize_pgvector()
         Base.metadata.create_all(self.engine)
         Session = sessionmaker(bind=self.engine, autoflush=False)
         self.session = Session()
@@ -138,12 +135,10 @@ class SQLLiteRepository(BaseRepository):
             query = query.filter(Mapping.sentence_embedder == sentence_embedder)
 
         total_count = query.count()
-
         if total_count == 0:
             return Page(items=[], limit=limit, offset=offset, total_count=total_count)
 
         items = query.offset(offset).limit(limit).all()
-
         return Page(items=items, limit=limit, offset=offset, total_count=total_count)
 
     def get_all_sentence_embedders(self) -> List[str]:
@@ -155,7 +150,7 @@ class SQLLiteRepository(BaseRepository):
 
     def get_closest_mappings(
         self,
-        embedding: List[float],
+        embedding: Sequence[float],
         similarities: bool = True,
         terminology_name: Optional[str] = None,
         sentence_embedder: Optional[str] = None,
@@ -170,7 +165,7 @@ class SQLLiteRepository(BaseRepository):
         :param limit: Maximum number of results to return, defaults to 5.
         :return: Closest mappings, with or without similarity scores.
         """
-        query = self.session.query(Mapping)
+        query = self.session.query(Mapping, Mapping.embedding.cosine_distance(embedding).label("distance"))
 
         if terminology_name:
             query = query.join(Concept).join(Terminology).filter(Terminology.name == terminology_name)
@@ -178,30 +173,18 @@ class SQLLiteRepository(BaseRepository):
         if sentence_embedder:
             query = query.filter(Mapping.sentence_embedder == sentence_embedder)
 
-        mappings = query.all()
-
-        if not mappings:
-            return []
-
-        all_embeddings = np.array([mapping.embedding for mapping in mappings])
-        target_embedding = np.array(embedding)
+        results = query.order_by("distance").limit(limit).all()
 
         if similarities:
-            denominator = np.linalg.norm(all_embeddings, axis=1) * np.linalg.norm(target_embedding)
-            # Substitute denominator with 1e-10 in case the one of the either norms is 0
-            denominator = np.where(denominator == 0, 1e-10, denominator)
-            similarity = np.dot(all_embeddings, target_embedding) / denominator
-            sorted_indices = np.argsort(similarity)[::-1]
-            results = [MappingResult(mapping=mappings[i], similarity=similarity[i]) for i in sorted_indices[:limit]]
-            return results
-
-        return mappings[:limit]
+            return [MappingResult(mapping=m, similarity=1 - d) for m, d in results]
+        return [m for m, _ in results]
 
     def shut_down(self):
         """
         Closes the SQLAlchemy session and releases database resources.
         """
         self.session.close()
+        self.engine.dispose()
 
     def clear_all(self):
         """Deletes all Terminology, Concept, and Mapping entries from the database.
@@ -215,6 +198,10 @@ class SQLLiteRepository(BaseRepository):
         self.session.query(Concept).delete()
         self.session.query(Terminology).delete()
         self.session.commit()
+
+    def _initialize_pgvector(self):
+        with self.engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
     def _is_duplicate(self, model_object_instance: Union[Terminology, Concept, Mapping]) -> bool:
         """Checks whether an object with the same primary key already exists.
