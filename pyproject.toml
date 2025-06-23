@@ -66,5 +66,5 @@ pgvector = "^0.4.1"
 psycopg2-binary = "^2.9.10"
 
 [tool.poetry.dev-dependencies]
-flake8 = "^7.2.0"
-pytest = "^8.4.0"
+flake8 = "^7.3.0"
+pytest = "^8.4.1"
