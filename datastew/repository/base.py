@@ -15,12 +15,12 @@ class BaseRepository(ABC):
         self.vectorizer = vectorizer
 
     @abstractmethod
-    def store(self, model_object_instance):
+    def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
         """Store a single model object instance."""
         pass
 
     @abstractmethod
-    def store_all(self, model_object_instances):
+    def store_all(self, model_object_instances: List[Union[Terminology, Concept, Mapping]]):
         """Store multiple model object instances."""
         pass
 
@@ -30,7 +30,7 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def get_concepts(self) -> Page[Concept]:
+    def get_concepts(self, terminology_name: Optional[str] = None, offset: int = 0, limit: int = 100) -> Page[Concept]:
         """Retrieve all concepts from the database."""
         pass
 
@@ -94,6 +94,10 @@ class BaseRepository(ABC):
         except Exception as e:
             logger.exception("Failed to import data dictionary.")
             raise RuntimeError(f"Failed to import data dictionary source: {e}")
+
+    @abstractmethod
+    def import_from_jsonl(self, jsonl_path: str, object_type: str, chunk_size: int = 100):
+        pass
 
     def _parse_data_dictionary(
         self, data_dictionary: DataDictionarySource, terminology_name: str

@@ -1,5 +1,6 @@
+import json
 import logging
-from typing import List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from sqlalchemy import create_engine, func, inspect, text
 from sqlalchemy.orm import joinedload, sessionmaker
@@ -198,6 +199,107 @@ class PostgreSQLRepository(BaseRepository):
         self.session.query(Concept).delete()
         self.session.query(Terminology).delete()
         self.session.commit()
+
+    def import_from_jsonl(self, jsonl_path: str, object_type: str, chunk_size: int = 100):
+        """Imports data from a JSONL file and stores it in the database in chunks.
+
+        :param jsonl_path: Path to the JSONL file containing the data to be imported.
+        :param object_type: The type of objects to import. Must be one of: "terminology", "concept", or "mapping"
+        :param chunk_size: Number of objects to store in a single batch, defaults to 100.
+        :raises ValueError: If the JSON is malformed or required fields are missing.
+        :raises ValueError: If the provided `object_type` is unsupported.
+        :raises RuntimeError: If the file cannot be found.
+        :raises RuntimeError: If a general I/O or database error occurs during import.
+        """
+        buffer = []
+
+        try:
+            with open(jsonl_path, "r", encoding="utf-8") as file:
+                for idx, line in enumerate(file):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                    except json.JSONDecodeError as e:
+                        raise ValueError(f"Invalid JSON on line {idx + 1}: {e}")
+
+                    obj = self._deserialize_object(object_type, data)
+                    buffer.append(obj)
+
+                    if len(buffer) >= chunk_size:
+                        self.store_all(buffer)
+                        buffer = []
+
+                if buffer:
+                    self.store_all(buffer)
+
+        except FileNotFoundError:
+            raise RuntimeError(f"File not found: {jsonl_path}")
+        except Exception as e:
+            raise RuntimeError(f"Error while import {object_type}: {e}")
+
+    def _deserialize_object(self, object_type: str, data: Dict[str, Any]) -> Union[Terminology, Concept, Mapping]:
+        """Deserializes a JSON object into an SQLAlchemy model instance, resolving any required relationships.
+
+        :param object_type: The type of object to deserialize.
+        :param data: The dictionary representing the object, as loaded from a JSONL line.
+        :raises ValueError: If a related object (e.g., a referenced concept or terminology) cannot be found.
+        :raises ValueError: If the object_type is not one of the supported values.
+        :return: An instance of the appropriate SQLAlchemy model.
+        """
+        if object_type == "terminology":
+            return Terminology(**data)
+
+        elif object_type == "concept":
+            terminology = self.session.get(Terminology, data["terminology_id"])
+            if not terminology:
+                raise ValueError(f"Terminology with ID {data['terminology_id']} not found")
+            return Concept(
+                terminology=terminology,
+                pref_label=data["pref_label"],
+                concept_identifier=data["concept_identifier"],
+            )
+
+        elif object_type == "mapping":
+            concept = self.session.get(Concept, data["concept_identifier"])
+            if not concept:
+                raise ValueError(f"Concept with ID {data['concept_identifier']} not found")
+
+            embedding = data.get("embedding")
+            sentence_embedder = data.get("sentence_embedder")
+
+            if (embedding is None or sentence_embedder is None) and self.vectorizer:
+                embedding = self.vectorizer.get_embedding(data["text"])
+                sentence_embedder = self.vectorizer.model_name
+
+            return Mapping(
+                concept=concept,
+                text=data["text"],
+                embedding=embedding,
+                sentence_embedder=sentence_embedder,
+            )
+
+        else:
+            raise ValueError(f"Unsupported object_type: {object_type}")
+
+    def _enrich_mappings_with_embeddings(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Enrich mapping data with embeddings and embedder name using self.vectorizer.
+
+        Assumes data is a list of mapping dicts missing 'embedding' and 'sentence_embedder'.
+        This modifies the input list in-place.
+
+        :param data: List of raw mapping entries from JSONL
+        :return: The enriched list (also modified in-place)
+        """
+        texts = [item["text"] for item in data]
+        vectors = self.vectorizer.get_embeddings(texts)
+
+        for i, item in enumerate(data):
+            item["embedding"] = vectors[i]
+            item["sentence_embedder"] = self.vectorizer.model_name
+
+        return data
 
     def _initialize_pgvector(self):
         with self.engine.begin() as conn:
