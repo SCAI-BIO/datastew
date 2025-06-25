@@ -73,7 +73,6 @@ class Concept(Base):
     pref_label = Column(String)
     terminology_id = Column(String, ForeignKey("terminology.id"))
     terminology = relationship("Terminology")
-    uuid = Column(String)
 
     def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: Optional[str] = None):
         self.terminology = terminology
