@@ -1,6 +1,5 @@
 import json
 import logging
-import shutil
 import socket
 from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 
@@ -719,16 +718,14 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"An unexpected error occurred during import: {e}")
 
+    @deprecated("close is deprecated and will be removed in a future release, use shut_down instead")
     def close(self):
+        self.shut_down()
+
+    def shut_down(self):
         if not self.client:
             raise ValueError("Client is not initialized or is invalid.")
         self.client.close()
-
-    def shut_down(self):
-        if self.mode == "memory":
-            shutil.rmtree("db")
-        else:
-            self.close()
 
     def clear_all(self):
         """Deletes all data and schema classes (Mapping, Concept, Terminology) and re-creates them.
