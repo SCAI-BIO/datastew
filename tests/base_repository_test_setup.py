@@ -200,5 +200,3 @@ class BaseRepositoryTestSetup(unittest.TestCase):
         os.remove(converter.dest_dir + "/mapping.jsonl")
         # remove the created dir
         os.rmdir(converter.dest_dir)
-        # close the db connection
-        self.repository.shut_down()
