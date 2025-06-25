@@ -85,8 +85,8 @@ class TestWeaviateRepositoryImport(TestCase):
 
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-        self.repository.close()
-        shutil.rmtree(os.path.join(os.getcwd(), "db"), ignore_errors=True)
+        self.repository.clear_all()
+        self.repository.shut_down()
 
     def test_import_terminology(self):
         self.import_data(["terminology"])
