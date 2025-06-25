@@ -282,11 +282,19 @@ class SQLLiteRepository(BaseRepository):
             concept = self.session.get(Concept, data["concept_identifier"])
             if not concept:
                 raise ValueError(f"Concept with ID {data['concept_identifier']} not found")
+
+            embedding = data.get("embedding")
+            sentence_embedder = data.get("sentence_embedder")
+
+            if (embedding is None or sentence_embedder is None) and self.vectorizer:
+                embedding = self.vectorizer.get_embedding(data["text"])
+                sentence_embedder = self.vectorizer.model_name
+
             return Mapping(
                 concept=concept,
                 text=data["text"],
-                embedding=data.get("embedding"),
-                sentence_embedder=data.get("sentence_embedder"),
+                embedding=embedding,
+                sentence_embedder=sentence_embedder,
             )
 
         else:

@@ -283,24 +283,6 @@ class PostgreSQLRepository(BaseRepository):
         else:
             raise ValueError(f"Unsupported object_type: {object_type}")
 
-    def _enrich_mappings_with_embeddings(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Enrich mapping data with embeddings and embedder name using self.vectorizer.
-
-        Assumes data is a list of mapping dicts missing 'embedding' and 'sentence_embedder'.
-        This modifies the input list in-place.
-
-        :param data: List of raw mapping entries from JSONL
-        :return: The enriched list (also modified in-place)
-        """
-        texts = [item["text"] for item in data]
-        vectors = self.vectorizer.get_embeddings(texts)
-
-        for i, item in enumerate(data):
-            item["embedding"] = vectors[i]
-            item["sentence_embedder"] = self.vectorizer.model_name
-
-        return data
-
     def _initialize_pgvector(self):
         with self.engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
