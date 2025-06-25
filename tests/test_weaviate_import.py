@@ -12,6 +12,7 @@ class TestWeaviateRepositoryImport(TestCase):
 
     def setUp(self) -> None:
         self.repository = WeaviateRepository()
+        self.repository.clear_all()
         self.temp_dir = tempfile.mkdtemp()
 
         # Sample data for JSONL files
@@ -85,7 +86,6 @@ class TestWeaviateRepositoryImport(TestCase):
 
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-        self.repository.clear_all()
         self.repository.shut_down()
 
     def test_import_terminology(self):

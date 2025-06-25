@@ -14,6 +14,7 @@ class TestWeaviateRepositoryImport(TestCase):
     def setUp(self) -> None:
         POSTGRES_TEST_URL = os.getenv("TEST_POSTGRES_URI", "postgresql://testuser:testpass@localhost/testdb")
         self.repository = PostgreSQLRepository(POSTGRES_TEST_URL)
+        self.repository.clear_all()
         self.temp_dir = tempfile.mkdtemp()
 
         # Sample data for JSONL files
@@ -59,7 +60,6 @@ class TestWeaviateRepositoryImport(TestCase):
 
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-        self.repository.clear_all()
         self.repository.shut_down()
 
     def test_import_terminology(self):
