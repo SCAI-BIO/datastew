@@ -2,7 +2,7 @@ import json
 import os
 import shutil
 import tempfile
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal
 from unittest import TestCase
 
 from datastew.repository import WeaviateRepository
@@ -31,18 +31,14 @@ class TestWeaviateRepositoryImport(TestCase):
                     "id": "064cb594-41cd-561d-b5a8-2bf226006f09",
                     "properties": {"conceptID": "import_test:G", "prefLabel": "G"},
                     "vector": {},
-                    "references": {
-                        "hasTerminology": "94331523-fa7e-5871-9375-8f559d6035dd"
-                    },
+                    "references": {"hasTerminology": "94331523-fa7e-5871-9375-8f559d6035dd"},
                 },
                 {
                     "class": "Concept",
                     "id": "12345678-41cd-561d-b5a8-2bf226006f09",
                     "properties": {"conceptID": "import_test:H", "prefLabel": "H"},
                     "vector": {},
-                    "references": {
-                        "hasTerminology": "94331523-fa7e-5871-9375-8f559d6035dd"
-                    },
+                    "references": {"hasTerminology": "94331523-fa7e-5871-9375-8f559d6035dd"},
                 },
             ],
             "mapping": [
@@ -53,12 +49,8 @@ class TestWeaviateRepositoryImport(TestCase):
                         "text": "pancreas",
                         "hasSentenceEmbedder": "sentence-transformers/all-mpnet-base-v2",
                     },
-                    "vector": {
-                        "default": [0.048744574189186096, -0.0035385489463806152]
-                    },
-                    "references": {
-                        "hasConcept": "064cb594-41cd-561d-b5a8-2bf226006f09"
-                    },
+                    "vector": {"default": [0.048744574189186096, -0.0035385489463806152]},
+                    "references": {"hasConcept": "064cb594-41cd-561d-b5a8-2bf226006f09"},
                 },
                 {
                     "class": "Mapping",
@@ -68,9 +60,7 @@ class TestWeaviateRepositoryImport(TestCase):
                         "hasSentenceEmbedder": "sentence-transformers/all-mpnet-base-v2",
                     },
                     "vector": {"default": [0.1, -0.2]},
-                    "references": {
-                        "hasConcept": "12345678-41cd-561d-b5a8-2bf226006f09"
-                    },
+                    "references": {"hasConcept": "12345678-41cd-561d-b5a8-2bf226006f09"},
                 },
             ],
         }
@@ -87,7 +77,7 @@ class TestWeaviateRepositoryImport(TestCase):
                 json.dump(obj, file)
                 file.write("\n")
 
-    def import_data(self, data_types: List[str]):
+    def import_data(self, data_types: List[Literal["terminology", "concept", "mapping"]]):
         """Helper method to import multiple data types."""
         for data_type in data_types:
             file_path = os.path.join(self.temp_dir, f"{data_type}.jsonl")
@@ -125,9 +115,7 @@ class TestWeaviateRepositoryImport(TestCase):
                 )
             with self.subTest(f"Concept Properties: {concept.pref_label}"):
                 self.assertIn(concept.pref_label, ["G", "H"])
-                self.assertIn(
-                    concept.concept_identifier, ["import_test:G", "import_test:H"]
-                )
+                self.assertIn(concept.concept_identifier, ["import_test:G", "import_test:H"])
             with self.subTest(f"Terminology Reference for {concept.pref_label}"):
                 self.assertEqual(concept.terminology.name, "import_test")
 
@@ -149,9 +137,7 @@ class TestWeaviateRepositoryImport(TestCase):
             with self.subTest(f"Mapping Text for {mapping.text}"):
                 self.assertIn(mapping.text, ["pancreas", "liver"])
             with self.subTest(f"Sentence Embedder for {mapping.text}"):
-                self.assertEqual(
-                    mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2"
-                )
+                self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
             with self.subTest(f"Vector Length for {mapping.text}"):
                 self.assertEqual(len(mapping.embedding), 2)
             with self.subTest(f"Concept Reference for Mapping {mapping.text}"):
@@ -168,9 +154,7 @@ class TestWeaviateRepositoryImport(TestCase):
 
     def test_import_missing_id(self):
         file_path = os.path.join(self.temp_dir, "missing_id.jsonl")
-        self.write_jsonl(
-            file_path, [{"class": "Terminology", "properties": {"name": "missing_id"}}]
-        )
+        self.write_jsonl(file_path, [{"class": "Terminology", "properties": {"name": "missing_id"}}])
 
         with self.assertRaises(ValueError):
             self.repository.import_from_jsonl(file_path, "terminology")
