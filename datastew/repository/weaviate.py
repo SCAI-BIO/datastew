@@ -82,6 +82,7 @@ class WeaviateRepository(BaseRepository):
                 self.headers = {"X-HuggingFace-Api-Key": huggingface_key}
         if self.mode == "memory":
             self._connect_to_memory(path, http_port, grpc_port)
+            self.path = path
         elif self.mode == "remote":
             self._connect_to_remote(path, port)
         else:
@@ -717,16 +718,17 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"An unexpected error occurred during import: {e}")
 
+    @deprecated("close is deprecated and will be removed in a future release, use shut_down instead")
     def close(self):
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-        self.client.close()
+        self.shut_down()
 
     def shut_down(self):
         if self.mode == "memory":
-            shutil.rmtree("db")
+            shutil.rmtree(self.path)
         else:
-            self.close()
+            if not self.client:
+                raise ValueError("Client is not initialized or is invalid.")
+            self.client.close()
 
     def clear_all(self):
         """Deletes all data and schema classes (Mapping, Concept, Terminology) and re-creates them.
