@@ -3,6 +3,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Union
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from weaviate.util import generate_uuid5
@@ -72,6 +73,8 @@ class BaseJsonlConverter(ABC):
 
         with open(file_path, "a", encoding="utf-8") as file:
             for entry in self._buffer:
+                if isinstance(entry.get("embedding"), np.ndarray):
+                    entry["embedding"] = entry["embedding"].tolist()
                 file.write(json.dumps(entry) + "\n")
 
         self._buffer.clear()
@@ -195,11 +198,9 @@ class SQLJsonlConverter(BaseJsonlConverter):
                 "concept_identifier": obj.concept_identifier,
                 "pref_label": obj.pref_label,
                 "terminology_id": obj.terminology.id,
-                "uuid": obj.uuid,
             }
         elif isinstance(obj, Mapping):
             return {
-                "id": obj.id,
                 "concept_identifier": obj.concept.concept_identifier,
                 "text": obj.text,
                 "embedding": obj.embedding,
