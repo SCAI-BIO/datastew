@@ -672,11 +672,13 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise ObjectStorageError("Failed to store object in the database.", e)
 
-    def import_from_jsonl(self, jsonl_path: str, object_type: str, chunk_size: int = 100):
+    def import_from_jsonl(
+        self, jsonl_path: str, object_type: Literal["terminology", "concept", "mapping"], chunk_size: int = 100
+    ):
         """Imports data from a JSONL file and stores it in the Weaviate database.
 
         :param jsonl_path: Path to the JSONL file.
-        :param object_type: The type of objects to import ("terminology", "concept", "mapping").
+        :param object_type: Literal specifying the object type, must be "terminology", "concept", or "mapping".
         :param chunk_size: The number of items to process in each batch, defaults to 100.
         :raises ValueError: If the client is not initialized or is invalid.
         :raises ValueError: If 'id' or 'properties' is missing in a JSON object.
