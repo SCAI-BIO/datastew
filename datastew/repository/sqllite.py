@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 from sqlalchemy import create_engine, func, inspect
@@ -217,11 +217,13 @@ class SQLLiteRepository(BaseRepository):
         self.session.query(Terminology).delete()
         self.session.commit()
 
-    def import_from_jsonl(self, jsonl_path: str, object_type: str, chunk_size: int = 100):
+    def import_from_jsonl(
+        self, jsonl_path: str, object_type: Literal["terminology", "concept", "mapping"], chunk_size: int = 100
+    ):
         """Imports data from a JSONL file and stores it in the database in chunks.
 
         :param jsonl_path: Path to the JSONL file containing the data to be imported.
-        :param object_type: The type of objects to import. Must be one of: "terminology", "concept", or "mapping"
+        :param object_type: Literal specifying the object type, must be "terminology", "concept", or "mapping".
         :param chunk_size: Number of objects to store in a single batch, defaults to 100.
         :raises ValueError: If the JSON is malformed or required fields are missing.
         :raises ValueError: If the provided `object_type` is unsupported.
@@ -250,28 +252,38 @@ class SQLLiteRepository(BaseRepository):
 
                 if buffer:
                     self.store_all(buffer)
-
+        except ValueError:
+            raise
         except FileNotFoundError:
             raise RuntimeError(f"File not found: {jsonl_path}")
         except Exception as e:
-            raise RuntimeError(f"Error while import {object_type}: {e}")
+            raise RuntimeError(f"Error while importing {object_type}: {e}")
 
-    def _deserialize_object(self, object_type: str, data: Dict[str, Any]) -> Union[Terminology, Concept, Mapping]:
+    def _deserialize_object(
+        self, object_type: Literal["terminology", "concept", "mapping"], data: Dict[str, Any]
+    ) -> Union[Terminology, Concept, Mapping]:
         """Deserializes a JSON object into an SQLAlchemy model instance, resolving any required relationships.
 
         :param object_type: The type of object to deserialize.
         :param data: The dictionary representing the object, as loaded from a JSONL line.
         :raises ValueError: If a related object (e.g., a referenced concept or terminology) cannot be found.
+        :raises ValueError: If required attributes are missing.
         :raises ValueError: If the object_type is not one of the supported values.
         :return: An instance of the appropriate SQLAlchemy model.
         """
         if object_type == "terminology":
+            # Validate required keys
+            self._validate_required_fields(data, ["id", "name"], object_type)
             return Terminology(**data)
 
         elif object_type == "concept":
+            # Validate required keys
+            self._validate_required_fields(data, ["terminology_id", "pref_label", "concept_identifier"], object_type)
+
             terminology = self.session.get(Terminology, data["terminology_id"])
             if not terminology:
                 raise ValueError(f"Terminology with ID {data['terminology_id']} not found")
+
             return Concept(
                 terminology=terminology,
                 pref_label=data["pref_label"],
@@ -279,6 +291,9 @@ class SQLLiteRepository(BaseRepository):
             )
 
         elif object_type == "mapping":
+            # Validate required keys
+            self._validate_required_fields(data, ["concept_identifier", "text"], object_type)
+
             concept = self.session.get(Concept, data["concept_identifier"])
             if not concept:
                 raise ValueError(f"Concept with ID {data['concept_identifier']} not found")
@@ -299,6 +314,13 @@ class SQLLiteRepository(BaseRepository):
 
         else:
             raise ValueError(f"Unsupported object_type: {object_type}")
+
+    def _validate_required_fields(
+        self, data: Dict[str, Any], required_keys: List[str], object_type: Literal["terminology", "concept", "mapping"]
+    ):
+        for key in required_keys:
+            if key not in data:
+                raise ValueError(f"Missing required field '{key}' for {object_type}")
 
     def _is_duplicate(self, model_object_instance: Union[Terminology, Concept, Mapping]) -> bool:
         """Checks whether an object with the same primary key already exists.
