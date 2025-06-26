@@ -9,11 +9,9 @@ from tqdm import tqdm
 from weaviate.util import generate_uuid5
 
 from datastew.embedding import Vectorizer
-from datastew.repository import WeaviateRepository
+from datastew.repository import PostgreSQLRepository, SQLLiteRepository, WeaviateRepository
 from datastew.repository.base import BaseRepository
 from datastew.repository.model import Concept, Mapping, Terminology
-from datastew.repository.postgresql import PostgreSQLRepository
-from datastew.repository.sqllite import SQLLiteRepository
 from datastew.repository.weaviate_schema import (
     concept_schema,
     mapping_schema_user_vectors,
