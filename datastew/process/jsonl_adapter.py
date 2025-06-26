@@ -153,8 +153,12 @@ class SQLJsonlConverter(BaseJsonlConverter):
             ),
             desc="Processing OHDSI concepts",
         ):
-            concept_names = chunk["concept_name"].tolist()
-            concept_ids = chunk["concept_id"].tolist()
+
+            concepts = []
+            mappings = []
+
+            concept_names = chunk["concept_name"].astype(str).tolist()
+            concept_ids = chunk["concept_id"].astype(str).tolist()
 
             if include_vectors:
                 embeddings = vectorizer.get_embeddings(concept_names)
@@ -163,17 +167,16 @@ class SQLJsonlConverter(BaseJsonlConverter):
                 concept_identifier = f"OHDSI:{concept_ids[i]}"
                 label = concept_names[i]
 
-                # Concept JSONL (no uuid)
-                self._write_to_jsonl(
-                    concept_file_path,
+                # Concept JSON
+                concepts.append(
                     {
                         "concept_identifier": concept_identifier,
                         "pref_label": label,
                         "terminology_id": "OHDSI",
-                    },
+                    }
                 )
 
-                # Mapping JSONL
+                # Mapping JSON
                 mapping = {
                     "concept_identifier": concept_identifier,
                     "text": label,
@@ -182,9 +185,14 @@ class SQLJsonlConverter(BaseJsonlConverter):
                     mapping["sentence_embedder"] = vectorizer.model_name
                     mapping["embedding"] = embeddings[i]
 
-                self._write_to_jsonl(mapping_file_path, mapping)
+                mappings.append(mapping)
 
+            # Write results in batch
+            for concept_data in concepts:
+                self._write_to_jsonl(concept_file_path, concept_data)
             self._flush_to_file(concept_file_path)
+            for mapping_data in mappings:
+                self._write_to_jsonl(mapping_file_path, mapping_data)
             self._flush_to_file(mapping_file_path)
 
     def _object_to_dict(self, obj: Union[Terminology, Concept, Mapping]) -> Dict[str, Any]:
