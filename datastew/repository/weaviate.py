@@ -233,33 +233,6 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch concepts: {e}")
         return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)
 
-    @deprecated("get_all_concepts is deprecated and will be removed in a future release, use get_concepts instead")
-    def get_all_concepts(self) -> List[Concept]:
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-        concepts = []
-        try:
-            concept_collection = self.client.collections.get("Concept")
-            response = concept_collection.query.fetch_objects(
-                return_references=QueryReference(link_on="hasTerminology")
-            )
-            for o in response.objects:
-                if o.references:
-                    terminology_data = o.references["hasTerminology"].objects[0]
-                    terminology_name = str(terminology_data.properties["name"])
-                    terminology_id = str(terminology_data.uuid)
-                    terminology = Terminology(name=terminology_name, id=terminology_id)
-                concept = Concept(
-                    concept_identifier=str(o.properties["conceptID"]),
-                    pref_label=str(o.properties["prefLabel"]),
-                    terminology=terminology,
-                    id=str(o.uuid),
-                )
-                concepts.append(concept)
-        except Exception as e:
-            raise RuntimeError(f"Failed to fetch concepts: {e}")
-        return concepts
-
     def get_terminology(self, terminology_name: str) -> Terminology:
         if not self.client:
             raise ValueError("Client is not initialized or is invalid.")
@@ -530,73 +503,6 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise RuntimeError(f"Failed to fetch closest mappings: {e}")
         return mappings
-
-    @deprecated(
-        "get_closest_mappings_with_similarities is deprecated and will be removed in the next major release, use "
-        "get_closest_mappings instead"
-    )
-    def get_closest_mappings_with_similarities(
-        self, embedding: Sequence[float], sentence_embedder: Optional[str] = None, limit=5
-    ) -> Sequence[MappingResult]:
-        """Fetches the closest mappings based on an embedding vector and includes similarity scores for each mapping.
-
-        :param embedding: The embedding vector to find the closest mappings.
-        :param sentence_embedder: The name of the sentence embedder to filter the mappings. Required if
-            `use_weaviate_vectorizer` is `True`, defaults to None.
-        :param limit: The maximum number of closest mappings to return, defaults to 5.
-        :return: A list of MappingResult objects, each containing a mapping and its similarity score.
-        """
-        return self.get_closest_mappings(
-            embedding=embedding,
-            similarities=True,
-            sentence_embedder=sentence_embedder,
-            limit=limit,
-        )
-
-    @deprecated(
-        "get_terminology_and_model_specific_closest_mappings is deprecated and will be removed in the next major "
-        "release, use get_closest_mappings instead"
-    )
-    def get_terminology_and_model_specific_closest_mappings(
-        self, embedding: Sequence[float], terminology_name: str, sentence_embedder_name: str, limit: int = 5
-    ) -> Sequence[Mapping]:
-        """Fetches the closest mappings for a given terminology and sentence embedder model.
-
-        :param embedding: The embedding vector to find the closest mappings.
-        :param terminology_name: The name of the terminology to filter the mappings.
-        :param sentence_embedder_name: The name of the sentence embedder to filter the mappings.
-        :param limit: The maximum number of closest mappings to return, defaults to 5
-        :return: A list of the closest Mapping objects that match the specific filters.
-        """
-        return self.get_closest_mappings(
-            embedding=embedding,
-            terminology_name=terminology_name,
-            sentence_embedder=sentence_embedder_name,
-            limit=limit,
-        )
-
-    @deprecated(
-        "get_terminology_and_model_specific_closest_mappings_with_similarities is deprecated and will be removed in "
-        "the next major release, use get_closest_mappings instead"
-    )
-    def get_terminology_and_model_specific_closest_mappings_with_similarities(
-        self, embedding: Sequence[float], terminology_name: str, sentence_embedder_name: str, limit: int = 5
-    ) -> Sequence[MappingResult]:
-        """Fetches the closest mappings for a given terminology and sentence embedder model, includes similarity scores.
-
-        :param embedding: The embedding vector to find the closest mappings.
-        :param terminology_name: The name of the terminology to filter the mappings.
-        :param sentence_embedder_name: The name of the sentence embedder to filter the mappings.
-        :param limit: The maximum number closest mapping to return, defaults to 5
-        :return: A list of MappingResults objects, each containing a mapping and its similarity score.
-        """
-        return self.get_closest_mappings(
-            embedding=embedding,
-            similarities=True,
-            terminology_name=terminology_name,
-            sentence_embedder=sentence_embedder_name,
-            limit=limit,
-        )
 
     def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
         if not self.client:

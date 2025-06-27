@@ -7,7 +7,6 @@ import openai
 from cachetools import LRUCache
 from ollama import Client
 from sentence_transformers import SentenceTransformer
-from typing_extensions import deprecated
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -331,10 +330,3 @@ class Vectorizer:
 
     def get_embeddings(self, messages: List[str]):
         return self.model.get_embeddings(messages)
-
-
-@deprecated("This class is deprecated and will be removed in the next major release due to refactoring of artifacts.")
-class TextEmbedding:
-    def __init__(self, text: str, embedding: List[float]):
-        self.text = text
-        self.embedding = embedding

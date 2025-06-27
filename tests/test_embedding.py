@@ -2,7 +2,7 @@ import unittest
 from time import time
 from typing import Sequence
 
-from datastew.embedding import HuggingFaceAdapter, TextEmbedding
+from datastew.embedding import HuggingFaceAdapter
 
 
 class TestEmbedding(unittest.TestCase):
@@ -20,13 +20,6 @@ class TestEmbedding(unittest.TestCase):
         embeddings = self.hugging_face_adapter.get_embeddings(messages)
         self.assertIsInstance(embeddings, Sequence)
         self.assertEqual(len(embeddings), len(messages))
-
-    def test_text_embedding(self):
-        text = "This is a test sentence."
-        embedding = [0.1, 0.2, 0.3, 0.4]
-        text_embedding = TextEmbedding(text, embedding)
-        self.assertEqual(text_embedding.text, text)
-        self.assertEqual(text_embedding.embedding, embedding)
 
     def test_sanitization(self):
         text1 = " Test"
