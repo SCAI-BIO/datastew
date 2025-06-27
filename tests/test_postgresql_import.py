@@ -1,67 +1,41 @@
 import json
 import os
+import random
 import shutil
 import tempfile
 from typing import Any, Dict, List, Literal
 from unittest import TestCase
 
-from datastew.repository import WeaviateRepository
+from datastew.repository.postgresql import PostgreSQLRepository
 
 
 class TestWeaviateRepositoryImport(TestCase):
 
     def setUp(self) -> None:
-        self.repository = WeaviateRepository()
+        POSTGRES_TEST_URL = os.getenv("TEST_POSTGRES_URI", "postgresql://testuser:testpass@localhost/testdb")
+        self.repository = PostgreSQLRepository(POSTGRES_TEST_URL)
         self.repository.clear_all()
         self.temp_dir = tempfile.mkdtemp()
 
         # Sample data for JSONL files
         self.data_files = {
-            "terminology": [
-                {
-                    "class": "Terminology",
-                    "id": "94331523-fa7e-5871-9375-8f559d6035dd",
-                    "properties": {"name": "import_test"},
-                    "vector": {},
-                    "references": {},
-                }
-            ],
+            "terminology": [{"id": "import_test", "name": "import_test"}],
             "concept": [
-                {
-                    "class": "Concept",
-                    "id": "064cb594-41cd-561d-b5a8-2bf226006f09",
-                    "properties": {"conceptID": "import_test:G", "prefLabel": "G"},
-                    "vector": {},
-                    "references": {"hasTerminology": "94331523-fa7e-5871-9375-8f559d6035dd"},
-                },
-                {
-                    "class": "Concept",
-                    "id": "12345678-41cd-561d-b5a8-2bf226006f09",
-                    "properties": {"conceptID": "import_test:H", "prefLabel": "H"},
-                    "vector": {},
-                    "references": {"hasTerminology": "94331523-fa7e-5871-9375-8f559d6035dd"},
-                },
+                {"concept_identifier": "import_test:G", "pref_label": "G", "terminology_id": "import_test"},
+                {"concept_identifier": "import_test:H", "pref_label": "H", "terminology_id": "import_test"},
             ],
             "mapping": [
                 {
-                    "class": "Mapping",
-                    "id": "0423d64c-fa89-54c3-b92c-4738a630d7d6",
-                    "properties": {
-                        "text": "pancreas",
-                        "hasSentenceEmbedder": "sentence-transformers/all-mpnet-base-v2",
-                    },
-                    "vector": {"default": [0.048744574189186096, -0.0035385489463806152]},
-                    "references": {"hasConcept": "064cb594-41cd-561d-b5a8-2bf226006f09"},
+                    "text": "pancreas",
+                    "concept_identifier": "import_test:G",
+                    "embedding": [random.uniform(-1, 1) for _ in range(768)],
+                    "sentence_embedder": "sentence-transformers/all-mpnet-base-v2",
                 },
                 {
-                    "class": "Mapping",
-                    "id": "12345678-fa89-54c3-b92c-4738a630d7d6",
-                    "properties": {
-                        "text": "liver",
-                        "hasSentenceEmbedder": "sentence-transformers/all-mpnet-base-v2",
-                    },
-                    "vector": {"default": [0.1, -0.2]},
-                    "references": {"hasConcept": "12345678-41cd-561d-b5a8-2bf226006f09"},
+                    "text": "liver",
+                    "concept_identifier": "import_test:H",
+                    "embedding": [random.uniform(-1, 1) for _ in range(768)],
+                    "sentence_embedder": "sentence-transformers/all-mpnet-base-v2",
                 },
             ],
         }
@@ -94,7 +68,7 @@ class TestWeaviateRepositoryImport(TestCase):
 
         self.assertEqual(len(terminology), 1)
         with self.subTest("Terminology ID"):
-            self.assertEqual(terminology[0].id, "94331523-fa7e-5871-9375-8f559d6035dd")
+            self.assertEqual(terminology[0].id, "import_test")
         with self.subTest("Terminology Name"):
             self.assertEqual(terminology[0].name, "import_test")
 
@@ -105,14 +79,6 @@ class TestWeaviateRepositoryImport(TestCase):
         self.assertEqual(len(concepts), 2)
 
         for concept in concepts:
-            with self.subTest(f"Concept ID: {concept.id}"):
-                self.assertIn(
-                    concept.id,
-                    [
-                        "064cb594-41cd-561d-b5a8-2bf226006f09",
-                        "12345678-41cd-561d-b5a8-2bf226006f09",
-                    ],
-                )
             with self.subTest(f"Concept Properties: {concept.pref_label}"):
                 self.assertIn(concept.pref_label, ["G", "H"])
                 self.assertIn(concept.concept_identifier, ["import_test:G", "import_test:H"])
@@ -126,20 +92,12 @@ class TestWeaviateRepositoryImport(TestCase):
         self.assertEqual(len(mappings), 2)
 
         for mapping in mappings:
-            with self.subTest(f"Mapping ID: {mapping.id}"):
-                self.assertIn(
-                    mapping.id,
-                    [
-                        "0423d64c-fa89-54c3-b92c-4738a630d7d6",
-                        "12345678-fa89-54c3-b92c-4738a630d7d6",
-                    ],
-                )
             with self.subTest(f"Mapping Text for {mapping.text}"):
                 self.assertIn(mapping.text, ["pancreas", "liver"])
             with self.subTest(f"Sentence Embedder for {mapping.text}"):
                 self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
             with self.subTest(f"Vector Length for {mapping.text}"):
-                self.assertEqual(len(mapping.embedding), 2)
+                self.assertEqual(len(mapping.embedding), 768)
             with self.subTest(f"Concept Reference for Mapping {mapping.text}"):
                 expected_label = "G" if mapping.text == "pancreas" else "H"
                 self.assertEqual(mapping.concept.pref_label, expected_label)
@@ -154,7 +112,7 @@ class TestWeaviateRepositoryImport(TestCase):
 
     def test_import_missing_id(self):
         file_path = os.path.join(self.temp_dir, "missing_id.jsonl")
-        self.write_jsonl(file_path, [{"class": "Terminology", "properties": {"name": "missing_id"}}])
+        self.write_jsonl(file_path, [{"name": "missing_id"}])
 
         with self.assertRaises(ValueError):
             self.repository.import_from_jsonl(file_path, "terminology")

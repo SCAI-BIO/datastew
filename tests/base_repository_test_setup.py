@@ -3,6 +3,7 @@ import unittest
 from typing import List, Tuple
 
 from datastew.embedding import Vectorizer
+from datastew.process.jsonl_adapter import BaseJsonlConverter
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
@@ -10,8 +11,10 @@ from datastew.repository.base import BaseRepository
 
 class BaseRepositoryTestSetup(unittest.TestCase):
     """Base class for setting up test data and shared tests for all repository backends."""
+
     __test__ = False
     repository: BaseRepository
+    jsonl_converter: BaseJsonlConverter
 
     TEST_CONCEPTS = [
         ("Diabetes mellitus (disorder)", "Concept ID: 11893007", "v1"),
@@ -171,3 +174,29 @@ class BaseRepositoryTestSetup(unittest.TestCase):
 
         concepts = repo.get_concepts()
         self.assertEqual(len(concepts.items), 11)
+
+    def test_jsonl_export(self):
+        converter = self.jsonl_converter
+        converter.from_repository(self.repository)
+        # assert that the dest dir
+        self.assertTrue(converter.dest_dir)
+        # assert that the files is not empty
+        with open(converter.dest_dir + "/terminology.jsonl", "r") as file:
+            self.assertTrue(file.read())
+        with open(converter.dest_dir + "/concept.jsonl", "r") as file:
+            self.assertTrue(file.read())
+        with open(converter.dest_dir + "/mapping.jsonl", "r") as file:
+            self.assertTrue(file.read())
+        # assert that the file contains the expected data
+        with open(converter.dest_dir + "/terminology.jsonl", "r") as file:
+            self.assertIn("snomed CT", file.read())
+        with open(converter.dest_dir + "/concept.jsonl", "r") as file:
+            self.assertIn("Diabetes mellitus (disorder)", file.read())
+        with open(converter.dest_dir + "/mapping.jsonl", "r") as file:
+            self.assertIn("Diabetes mellitus (disorder)", file.read())
+        # remove the created dir and files
+        os.remove(converter.dest_dir + "/terminology.jsonl")
+        os.remove(converter.dest_dir + "/concept.jsonl")
+        os.remove(converter.dest_dir + "/mapping.jsonl")
+        # remove the created dir
+        os.rmdir(converter.dest_dir)
