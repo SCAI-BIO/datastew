@@ -4,21 +4,17 @@ from unittest import TestCase
 import numpy as np
 import pandas as pd
 
-from datastew._mapping import _MappingTable
 from datastew.process.parsing import DataDictionarySource, MappingSource
-from datastew.visualisation import (
-    bar_chart_average_acc_two_distributions,
-    enrichment_plot,
-    scatter_plot_all_cohorts,
-    scatter_plot_two_distributions, plot_embeddings,
-)
+from datastew.visualisation import bar_chart_average_acc_two_distributions, enrichment_plot, plot_embeddings
 
 
 class Test(TestCase):
     TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
     mapping_source = MappingSource(os.path.join(TEST_DIR_PATH, "resources", "test_mapping.xlsx"), "VAR_1", "ID_1")
-    data_dictionary_source = DataDictionarySource(os.path.join(TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC")
+    data_dictionary_source = DataDictionarySource(
+        os.path.join(TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC"
+    )
 
     embeddings1 = [
         [1.1, 2.2, 3.3],
@@ -76,40 +72,6 @@ class Test(TestCase):
         np.nan,
     ]
 
-    def test_scatter_plot_two_distributions(self):
-        mapping_table1 = _MappingTable(self.mapping_source)
-        mapping_table1.add_descriptions(self.data_dictionary_source)
-        mapping_table2 = _MappingTable(self.mapping_source)
-        mapping_table2.add_descriptions(self.data_dictionary_source)
-        mapping_table3 = _MappingTable(self.mapping_source)
-        mapping_table3.add_descriptions(self.data_dictionary_source)
-        mapping_table4 = _MappingTable(self.mapping_source)
-        mapping_table4.add_descriptions(self.data_dictionary_source)
-
-        mapping_table1.joined_mapping_table["embedding"] = self.embeddings1
-        mapping_table2.joined_mapping_table["embedding"] = self.embeddings2
-        mapping_table3.joined_mapping_table["embedding"] = self.embeddings3
-        mapping_table4.joined_mapping_table["embedding"] = self.embeddings4
-        scatter_plot_two_distributions([mapping_table1, mapping_table2], [mapping_table3, mapping_table4], "A", "B",
-                                       store_html=False)
-
-    def test_scatter_plot_all_cohorts(self):
-        mapping_table1 = _MappingTable(self.mapping_source)
-        mapping_table1.add_descriptions(self.data_dictionary_source)
-        mapping_table2 = _MappingTable(self.mapping_source)
-        mapping_table2.add_descriptions(self.data_dictionary_source)
-        mapping_table3 = _MappingTable(self.mapping_source)
-        mapping_table3.add_descriptions(self.data_dictionary_source)
-        mapping_table4 = _MappingTable(self.mapping_source)
-        mapping_table4.add_descriptions(self.data_dictionary_source)
-
-        mapping_table1.joined_mapping_table["embedding"] = self.embeddings1
-        mapping_table2.joined_mapping_table["embedding"] = self.embeddings2
-        mapping_table3.joined_mapping_table["embedding"] = self.embeddings3
-        mapping_table4.joined_mapping_table["embedding"] = self.embeddings4
-        scatter_plot_all_cohorts([mapping_table1, mapping_table2], [mapping_table3, mapping_table4],
-                                 ["A1", "A2"], ["B1", "B2"], store_html=False)
-
     def test_enrichment_plot(self):
         acc_gpt = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0]
         acc_mpnet = [0.3, 0.4, 0.5, 0.6, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0]
@@ -124,14 +86,18 @@ class Test(TestCase):
         gpt_1 = pd.DataFrame({"M1": [1, 0.9, 0.78], "M2": [0.8, 1, 0.78], "M3": [0.82, 0.89, 1]}, index=labels).T
         gpt_2 = pd.DataFrame({"M1": [1, 0.88, 0.78], "M2": [0.79, 1, 0.78], "M3": [0.81, 0.85, 1]}, index=labels).T
         mpnet_1 = pd.DataFrame({"M1": [1, 0.8, 0.7], "M2": [0.7, 0.9, 0.68], "M3": [0.72, 0.79, 0.9]}, index=labels).T
-        mpnet_2 = pd.DataFrame({"M1": [0.9, 0.78, 0.68], "M2": [0.69, 0.9, 0.68], "M3": [0.71, 0.75, 0.9]}, index=labels).T
+        mpnet_2 = pd.DataFrame(
+            {"M1": [0.9, 0.78, 0.68], "M2": [0.69, 0.9, 0.68], "M3": [0.71, 0.75, 0.9]}, index=labels
+        ).T
 
         bar_chart_average_acc_two_distributions(fuzzy_1, gpt_1, mpnet_1, fuzzy_2, gpt_2, mpnet_2, "title", "AD", "PD")
 
     def test_plot_data_dict(self):
         TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
-        data_dictionary_source_1 = DataDictionarySource(os.path.join(TEST_DIR_PATH, "resources", "data_dict1.csv"),
-                                                      "VAR", "DESC")
-        data_dictionary_source_2 = DataDictionarySource(os.path.join(TEST_DIR_PATH, "resources", "data_dict2.csv"),
-                                                      "VAR", "DESC")
+        data_dictionary_source_1 = DataDictionarySource(
+            os.path.join(TEST_DIR_PATH, "resources", "data_dict1.csv"), "VAR", "DESC"
+        )
+        data_dictionary_source_2 = DataDictionarySource(
+            os.path.join(TEST_DIR_PATH, "resources", "data_dict2.csv"), "VAR", "DESC"
+        )
         plot_embeddings([data_dictionary_source_1, data_dictionary_source_2])
