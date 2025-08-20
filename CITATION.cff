@@ -1,16 +1,47 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+title: datastew
+message: ' Python library for intelligent data stewardship using Large Language Model (LLM) embeddings '
+type: software
 authors:
-  - family-names: "Adams"
-    given-names: "Tim"
-  - family-names: "Ay"
-    given-names: "Mehmet Can"
-  - family-names: "Salimi"
-    given-names: "Yasamin"
-title: "INDEX: the Intelligent Data Steward Toolbox utilizing Large Language Model embeddings for automated data harmonization"
-version: 0.0.3
-date-released: 2024-03-03
-url: "https://github.com/SCAI-BIO/index"
+  - given-names: Tim
+    family-names: Adams
+    email: tim.adams@scai.fraunhofer.de
+    affiliation: >-
+      Fraunhofer Institute for Algorithms and Scientific
+      Computing SCAI
+    orcid: 'https://orcid.org/0000-0002-2823-0102'
+  - orcid: 'https://orcid.org/0000-0002-2977-7695'
+    given-names: Mehmet Can
+    family-names: Ay
+    email: mehmet.ay@scai.fraunhofer.de
+    affiliation: >-
+      Fraunhofer Institute for Algorithms and Scientific
+      Computing SCAI
+identifiers:
+  - type: doi
+    value: 10.1038/s41598-025-06447-2
+    description: Journal Article
+  - type: doi
+    value: 10.24406/publica-4577
+    description: Conference Proceeding
+  - type: doi
+    value: 10.4126/FRL01-006472846
+    description: Poster
+repository-code: 'https://github.com/SCAI-BIO/datastew'
+repository-artifact: 'https://pypi.org/project/datastew'
+abstract: >-
+  Datastew is a python library for intelligent data
+  harmonization using Large Language Model (LLM) vector
+  embeddings.
+keywords:
+  - data harmonization
+  - data stewardship
+  - large language models
+  - LLM
+license: Apache-2.0
 preferred-citation:
   type: article
   authors:
@@ -26,7 +57,7 @@ preferred-citation:
       given-names: "Marc"
     - family-names: "Hofmann-Apitius"
       given-names: "Martin"
-  doi: "https://doi.org/10.21203/rs.3.rs-4108029/v1"
+  doi: "10.1038/s41598-025-06447-2"
   journal: "Scientific Reports"
   title: "On the Utility of Large Language Model Embeddings for Revolutionizing Semantic Data Harmonization in Alzheimer's and Parkinson's Disease"
   year: 2024
