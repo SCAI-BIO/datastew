@@ -1,63 +1,55 @@
-# This CITATION.cff file was generated with cffinit.
-# Visit https://bit.ly/cffinit to generate yours today!
-
 cff-version: 1.2.0
 title: datastew
-message: ' Python library for intelligent data stewardship using Large Language Model (LLM) embeddings '
 type: software
+message: If you use this software, please cite it as below.
+license: Apache-2.0
+language: en
 authors:
   - given-names: Tim
     family-names: Adams
     email: tim.adams@scai.fraunhofer.de
-    affiliation: >-
-      Fraunhofer Institute for Algorithms and Scientific
-      Computing SCAI
-    orcid: 'https://orcid.org/0000-0002-2823-0102'
-  - orcid: 'https://orcid.org/0000-0002-2977-7695'
-    given-names: Mehmet Can
+    affiliation: Fraunhofer Institute for Algorithms and Scientific Computing SCAI
+    orcid: https://orcid.org/0000-0002-2823-0102
+  - given-names: Mehmet Can
     family-names: Ay
     email: mehmet.ay@scai.fraunhofer.de
-    affiliation: >-
-      Fraunhofer Institute for Algorithms and Scientific
-      Computing SCAI
-identifiers:
-  - type: doi
-    value: 10.1038/s41598-025-06447-2
-    description: Journal Article
-  - type: doi
-    value: 10.24406/publica-4577
-    description: Conference Proceeding
-  - type: doi
-    value: 10.4126/FRL01-006472846
-    description: Poster
-repository-code: 'https://github.com/SCAI-BIO/datastew'
-repository-artifact: 'https://pypi.org/project/datastew'
-abstract: >-
-  Datastew is a python library for intelligent data
-  harmonization using Large Language Model (LLM) vector
-  embeddings.
+    affiliation: Fraunhofer Institute for Algorithms and Scientific Computing SCAI
+    orcid: https://orcid.org/0000-0002-2977-7695
+repository-code: https://github.com/SCAI-BIO/datastew
+repository-artifact: https://pypi.org/project/datastew
+abstract: >
+  Datastew is a Python library for intelligent data harmonization using
+  Large Language Model (LLM) vector embeddings.
 keywords:
   - data harmonization
   - data stewardship
   - large language models
   - LLM
-license: Apache-2.0
+
 preferred-citation:
   type: article
   authors:
-    - family-names: "Salimi"
-      given-names: "Yasamin"
-    - family-names: "Adams"
-      given-names: "Tim"
-    - family-names: "Ay"
-      given-names: "Mehmet Can"
-    - family-names: "Balabin"
-      given-names: "Helena"
-    - family-names: "Jacobs"
-      given-names: "Marc"
-    - family-names: "Hofmann-Apitius"
-      given-names: "Martin"
-  doi: "10.1038/s41598-025-06447-2"
-  journal: "Scientific Reports"
-  title: "On the Utility of Large Language Model Embeddings for Revolutionizing Semantic Data Harmonization in Alzheimer's and Parkinson's Disease"
-  year: 2024
+    - family-names: Salimi
+      given-names: Yasamin
+    - family-names: Adams
+      given-names: Tim
+    - family-names: Ay
+      given-names: Mehmet Can
+    - family-names: Balabin
+      given-names: Helena
+    - family-names: Jacobs
+      given-names: Marc
+    - family-names: Hofmann-Apitius
+      given-names: Martin
+  title: Evaluating language model embeddings for Parkinson’s disease cohort harmonization using a novel manually curated variable mapping schema
+  journal: Scientific Reports
+  year: 2025
+  doi: 10.1038/s41598-025-06447-2
+
+references:
+  - type: conference-paper
+    title: INDEX — the Intelligent Data Steward Toolbox
+    doi: 10.24406/publica-4577
+  - type: poster
+    title: INDEX — the Intelligent Data Steward Toolbox
+    doi: 10.4126/FRL01-006472846
