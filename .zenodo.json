@@ -39,5 +39,6 @@
     }
   ],
   "access_right": "open",
-  "language": "en"
+  "language": "en",
+  "notes": "If you use this software, please cite it as:\nSalimi, Y., Adams, T., Ay, M. C., Balabin, H., Jacobs, M., & Hofmann-Apitius, M. (2024). On the utility of large language model embeddings for revolutionizing semantic data harmonization in Alzheimer’s and Parkinson’s disease. Scientific Reports. https://doi.org/10.21203/rs.3.rs-4108029/v1"
 }
