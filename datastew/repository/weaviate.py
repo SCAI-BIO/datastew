@@ -464,42 +464,48 @@ class WeaviateRepository(BaseRepository):
             # Process the response objects into Mapping or MappingResult objects
             for o in response.objects:
                 # Calculate similarity based on distance if similarities are requested
-                if o.metadata.distance:
-                    similarity = 1 - o.metadata.distance
-                if o.references:
-                    # Extract concept and terminology data
-                    concept_data = o.references["hasConcept"].objects[0]
-                    terminology_data = concept_data.references["hasTerminology"].objects[0]
-                    terminology = Terminology(
-                        name=str(terminology_data.properties["name"]), id=str(terminology_data.uuid)
-                    )
-                    concept = Concept(
-                        terminology=terminology,
-                        pref_label=str(concept_data.properties["prefLabel"]),
-                        concept_identifier=str(concept_data.properties["conceptID"]),
-                        id=str(concept_data.uuid),
-                    )
+                if similarities:
+                    dist = getattr(getattr(o, "metadata", None), "distance", None)
+                    if dist is not None:
+                        similarity = 1.0 - dist
+
+                # Get references with a defensive approach
+                concept = None
+                if getattr(o, "references", None):
+                    has_concept = o.references.get("hasConcept")
+                    if has_concept and getattr(has_concept, "objects", None):
+                        concept_data = has_concept.objects[0]
+                        term_ref = getattr(concept_data, "references", None)
+                        has_term = term_ref.get("hasTerminology") if term_ref else None
+                        if has_term and getattr(has_term, "objects", None):
+                            terminology_data = has_term.objects[0]
+                            terminology = Terminology(
+                                name=str(terminology_data.properties["name"]), id=str(terminology_data.uuid)
+                            )
+                            concept = Concept(
+                                terminology=terminology,
+                                pref_label=str(concept_data.properties["prefLabel"]),
+                                concept_identifier=str(concept_data.properties["conceptID"]),
+                                id=str(concept_data.uuid),
+                            )
 
                 text = str(o.properties["text"])
                 # o.vector is a dictionary with varying key
-                embedding = next(iter(o.vector.values()), None)
+                obj_embedding = next(iter(getattr(o, "vector", {}).values()), None)
 
                 # Create Mapping objects and append them to the list
                 if not self.use_weaviate_vectorizer:
                     mapping = Mapping(
                         concept=concept,
                         text=text,
-                        embedding=embedding,
+                        embedding=obj_embedding,
                         sentence_embedder=str(o.properties["hasSentenceEmbedder"]),
                     )
                 else:
-                    mapping = Mapping(concept=concept, text=text, embedding=embedding)
+                    mapping = Mapping(concept=concept, text=text, embedding=obj_embedding)
 
                 # Append MappingResult if similarities is True, else just Mapping
-                if similarities:
-                    mappings.append(MappingResult(mapping, similarity))
-                else:
-                    mappings.append(mapping)
+                mappings.append(MappingResult(mapping, similarity) if similarities else mapping)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch closest mappings: {e}")
         return mappings
