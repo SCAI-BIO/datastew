@@ -128,8 +128,8 @@ class GPT4Adapter(EmbeddingModel):
 
         # Request from OpenAI API
         try:
-            response = openai.Embedding.create(input=[text], model=self.model_name)
-            embedding = response["data"][0]["embedding"]
+            response = openai.embeddings.create(input=[text], model=self.model_name)
+            embedding = response.data[0].embedding
             self.add_to_cache(text, embedding)
             return embedding
         except Exception as e:
@@ -150,8 +150,8 @@ class GPT4Adapter(EmbeddingModel):
 
             if uncached_messages:
                 try:
-                    response = openai.Embedding.create(model=self.model_name, input=uncached_messages)
-                    new_embeddings = [item["embedding"] for item in response["data"]]
+                    response = openai.embeddings.create(model=self.model_name, input=uncached_messages)
+                    new_embeddings = [item.embedding for item in response.data]
                     for idx, embedding in zip(uncached_indices, new_embeddings):
                         self.add_to_cache(sanitized_messages[idx], embedding)
                         embeddings[idx] = embedding
@@ -162,8 +162,8 @@ class GPT4Adapter(EmbeddingModel):
             return [emb for emb in embeddings if emb is not None]
 
         try:
-            response = openai.Embedding.create(model=self.model_name, input=sanitized_messages)
-            embeddings = [item["embedding"] for item in response["data"]]
+            response = openai.embeddings.create(model=self.model_name, input=sanitized_messages)
+            embeddings = [item.embedding for item in response.data]
             return embeddings
         except Exception as e:
             logging.error(f"Failed processing messages: {e}")
