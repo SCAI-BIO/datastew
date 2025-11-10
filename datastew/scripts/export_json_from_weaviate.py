@@ -26,7 +26,7 @@ converter = WeaviateJsonlConverter(dest_dir="export")
 # 2) Vectorizer (use default or specify a model/API key if desired)
 # --------------------------------------------------------------------
 # Example for OpenAI:
-# vectorizer = Vectorizer("text-embedding-3-small", key="your_openai_api_key")
+# vectorizer = Vectorizer("text-embedding-3-small", api_key="your_openai_api_key")
 vectorizer = Vectorizer()
 
 # --------------------------------------------------------------------

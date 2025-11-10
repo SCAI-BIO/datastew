@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 
-from sqlalchemy import create_engine, func, inspect, text
+from sqlalchemy import create_engine, func, text
 from sqlalchemy.orm import joinedload, sessionmaker
 
 from datastew.embedding import Vectorizer
@@ -49,10 +49,7 @@ class PostgreSQLRepository(BaseRepository):
         :raises ObjectStorageError: If the object cannot be stored (e.g., due to DB errors).
         """
         try:
-            if self._is_duplicate(model_object_instance):
-                return
-
-            self.session.add(model_object_instance)
+            self.session.merge(model_object_instance)
             self.session.commit()
         except Exception as e:
             self.session.rollback()
@@ -308,27 +305,3 @@ class PostgreSQLRepository(BaseRepository):
     def _initialize_pgvector(self):
         with self.engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-
-    def _is_duplicate(self, model_object_instance: Union[Terminology, Concept, Mapping]) -> bool:
-        """Checks whether an object with the same primary key already exists.
-
-        :param model_object_instance: SQLAlchemy model instance.
-        :return: True if a duplicate exists, False otherwise.
-        """
-        cls = type(model_object_instance)
-        pk_attrs = inspect(cls).primary_key
-
-        if len(pk_attrs) != 1:
-            logger.warning(
-                f"Duplicate check only supports single-column primary keys. Skipping check for {cls.__name__}"
-            )
-            return False
-
-        pk_attr = pk_attrs[0].name
-        pk_value = getattr(model_object_instance, pk_attr)
-        existing = self.session.get(cls, pk_value)
-
-        if existing:
-            logger.info(f"Skipped storing existing {cls.__name__} with {pk_attr}={pk_value}")
-            return True
-        return False

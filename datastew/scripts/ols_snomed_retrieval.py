@@ -16,7 +16,7 @@ Before running this example:
       -e POSTGRES_PASSWORD=password \
       -e POSTGRES_DB=testdb \
       -p 5432:5432 \
-      postgres:15
+      pgvector/pgvector:pg17
 """
 
 from datastew.embedding import Vectorizer
