@@ -36,7 +36,7 @@ tracker = "https://github.com/SCAI-BIO/datastew/issues"
 include = "datastew"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4"
+python = ">=3.10,<3.15"
 matplotlib = "^3.10.7"
 numpy = "^2.2.6"
 openai = "^2.7.1"
@@ -64,6 +64,7 @@ cachetools = "^6.2.1"
 ollama = "^0.6.0"
 pgvector = "^0.4.1"
 psycopg2-binary = "^2.9.11"
+torch = "^2.9.0"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^7.3.0"
