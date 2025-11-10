@@ -17,7 +17,7 @@ docker run -d \
   -e POSTGRES_PASSWORD=password \
   -e POSTGRES_DB=testdb \
   -p 5432:5432 \
-  postgres:15
+  pgvector/pgvector:pg17
 
 # Run this script:
 python examples/get_closest_mappings.py
@@ -39,7 +39,7 @@ POSTGRES_DB = "testdb"
 connection_string = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
 # You can use an OpenAI model if you have an API key:
-# vectorizer = Vectorizer("text-embedding-3-small", key="your_openai_api_key")
+# vectorizer = Vectorizer("text-embedding-3-small", api_key="your_openai_api_key")
 vectorizer = Vectorizer()
 repository = PostgreSQLRepository(connection_string, vectorizer=vectorizer)
 

@@ -30,7 +30,7 @@ data_dictionary_source_2 = DataDictionarySource("source2.xlsx", variable_field="
 # 2) Initialize the embedding model
 # --------------------------------------------------------------------
 # You can also specify a model name or API key if desired:
-# vectorizer = Vectorizer("text-embedding-3-small", key="your_openai_api_key")
+# vectorizer = Vectorizer("text-embedding-3-small", api_key="your_openai_api_key")
 vectorizer = Vectorizer()
 
 # --------------------------------------------------------------------
