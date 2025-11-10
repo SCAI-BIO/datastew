@@ -1,20 +1,51 @@
+"""
+Example: Retrieve the closest text embeddings and their similarities.
+
+This script shows how to:
+1. Start a local PostgreSQL instance via Docker.
+2. Store two simple SNOMED CT concepts in the database.
+3. Retrieve the closest mappings for an input phrase.
+
+---
+
+Quick start
+
+# Start PostgreSQL via Docker:
+docker run -d \
+  --name datastew-postgres \
+  -e POSTGRES_USER=user \
+  -e POSTGRES_PASSWORD=password \
+  -e POSTGRES_DB=testdb \
+  -p 5432:5432 \
+  postgres:15
+
+# Run this script:
+python examples/get_closest_mappings.py
+"""
+
 from datastew.embedding import Vectorizer
-from datastew.repository import WeaviateRepository
-from datastew.repository.model import Concept, Mapping, Terminology
+from datastew.repository import PostgreSQLRepository
+from datastew.repository.model import Concept, Mapping, MappingResult, Terminology
 
-# This script demonstrates how to retrieve the closest text embeddings and their similarities for a given text
+# --------------------------------------------------------------------
+# 1) Connect to PostgreSQL
+# --------------------------------------------------------------------
+POSTGRES_USER = "user"
+POSTGRES_PASSWORD = "password"
+POSTGRES_HOST = "localhost"
+POSTGRES_PORT = "5432"
+POSTGRES_DB = "testdb"
 
-# 1) Initialize the repository and embedding model
+connection_string = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
-repository = WeaviateRepository(mode="remote", path="localhost", port=8080)
+# You can use an OpenAI model if you have an API key:
+# vectorizer = Vectorizer("text-embedding-3-small", key="your_openai_api_key")
 vectorizer = Vectorizer()
-# vectorizer = Vectorizer("text-embedding-ada-002", key="your_key") # Use this line for higher accuracy if you have an OpenAI API key
+repository = PostgreSQLRepository(connection_string, vectorizer=vectorizer)
 
-# 2) Create a baseline of data to map to in the initialized repository. Text gets attached to any unique concept of an
-# existing or custom vocabulary or terminology namespace in the form of a mapping object containing the text, embedding,
-# and the name of sentence embedder used. Multiple Mapping objects with textually different but semantically equal
-# descriptions can point to the same Concept.
-
+# --------------------------------------------------------------------
+# 2) Add a small SNOMED CT baseline
+# --------------------------------------------------------------------
 terminology = Terminology("snomed CT", "SNOMED")
 
 text1 = "Diabetes mellitus (disorder)"
@@ -27,12 +58,20 @@ mapping2 = Mapping(concept2, text2, vectorizer.get_embedding(text2), vectorizer.
 
 repository.store_all([terminology, concept1, mapping1, concept2, mapping2])
 
-# 3) Retrieve the closest mappings and their similarities for a given text
-
-text_to_map = "Sugar sickness"  # Semantically similar to "Diabetes mellitus (disorder)"
-embedding = vectorizer.get_embedding(text_to_map)
+# --------------------------------------------------------------------
+# 3) Find closest mappings for a new phrase
+# --------------------------------------------------------------------
+query_text = "Sugar sickness"  # semantically similar to "Diabetes mellitus (disorder)"
+embedding = vectorizer.get_embedding(query_text)
 results = repository.get_closest_mappings(embedding, similarities=True, limit=2)
 
-# 4) print the mappings and their similarities
-for result in results:
-    print(result)
+# --------------------------------------------------------------------
+# 4) Display the results
+# --------------------------------------------------------------------
+print(f'Query: "{query_text}"\n')
+for r in results:
+    # If similarities=True, repo returns MappingResult; else Mapping.
+    if isinstance(r, MappingResult):
+        print(r)
+    else:
+        print(str(r))

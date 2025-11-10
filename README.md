@@ -1,7 +1,5 @@
 # datastew
 
-
-
 [![DOI](https://zenodo.org/badge/822570156.svg)](https://doi.org/10.5281/zenodo.16871713) ![tests](https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml/badge.svg) ![GitHub Release](https://img.shields.io/github/v/release/SCAI-BIO/datastew)
 
 Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings.
@@ -54,22 +52,31 @@ df = map_dictionary_to_dictionary(source, target, vectorizer=vectorizer)
 A simple example how to initialize an in memory database and compute a similarity mapping is shown in
 [datastew/scripts/mapping_db_example.py](datastew/scripts/mapping_db_example.py):
 
-1) Initialize the repository and embedding model:
+1.  Initialize the repository and embedding model:
 
     ```python
     from datastew.embedding import Vectorizer
-    from datastew.repository import WeaviateRepository
-    from datastew.repository.model import Terminology, Concept, Mapping
+    from datastew.repository import PostgreSQLRepository
+    from datastew.repository.model import Concept, Mapping, MappingResult, Terminology
 
-    repository = WeaviateRepository(mode='remote', path='localhost', port=8080)
+    POSTGRES_USER = "user"
+    POSTGRES_PASSWORD = "password"
+    POSTGRES_HOST = "localhost"
+    POSTGRES_PORT = "5432"
+    POSTGRES_DB = "testdb"
+
+    connection_string = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+    # You can use an OpenAI model if you have an API key:
+    # vectorizer = Vectorizer("text-embedding-3-small", key="your_openai_api_key")
     vectorizer = Vectorizer()
-    # vectorizer = Vectorizer("text-embedding-ada-002", key="your_key") # Use this line for higher accuracy if you have an OpenAI API key
+    repository = PostgreSQLRepository(connection_string, vectorizer=vectorizer)
     ```
 
-2) Create a baseline of data to map to in the initialized repository. Text gets attached to any unique concept of an
-existing or custom vocabulary or terminology namespace in the form of a mapping object containing the text, embedding,
-and the name of sentence embedder used. Multiple Mapping objects with textually different but semantically equal
-descriptions can point to the same Concept.
+2.  Create a baseline of data to map to in the initialized repository. Text gets attached to any unique concept of an
+    existing or custom vocabulary or terminology namespace in the form of a mapping object containing the text, embedding,
+    and the name of sentence embedder used. Multiple Mapping objects with textually different but semantically equal
+    descriptions can point to the same Concept.
 
     ```python
     terminology = Terminology("snomed CT", "SNOMED")
@@ -85,17 +92,22 @@ descriptions can point to the same Concept.
     repository.store_all([terminology, concept1, mapping1, concept2, mapping2])
     ```
 
-3) Retrieve the closest mappings and their similarities for a given text:
+3.  Retrieve the closest mappings and their similarities for a given text:
 
-```python
-text_to_map = "Sugar sickness" # Semantically similar to "Diabetes mellitus (disorder)"
-embedding = vectorizer.get_embedding(text_to_map)
+    ```python
+    query_text = "Sugar sickness"  # semantically similar to "Diabetes mellitus (disorder)"
+    embedding = vectorizer.get_embedding(query_text)
+    results = repository.get_closest_mappings(embedding, similarities=True, limit=2)
 
-results = repository.get_closest_mappings(embedding, similarities=True, limit=2)
+    print(f'Query: "{query_text}"\n')
+    for r in results:
+        # If similarities=True, repo returns MappingResult; else Mapping.
+        if isinstance(r, MappingResult):
+            print(r)
+        else:
+            print(str(r))
 
-for result in results:
-    print(result)
-```
+    ```
 
 output:
 
