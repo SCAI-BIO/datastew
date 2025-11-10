@@ -68,7 +68,7 @@ A simple example how to initialize an in memory database and compute a similarit
     connection_string = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
     # You can use an OpenAI model if you have an API key:
-    # vectorizer = Vectorizer("text-embedding-3-small", key="your_openai_api_key")
+    # vectorizer = Vectorizer("text-embedding-3-small", api_key="your_openai_api_key")
     vectorizer = Vectorizer()
     repository = PostgreSQLRepository(connection_string, vectorizer=vectorizer)
     ```
