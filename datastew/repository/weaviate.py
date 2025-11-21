@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+import time
 from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 
 import weaviate
@@ -8,6 +9,7 @@ from typing_extensions import deprecated
 from weaviate import WeaviateClient
 from weaviate.classes.query import Filter, MetadataQuery, QueryReference
 from weaviate.collections import Collection
+from weaviate.exceptions import WeaviateStartUpError
 from weaviate.util import generate_uuid5
 
 from datastew.embedding import Vectorizer
@@ -772,19 +774,33 @@ class WeaviateRepository(BaseRepository):
             return s.connect_ex(("localhost", port)) == 0
 
     def _connect_to_memory(self, path: str, http_port: int, grpc_port: int) -> WeaviateClient:
-        try:
-            if path is None:
-                raise ValueError("Path must be provided for disk mode.")
-            if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
+        if path is None:
+            raise ValueError("Path must be provided for disk mode.")
+
+        # If there's already a Weaviate instance listening; just connect to it.
+        if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
+            try:
                 return weaviate.connect_to_local(port=http_port, grpc_port=grpc_port, headers=self.headers)
-            else:
+            except Exception as e:
+                raise ConnectionError(f"Failed to initialize Weaviate client (embedded): {e}") from e
+
+        last_exc: Exception | None = None
+        for _ in range(3):
+            try:
                 return weaviate.connect_to_embedded(
                     persistence_data_path=path,
                     headers=self.headers,
                     environment_variables={"ENABLE_MODULES": "text2vec-ollama"},
                 )
-        except Exception as e:
-            raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
+            except WeaviateStartUpError as e:
+                last_exc = e
+                time.sleep(2.0)
+            except Exception as e:
+                raise ConnectionError(f"Failed to initialize Weaviate client (embedded): {e}") from e
+
+        raise ConnectionError(
+            f"Failed to initalize Weaviate client (embedded) after retries: {last_exc}"
+        ) from last_exc
 
     def _connect_to_remote(self, path: str, port: int) -> WeaviateClient:
         try:
