@@ -12,41 +12,31 @@ on:
   release:
     types: [published]
 
-permissions:
-  contents: read
-
 jobs:
-  deploy:
-
+  run:
     runs-on: ubuntu-latest
-
+    environment:
+      name: pypi
+    permissions:
+      id-token: write
+      contents: read
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-
-    - name: Install Poetry
-      run: |
-        curl -sSL https://install.python-poetry.org | python3 -
-
-    - name: Update package version
-      run: |
-        VERSION=${{ github.event.release.tag_name }}
-        sed -i 's/__version__ = ".*"/__version__ = "'${VERSION}'"/' datastew/_version.py
-        sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
-        
-    - name: Install dependencies
-      run: |
-        poetry install
-
-    - name: Build package
-      run: |
-        poetry build
-
-    - name: Publish package
-      env:
-        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
-      run: |
-        poetry publish --username __token__ --password $POETRY_PYPI_TOKEN_PYPI
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install Python 3.13
+        run: uv python install 3.13
+      - name: Update package version
+        run: |
+          VERSION=${{ github.event.release.tag_name }}
+          sed -i 's/__version__ = ".*"/__version__ = "'${VERSION}'"/' datastew/_version.py
+          uv version "$VERSION"
+      - name: Build
+        run: uv build
+      - name: Smoke test (wheel)
+        run: uv run --isolated --no-project --with dist/*.whl tests/smoke_test.py
+      - name: Smoke test (source distribution)
+        run: uv run --isolated --no-project --with dist/*.tar.gz tests/smoke_test.py
+      - name: Publish
+        run: uv publish
