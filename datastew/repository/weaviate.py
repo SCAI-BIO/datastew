@@ -74,15 +74,15 @@ class WeaviateRepository(BaseRepository):
         self.terminology_schema = terminology_schema
         self.concept_schema = concept_schema
         self.mapping_schema = mapping_schema
-        self.client: Optional[WeaviateClient] = None
+        self.client: WeaviateClient
         self.headers = None
         if self.use_weaviate_vectorizer:
             if huggingface_key:
                 self.headers = {"X-HuggingFace-Api-Key": huggingface_key}
         if self.mode == "memory":
-            self._connect_to_memory(path, http_port, grpc_port)
+            self.client = self._connect_to_memory(path, http_port, grpc_port)
         elif self.mode == "remote":
-            self._connect_to_remote(path, port)
+            self.client = self._connect_to_remote(path, port)
         else:
             raise ValueError(f"Repository mode {mode} is not defined. Use either disk or remote.")
 
@@ -113,13 +113,10 @@ class WeaviateRepository(BaseRepository):
         """Retrieves an iterator for the specified collection from the client.
 
         :param collection: The collection type to retrieve the iterator for.
-        :raises ValueError: If the client is not initialized or is invalid.
         :raises ValueError: If the specified collection is not supported.
         :return: An iterator for the specified collection from the client's collection,
             with vectors and references as needed.
         """
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         if collection == "Concept":
             return_references = QueryReference(link_on="hasTerminology")
         elif collection == "Mapping":
@@ -138,12 +135,9 @@ class WeaviateRepository(BaseRepository):
         `self.use_weaviate_vectorizer` is True, it retrieves the names from the vector keys in the embeddings returned
         by an object in the collection.
 
-        :raises ValueError: If the client is not initialized.
         :raises RuntimeError: If there is an issue fetching sentence embedders or vector configurations.
         :return: A list of sentence embedder names.
         """
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         sentence_embedders = set()
         mapping_collection = self.client.collections.get("Mapping")
         try:
@@ -164,8 +158,6 @@ class WeaviateRepository(BaseRepository):
         return list(sentence_embedders)
 
     def get_concept(self, concept_id: str) -> Concept:
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         try:
             if not self._concept_exists(concept_id):
                 raise RuntimeError(f"Concept {concept_id} does not exists")
@@ -190,8 +182,6 @@ class WeaviateRepository(BaseRepository):
         return concept
 
     def get_concepts(self, limit: int = 100, offset: int = 0, terminology_name: Optional[str] = None) -> Page[Concept]:
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         try:
             concept_collection = self.client.collections.get("Concept")
 
@@ -234,8 +224,6 @@ class WeaviateRepository(BaseRepository):
         return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)
 
     def get_terminology(self, terminology_name: str) -> Terminology:
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         try:
             if not self._terminology_exists(terminology_name):
                 raise RuntimeError(f"Terminology {terminology_name} does not exists")
@@ -252,8 +240,6 @@ class WeaviateRepository(BaseRepository):
         return terminology
 
     def get_all_terminologies(self) -> List[Terminology]:
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         terminologies = []
         try:
             terminology_collection = self.client.collections.get("Terminology")
@@ -281,16 +267,12 @@ class WeaviateRepository(BaseRepository):
             `use_weaviate_vectorizer` is `True`, defaults to None
         :param limit: The maximum number of mappings to return, defaults to 1000
         :param offset: The number of mappings to skip before returning results, defaults to 0
-        :raises ValueError: If the client is not initialized or is invalid.
         :raises ValueError: If the terminology is not found.
         :raises ValueError: If the sentence embedder is not found.
         :raises ValueError: If `sentence_embedder` is `None` and `use_weaviate_vectorizer` is `True`.
         :raises RuntimeError: If the fetch operation fails.
         :return: A page object containing a list of Mapping objects, along with pagination details.
         """
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-
         mappings = []  # List to store fetched mappings
         filters = None  # List to store filters for query
         target_vector = True  # Whether to include vectors in the response
@@ -410,9 +392,6 @@ class WeaviateRepository(BaseRepository):
         :raises RuntimeError: If the fetch operation fails
         :return: A list of Mapping or MappingResult objects based on whether similarity scores are included.
         """
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-
         mappings = []  # List to store fetched mappings
         filters = None
         target_vector = None
@@ -511,8 +490,6 @@ class WeaviateRepository(BaseRepository):
         return mappings
 
     def store(self, model_object_instance: Union[Terminology, Concept, Mapping]):
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         try:
             if isinstance(model_object_instance, Terminology):
                 properties = {"name": model_object_instance.name}
@@ -590,14 +567,10 @@ class WeaviateRepository(BaseRepository):
         :param jsonl_path: Path to the JSONL file.
         :param object_type: Literal specifying the object type, must be "terminology", "concept", or "mapping".
         :param chunk_size: The number of items to process in each batch, defaults to 100.
-        :raises ValueError: If the client is not initialized or is invalid.
         :raises ValueError: If 'id' or 'properties' is missing in a JSON object.
         :raises ValueError: If there is an invalid JSON object.
         :raises RuntimeError: If an unexpected error occurs during import.
         """
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-
         try:
             collection = self.client.collections.get(object_type.capitalize())
             chunk = []
@@ -635,18 +608,10 @@ class WeaviateRepository(BaseRepository):
         self.shut_down()
 
     def shut_down(self):
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         self.client.close()
 
     def clear_all(self):
-        """Deletes all data and schema classes (Mapping, Concept, Terminology) and re-creates them.
-
-        :raises ValueError: If the Weaviate client is not initialized.
-        """
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
-
+        """Deletes all data and schema classes (Mapping, Concept, Terminology) and re-creates them."""
         for schema in [self.mapping_schema, self.concept_schema, self.terminology_schema]:
             class_name = schema.schema["class"]
             if self.client.collections.exists(class_name):
@@ -665,8 +630,6 @@ class WeaviateRepository(BaseRepository):
         self._create_schema_if_not_exists(self.mapping_schema.schema)
 
     def _sentence_embedder_exists(self, name: str) -> bool:
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         try:
             mapping = self.client.collections.get("Mapping")
             if not self.use_weaviate_vectorizer:
@@ -682,8 +645,6 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to check if sentence embedder exists: {e}")
 
     def _terminology_exists(self, name: str) -> bool:
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         try:
             terminology = self.client.collections.get("Terminology")
             response = terminology.query.fetch_objects(filters=Filter.by_property("name").equal(name))
@@ -695,8 +656,6 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to check if terminology exists: {e}")
 
     def _concept_exists(self, concept_id: str) -> bool:
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         try:
             concept = self.client.collections.get("Concept")
             response = concept.query.fetch_objects(filters=Filter.by_property("conceptID").equal(concept_id))
@@ -717,8 +676,6 @@ class WeaviateRepository(BaseRepository):
             exists, otherwise `False`.
         """
         try:
-            if not self.client:
-                raise ValueError("Client is not initialized or is invalid.")
             # Check if the concept exists first
             concept_properties = {
                 "conceptID": mapping.concept.concept_identifier,
@@ -761,8 +718,6 @@ class WeaviateRepository(BaseRepository):
         :return: True if the object with the given UUID exists, False otherwise.
         """
         try:
-            if not self.client:
-                raise ValueError("Client is not initialized or is invalid.")
             collection = self.client.collections.get(collection_name)
             obj = collection.query.fetch_object_by_id(uuid)
             return obj is not None
@@ -788,8 +743,6 @@ class WeaviateRepository(BaseRepository):
         :raises RuntimeError: If there is an issue checking for or creating the schema in Weaviate, such as connection
             error.
         """
-        if not self.client:
-            raise ValueError("Client is not initialized or is invalid.")
         references = None
         vectorizer_config = None
         class_name = schema["class"]
@@ -818,16 +771,14 @@ class WeaviateRepository(BaseRepository):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(("localhost", port)) == 0
 
-    def _connect_to_memory(self, path: str, http_port: int, grpc_port: int):
+    def _connect_to_memory(self, path: str, http_port: int, grpc_port: int) -> WeaviateClient:
         try:
             if path is None:
                 raise ValueError("Path must be provided for disk mode.")
             if self._is_port_in_use(http_port) and self._is_port_in_use(grpc_port):
-                if self.client:
-                    self.client.close()
-                self.client = weaviate.connect_to_local(port=http_port, grpc_port=grpc_port, headers=self.headers)
+                return weaviate.connect_to_local(port=http_port, grpc_port=grpc_port, headers=self.headers)
             else:
-                self.client = weaviate.connect_to_embedded(
+                return weaviate.connect_to_embedded(
                     persistence_data_path=path,
                     headers=self.headers,
                     environment_variables={"ENABLE_MODULES": "text2vec-ollama"},
@@ -835,11 +786,11 @@ class WeaviateRepository(BaseRepository):
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
 
-    def _connect_to_remote(self, path: str, port: int):
+    def _connect_to_remote(self, path: str, port: int) -> WeaviateClient:
         try:
             if path is None:
                 raise ValueError("Remote URL must be provided for remote mode.")
-            self.client = weaviate.connect_to_local(host=path, port=port, headers=self.headers)
+            return weaviate.connect_to_local(host=path, port=port, headers=self.headers)
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Weaviate client: {e}")
 
