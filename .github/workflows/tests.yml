@@ -37,27 +37,24 @@ jobs:
       TEST_POSTGRES_URI: postgresql://testuser:testpass@localhost:5432/testdb
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Poetry
-        run: curl -sSL https://install.python-poetry.org | python3 -
-
-      - name: Configure Poetry environment
-        run: |
-          poetry config virtualenvs.create true
-          poetry env use python${{ matrix.python-version }}
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: poetry install
+        run: uv sync --locked --all-extras --dev
 
       - name: Wait for PostgreSQL to become ready
         run: |
           until pg_isready -h localhost -U testuser -d testdb; do sleep 1; done
 
       - name: Run tests
-        run: poetry run pytest
+        run: uv run pytest tests
