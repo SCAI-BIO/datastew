@@ -51,16 +51,16 @@ class EmbeddingModel(ABC):
             with self._cache_lock:
                 self._cache[text] = embedding
 
-    def get_from_cache(self, text: str) -> Sequence[float]:
+    def get_from_cache(self, text: str) -> Optional[Sequence[float]]:
         """Retrieve an embedding from the cache.
 
         :param text: Cached input text.
-        :return: Embedding of the cached input text.
+        :return: Embedding of the cached input text or `None` if not present.
         """
         if self._cache_lock and self._cache is not None:
             with self._cache_lock:
-                return self._cache.get(text, [])
-        return []
+                return self._cache.get(text, None)
+        return None
 
     def get_cached_embeddings(self, messages: List[str]) -> Tuple[List[Sequence[float]], List[int], List[str]]:
         """Retrieve cached embeddings and identify uncached messages.
@@ -214,7 +214,7 @@ class HuggingFaceAdapter(EmbeddingModel):
         """
         sanitized_messages = [self.sanitize(msg) for msg in messages]
         if self._cache:
-            embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(messages)
+            embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(sanitized_messages)
 
             if uncached_messages:
                 try:
@@ -268,7 +268,7 @@ class OllamaAdapter(EmbeddingModel):
         sanitized_messages = [self.sanitize(msg) for msg in messages]
 
         if self._cache:
-            embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(messages)
+            embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(sanitized_messages)
 
             if uncached_messages:
                 try:
