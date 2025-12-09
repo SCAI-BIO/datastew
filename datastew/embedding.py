@@ -171,6 +171,9 @@ class GPT4Adapter(EmbeddingModel):
 
 
 class HuggingFaceAdapter(EmbeddingModel):
+    _model_cache = {}
+    _load_count = 0 # For testing
+
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2", cache: bool = False):
         """Initialize the Hugging Face adapter with a specified model name.
 
@@ -178,7 +181,12 @@ class HuggingFaceAdapter(EmbeddingModel):
         :param cache: Enable or disable caching, defaults to False.
         """
         super().__init__(model_name, cache)
-        self.model = SentenceTransformer(model_name)
+
+        if model_name not in self._model_cache:
+            HuggingFaceAdapter._load_count += 1
+            self._model_cache[model_name] = SentenceTransformer(model_name)
+
+        self.model = self._model_cache[model_name]
 
     def get_embedding(self, text: str) -> Sequence[float]:
         """Retrieve an embedding for a single text input using MPnet.
