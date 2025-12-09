@@ -63,3 +63,20 @@ class TestEmbedding(unittest.TestCase):
 
         for emb1, emb2 in zip(embeddings1, embeddings2):
             self.assertSequenceEqual(emb1, emb2)
+
+    def test_huggingface_model_loaded_once(self):
+        # Reset class-level cache and counter before test
+        HuggingFaceAdapter._model_cache.clear()
+        HuggingFaceAdapter._load_count = 0
+
+        # Instantiate multiple adapters
+        adapter1 = HuggingFaceAdapter(cache=True)
+        adapter2 = HuggingFaceAdapter(cache=True)
+        adapter3 = HuggingFaceAdapter(cache=True)
+
+        # All adapters should use the same underlying model object
+        self.assertIs(adapter1.model, adapter2.model)
+        self.assertIs(adapter2.model, adapter3.model)
+
+        # And the model should have been loaded only once
+        self.assertEqual(HuggingFaceAdapter._load_count, 1)
