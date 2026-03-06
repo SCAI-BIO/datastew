@@ -106,7 +106,7 @@ class EmbeddingModel(ABC):
             for i, msg in enumerate(messages):
                 cached = self._cache.get(msg, None)
                 embeddings.append(cached)
-                if not cached:
+                if cached is None:
                     uncached_indices.append(i)
                     uncached_messages.append(msg)
 
@@ -149,7 +149,7 @@ class GPT4Adapter(EmbeddingModel):
             return []
         text = self.sanitize(text)
 
-        if self._cache:
+        if self._cache is not None:
             cached = self.get_from_cache(text)
             if cached:
                 return cached
@@ -173,7 +173,7 @@ class GPT4Adapter(EmbeddingModel):
 
         sanitized_messages = [self.sanitize(msg) for msg in messages]
 
-        if self._cache:
+        if self._cache is not None:
             embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(sanitized_messages)
 
             if uncached_messages:
@@ -228,7 +228,7 @@ class HuggingFaceAdapter(EmbeddingModel):
         text = self.sanitize(text)
 
         # Check cache
-        if self._cache:
+        if self._cache is not None:
             cached = self.get_from_cache(text)
             if cached:
                 return cached
@@ -249,7 +249,7 @@ class HuggingFaceAdapter(EmbeddingModel):
         :return: A sequence of embedding vectors.
         """
         sanitized_messages = [self.sanitize(msg) for msg in messages]
-        if self._cache:
+        if self._cache is not None:
             embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(sanitized_messages)
 
             if uncached_messages:
@@ -288,7 +288,7 @@ class OllamaAdapter(EmbeddingModel):
             logging.warning("Empty text passed to get_embedding")
             return []
         text = self.sanitize(text)
-        if self._cache:
+        if self._cache is not None:
             cached = self.get_from_cache(text)
             if cached:
                 return cached
@@ -303,7 +303,7 @@ class OllamaAdapter(EmbeddingModel):
     def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
         sanitized_messages = [self.sanitize(msg) for msg in messages]
 
-        if self._cache:
+        if self._cache is not None:
             embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(sanitized_messages)
 
             if uncached_messages:
