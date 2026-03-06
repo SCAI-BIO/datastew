@@ -10,6 +10,9 @@ from sentence_transformers import SentenceTransformer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+_GLOBAL_CACHES = {}
+_GLOBAL_LOCKS = {}
+
 
 class EmbeddingModel(ABC):
     def __init__(self, model_name: str, cache: bool = False, cache_size: int = 10000):
@@ -20,8 +23,19 @@ class EmbeddingModel(ABC):
         :param cache_size: Maximum cache size when caching is enabled, defaults to 10,000.
         """
         self.model_name = model_name
-        self._cache = LRUCache(maxsize=cache_size) if cache else None
-        self._cache_lock = Lock() if cache else None
+        self.use_cache = cache
+
+        if self.use_cache:
+            if model_name not in _GLOBAL_CACHES:
+                _GLOBAL_CACHES[model_name] = LRUCache(maxsize=cache_size)
+                _GLOBAL_LOCKS[model_name] = Lock()
+
+            self._cache = _GLOBAL_CACHES[model_name]
+            self._cache_lock = _GLOBAL_LOCKS[model_name]
+
+        else:
+            self._cache = None
+            self._cache_lock = None
 
     @abstractmethod
     def get_embedding(self, text: str) -> Sequence[float]:
@@ -47,9 +61,16 @@ class EmbeddingModel(ABC):
         :param text: The input text to be cached.
         :param embedding: The embedding of the input text.
         """
-        if self._cache_lock and self._cache is not None:
+        if self._cache_lock is not None and self._cache is not None:
             with self._cache_lock:
                 self._cache[text] = embedding
+
+    def add_batch_to_cache(self, texts: Sequence[str], embeddings: Sequence[Sequence[float]]):
+        """Acquire lock once for the entire batch update."""
+        if self._cache_lock is not None and self._cache is not None:
+            with self._cache_lock:
+                for text, emb in zip(texts, embeddings):
+                    self._cache[text] = emb
 
     def get_from_cache(self, text: str) -> Optional[Sequence[float]]:
         """Retrieve an embedding from the cache.
@@ -57,12 +78,14 @@ class EmbeddingModel(ABC):
         :param text: Cached input text.
         :return: Embedding of the cached input text or `None` if not present.
         """
-        if self._cache_lock and self._cache is not None:
+        if self._cache_lock is not None and self._cache is not None:
             with self._cache_lock:
                 return self._cache.get(text, None)
         return None
 
-    def get_cached_embeddings(self, messages: List[str]) -> Tuple[List[Sequence[float]], List[int], List[str]]:
+    def get_cached_embeddings(
+        self, messages: List[str]
+    ) -> Tuple[List[Optional[Sequence[float]]], List[int], List[str]]:
         """Retrieve cached embeddings and identify uncached messages.
 
         :param messages: A list of input text messages.
@@ -71,16 +94,22 @@ class EmbeddingModel(ABC):
             - A list of indices for uncached messages.
             - A list of uncached messages.
         """
-        embeddings, uncached_indices, uncached_messages = [], [], []
+        if self._cache_lock is None or self._cache is None:
+            empty_embeddings: List[Optional[Sequence[float]]] = [None] * len(messages)
+            return empty_embeddings, list(range(len(messages))), messages
 
-        for i, msg in enumerate(messages):
-            cached = self.get_from_cache(msg)
-            if cached:
+        embeddings: List[Optional[Sequence[float]]] = []
+        uncached_indices: List[int] = []
+        uncached_messages: List[str] = []
+
+        with self._cache_lock:
+            for i, msg in enumerate(messages):
+                cached = self._cache.get(msg, None)
                 embeddings.append(cached)
-            else:
-                embeddings.append(None)
-                uncached_indices.append(i)
-                uncached_messages.append(msg)
+                if not cached:
+                    uncached_indices.append(i)
+                    uncached_messages.append(msg)
+
         return embeddings, uncached_indices, uncached_messages
 
     def sanitize(self, message: str) -> str:
@@ -121,7 +150,6 @@ class GPT4Adapter(EmbeddingModel):
         text = self.sanitize(text)
 
         if self._cache:
-            # Check cache
             cached = self.get_from_cache(text)
             if cached:
                 return cached
@@ -134,7 +162,7 @@ class GPT4Adapter(EmbeddingModel):
             return embedding
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
-            return []
+            raise
 
     def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
         """Retrieve embeddings for a list of text messages.
@@ -152,12 +180,12 @@ class GPT4Adapter(EmbeddingModel):
                 try:
                     response = openai.embeddings.create(model=self.model_name, input=uncached_messages)
                     new_embeddings = [item.embedding for item in response.data]
+                    self.add_batch_to_cache(uncached_messages, new_embeddings)
                     for idx, embedding in zip(uncached_indices, new_embeddings):
-                        self.add_to_cache(sanitized_messages[idx], embedding)
                         embeddings[idx] = embedding
                 except Exception as e:
                     logging.error(f"Error in processing chunk: {e}")
-                    return []
+                    raise
 
             return [emb for emb in embeddings if emb is not None]
 
@@ -167,12 +195,12 @@ class GPT4Adapter(EmbeddingModel):
             return embeddings
         except Exception as e:
             logging.error(f"Failed processing messages: {e}")
-            return []
+            raise
 
 
 class HuggingFaceAdapter(EmbeddingModel):
     _model_cache = {}
-    _load_count = 0 # For testing
+    _load_count = 0  # For testing
 
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2", cache: bool = False):
         """Initialize the Hugging Face adapter with a specified model name.
@@ -212,7 +240,7 @@ class HuggingFaceAdapter(EmbeddingModel):
             return embedding
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
-            return []
+            raise
 
     def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
         """Retrieve embeddings for a list of text messages using MPNet.
@@ -230,12 +258,12 @@ class HuggingFaceAdapter(EmbeddingModel):
                     flattened_embeddings = [
                         [float(element) for element in row] for row in new_embeddings if row is not None
                     ]
+                    self.add_batch_to_cache(uncached_messages, flattened_embeddings)
                     for idx, embedding in zip(uncached_indices, flattened_embeddings):
-                        self.add_to_cache(sanitized_messages[idx], embedding)
                         embeddings[idx] = embedding
                 except Exception as e:
                     logging.error(f"Failed processing messages: {e}")
-                    return []
+                    raise
 
             return [emb for emb in embeddings if emb is not None]
 
@@ -245,7 +273,7 @@ class HuggingFaceAdapter(EmbeddingModel):
             return flattened_embeddings
         except Exception as e:
             logging.error(f"Failed processing messages: {e}")
-            return []
+            raise
 
 
 class OllamaAdapter(EmbeddingModel):
@@ -270,7 +298,7 @@ class OllamaAdapter(EmbeddingModel):
             return embedding
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
-            return []
+            raise
 
     def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
         sanitized_messages = [self.sanitize(msg) for msg in messages]
@@ -281,12 +309,12 @@ class OllamaAdapter(EmbeddingModel):
             if uncached_messages:
                 try:
                     new_embeddings = self.client.embed(self.model_name, uncached_messages).get("embeddings")
+                    self.add_batch_to_cache(uncached_messages, new_embeddings)
                     for idx, embedding in zip(uncached_indices, new_embeddings):
-                        self.add_to_cache(sanitized_messages[idx], embedding)
                         embeddings[idx] = embedding
                 except Exception as e:
                     logging.error(f"Failed processing messages: {e}")
-                    return []
+                    raise
 
             return [emb for emb in embeddings if emb is not None]
 
@@ -294,7 +322,7 @@ class OllamaAdapter(EmbeddingModel):
             return self.client.embed(self.model_name, sanitized_messages).get("embeddings")
         except Exception as e:
             logging.error(f"Failed processing messages: {e}")
-            return []
+            raise
 
 
 class Vectorizer:
