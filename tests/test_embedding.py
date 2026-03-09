@@ -1,82 +1,84 @@
 import unittest
-from time import time
 from typing import Sequence
+from unittest.mock import patch
 
-from datastew.embedding import HuggingFaceAdapter
+from datastew.embedding import _GLOBAL_CACHES, HuggingFaceAdapter
 
 
 class TestEmbedding(unittest.TestCase):
 
     def setUp(self):
-        self.hugging_face_adapter = HuggingFaceAdapter(cache=True)
+        _GLOBAL_CACHES.clear()
+        self.adapter = HuggingFaceAdapter(cache=True)
 
     def test_hugging_face_adapter_get_embedding(self):
         text = "This is a test sentence."
-        embedding = self.hugging_face_adapter.get_embedding(text)
+        embedding = self.adapter.get_embedding(text)
         self.assertIsInstance(embedding, Sequence)
 
     def test_hugging_face_adapter_get_embeddings(self):
         messages = [f"This is message {i}." for i in range(20)]
-        embeddings = self.hugging_face_adapter.get_embeddings(messages)
+        embeddings = self.adapter.get_embeddings(messages)
         self.assertIsInstance(embeddings, Sequence)
         self.assertEqual(len(embeddings), len(messages))
 
     def test_sanitization(self):
         text1 = " Test"
         text2 = "test "
-        embedding1 = self.hugging_face_adapter.get_embedding(text1)
-        embedding2 = self.hugging_face_adapter.get_embedding(text2)
+        embedding1 = self.adapter.get_embedding(text1)
+        embedding2 = self.adapter.get_embedding(text2)
         self.assertSequenceEqual(embedding1, embedding2)
 
-    def test_caching_get_embedding(self):
-        text = "This is a test sentence."
-        if self.hugging_face_adapter._cache:
-            self.hugging_face_adapter._cache.clear()
+    def test_caching_get_embedding_deterministic(self):
+        text = "deterministic test sentence"
 
-        # Measure time for the first call
-        start_time = time()
-        embedding1 = self.hugging_face_adapter.get_embedding(text)
-        first_call_time = time() - start_time
+        with patch.object(self.adapter.model, "encode", wraps=self.adapter.model.encode) as spy_encode:
+            emb1 = self.adapter.get_embedding(text)
+            spy_encode.assert_called_once()
 
-        # Measure time for the second call
-        start_time = time()
-        embedding2 = self.hugging_face_adapter.get_embedding(text)
-        second_call_time = time() - start_time
-
-        self.assertLess(second_call_time, first_call_time)
-        self.assertSequenceEqual(embedding1, embedding2)
-
-    def test_caching_get_embeddings(self):
-        messages = [f"This is message {i}." for i in range(20)]
-        if self.hugging_face_adapter._cache:
-            self.hugging_face_adapter._cache.clear()
-
-        start_time = time()
-        embeddings1 = self.hugging_face_adapter.get_embeddings(messages)
-        first_call_time = time() - start_time
-
-        start_time = time()
-        embeddings2 = self.hugging_face_adapter.get_embeddings(messages)
-        second_call_time = time() - start_time
-
-        self.assertLess(second_call_time, first_call_time)
-
-        for emb1, emb2 in zip(embeddings1, embeddings2):
+            emb2 = self.adapter.get_embedding(text)
+            self.assertEqual(spy_encode.call_count, 1)
             self.assertSequenceEqual(emb1, emb2)
 
+    def test_caching_get_embeddings_batch(self):
+        messages = [f"Batch message {i}." for i in range(5)]
+
+        with patch.object(self.adapter.model, "encode", wraps=self.adapter.model.encode) as spy_encode:
+            embeddings1 = self.adapter.get_embeddings(messages)
+            self.assertEqual(spy_encode.call_count, 1)
+            embeddings2 = self.adapter.get_embeddings(messages)
+            self.assertEqual(spy_encode.call_count, 1)
+
+            for emb1, emb2 in zip(embeddings1, embeddings2):
+                self.assertSequenceEqual(emb1, emb2)
+
+    def test_partial_cache_hit_batch(self):
+        messages = ["A", "B", "C"]
+        # Cache "A" manually
+        self.adapter.add_batch_to_cache([self.adapter.sanitize("A")], [[0.1, 0.2]])
+
+        with patch.object(self.adapter.model, "encode", wraps=self.adapter.model.encode) as spy_encode:
+            embeddings = self.adapter.get_embeddings(messages)
+            # encode should only be called once, and only for ["b", "c"]
+            spy_encode.assert_called_once_with(["b", "c"], show_progress_bar=True)
+            self.assertEqual(len(embeddings), 3)
+            self.assertEqual(embeddings[0], [0.1, 0.2])
+
+    def test_exception_handling_aborts_silence(self):
+        messages = ["Fail 1", "Fail 2"]
+
+        with patch.object(self.adapter.model, "encode", side_effect=Exception("API Down")):
+            with self.assertRaises(Exception) as context:
+                self.adapter.get_embeddings(messages)
+
+            self.assertTrue("API Down" in str(context.exception))
+
     def test_huggingface_model_loaded_once(self):
-        # Reset class-level cache and counter before test
         HuggingFaceAdapter._model_cache.clear()
         HuggingFaceAdapter._load_count = 0
 
-        # Instantiate multiple adapters
         adapter1 = HuggingFaceAdapter(cache=True)
         adapter2 = HuggingFaceAdapter(cache=True)
-        adapter3 = HuggingFaceAdapter(cache=True)
 
-        # All adapters should use the same underlying model object
         self.assertIs(adapter1.model, adapter2.model)
-        self.assertIs(adapter2.model, adapter3.model)
-
-        # And the model should have been loaded only once
         self.assertEqual(HuggingFaceAdapter._load_count, 1)
