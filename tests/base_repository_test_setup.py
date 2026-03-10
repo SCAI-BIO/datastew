@@ -90,6 +90,41 @@ class BaseRepositoryTestSetup(unittest.TestCase):
         self.assertIn("NCI Thesaurus OBO Edition", names)
         self.assertIn("snomed CT", names)
 
+    def test_delete_terminology_cascades(self):
+        # Verify initial state
+        self.assertEqual(len(self.repository.get_all_terminologies()), 2)
+        self.assertEqual(len(self.repository.get_concepts().items), 11)
+
+        # Execute deletion
+        self.repository.delete_terminology("snomed CT")
+
+        # Verify terminology is deleted
+        with self.assertRaises(ValueError):
+            self.repository.get_terminology("snomed CT")
+        terminologies = self.repository.get_all_terminologies()
+
+        # Verify remaining terminologies
+        self.assertEqual(len(terminologies), 1)
+        self.assertEqual(terminologies[0].name, "NCI Thesaurus OBO Edition")
+
+        # Verify associated concepts are deleted (6 snomed concepts deleted, 5 NCIT concepts remaining)
+        concepts = self.repository.get_concepts()
+        self.assertEqual(len(concepts.items), 5)
+        for concept in concepts.items:
+            self.assertEqual(concept.terminology.name, "NCI Thesaurus OBO Edition")
+
+        # Verify associated mappings are deleted
+        snomed_mappings = self.repository.get_mappings(terminology_name="snomed CT").items
+        self.assertEqual(len(snomed_mappings), 0)
+
+        # Verify unaffected mappings remain intact
+        ncit_mappings = self.repository.get_mappings(terminology_name="NCI Thesaurus OBO Edition").items
+        self.assertEqual(len(ncit_mappings), 5)
+
+    def test_delete_terminology_not_found(self):
+        with self.assertRaises(ValueError):
+            self.repository.delete_terminology("Non-existent Terminology")
+
     def test_concept_retrieval(self):
         concepts = self.repository.get_concepts()
         concept = self.repository.get_concept("Concept ID: 11893007")
