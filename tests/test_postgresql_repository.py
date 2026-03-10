@@ -6,15 +6,13 @@ from datastew.embedding import Vectorizer
 from datastew.process.jsonl_adapter import SQLJsonlConverter
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
-from datastew.repository.base import BaseRepository
+from datastew.repository.postgresql import PostgreSQLRepository
 
 
-class BaseRepositoryTestSetup(unittest.TestCase):
-    """Base class for setting up test data and shared tests for all repository backends."""
+class TestPostgreSQLRepository(unittest.TestCase):
+    """Tests for the PostgreSQL repository backend."""
 
-    __test__ = False
-    repository: BaseRepository
-    jsonl_converter: SQLJsonlConverter
+    POSTGRES_TEST_URL = os.getenv("TEST_POSTGRES_URI", "postgresql://testuser:testpass@localhost/testdb")
 
     TEST_CONCEPTS = [
         ("Diabetes mellitus (disorder)", "Concept ID: 11893007", "v1"),
@@ -32,13 +30,17 @@ class BaseRepositoryTestSetup(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        """Shared setup for vectorizers and paths."""
+        """Setup for vectorizers, paths, and PostgreSQL repository."""
         cls.TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
         cls.vectorizer1 = Vectorizer("sentence-transformers/all-mpnet-base-v2")
         cls.vectorizer2 = Vectorizer("FremyCompany/BioLORD-2023")
         cls.model_name1 = cls.vectorizer1.model_name
         cls.model_name2 = cls.vectorizer2.model_name
         cls.test_text = "The flu"
+
+        cls.repo_args = (cls.POSTGRES_TEST_URL, cls.vectorizer1)
+        cls.repository = PostgreSQLRepository(*cls.repo_args)
+        cls.jsonl_converter = SQLJsonlConverter(dest_dir="test_export")
 
     @classmethod
     def tearDownClass(cls):

@@ -7,14 +7,14 @@ from sqlalchemy.orm import joinedload, sessionmaker
 
 from datastew.embedding import Vectorizer
 from datastew.exceptions import ObjectStorageError
-from datastew.repository.base import BaseRepository
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository.model import Base, Concept, Mapping, MappingResult, Terminology
 from datastew.repository.pagination import Page
 
 logger = logging.getLogger(__name__)
 
 
-class PostgreSQLRepository(BaseRepository):
+class PostgreSQLRepository:
     def __init__(
         self,
         connection_string: str,
@@ -33,7 +33,7 @@ class PostgreSQLRepository(BaseRepository):
         :param pool_timeout: The maximum time (in seconds) to wait for a connection from
             the pool before raising an exception.
         """
-        super().__init__(vectorizer)
+        self.vectorizer = vectorizer
         self.engine = create_engine(
             connection_string, pool_size=pool_size, max_overflow=max_overflow, pool_timeout=pool_timeout
         )
@@ -197,6 +197,20 @@ class PostgreSQLRepository(BaseRepository):
         self.session.query(Terminology).delete()
         self.session.commit()
 
+    def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str):
+        """Imports a data dictionary, generating concepts and embeddings, and stores them in the database.
+
+        :param data_dictionary: Source of variable descriptions and metadata.
+        :param terminology_name: Name of the terminology being imported.
+        :raises RuntimeError: If the import or transformation fails.
+        """
+        try:
+            objects = self._parse_data_dictionary(data_dictionary, terminology_name)
+            self.store_all(objects)
+        except Exception as e:
+            logger.exception("Failed to import data dictionary.")
+            raise RuntimeError(f"Failed to import data dictionary source: {e}")
+
     def import_from_jsonl(
         self, jsonl_path: str, object_type: Literal["terminology", "concept", "mapping"], chunk_size: int = 100
     ):
@@ -305,3 +319,27 @@ class PostgreSQLRepository(BaseRepository):
     def _initialize_pgvector(self):
         with self.engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+
+    def _parse_data_dictionary(
+        self, data_dictionary: DataDictionarySource, terminology_name: str
+    ) -> List[Union[Concept, Mapping, Terminology]]:
+        df = data_dictionary.to_dataframe()
+        descriptions = df["description"].tolist()
+        vectorizer_name = self.vectorizer.model_name
+        variable_to_embedding = data_dictionary.get_embeddings(self.vectorizer)
+
+        terminology = Terminology(name=terminology_name, id=terminology_name)
+        objects: List[Union[Concept, Mapping, Terminology]] = [terminology]
+
+        for variable, description in zip(variable_to_embedding.keys(), descriptions):
+            concept_id = f"{terminology_name}:{variable}"
+            concept = Concept(terminology=terminology, pref_label=variable, concept_identifier=concept_id)
+            mapping = Mapping(
+                concept=concept,
+                text=description,
+                embedding=variable_to_embedding[variable],
+                sentence_embedder=vectorizer_name,
+            )
+            objects.extend([concept, mapping])
+
+        return objects

@@ -7,11 +7,9 @@ from .repository import (
     Concept,
     Mapping,
     Terminology,
-    base,
     model,
     pagination,
     postgresql,
-    sqllite,
 )
 from .visualisation import (
     bar_chart_average_acc_two_distributions,
@@ -26,11 +24,9 @@ __all__ = [
     "mapping",
     "ols",
     "parsing",
-    "base",
     "model",
     "pagination",
     "postgresql",
-    "sqllite",
     "EmbeddingModel",
     "GPT4Adapter",
     "HuggingFaceAdapter",
