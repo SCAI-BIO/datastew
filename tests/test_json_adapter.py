@@ -7,7 +7,7 @@ import unittest
 import pandas as pd
 
 from datastew.embedding import Vectorizer
-from datastew.process.jsonl_adapter import WeaviateJsonlConverter
+from datastew.process.jsonl_adapter import SQLJsonlConverter
 
 
 class MockVectorizer(Vectorizer):
@@ -17,8 +17,8 @@ class MockVectorizer(Vectorizer):
         return [[0.1, 0.2, 0.3] for _ in texts]
 
 
-class TestWeaviateJsonlConverter(unittest.TestCase):
-    """Unit tests for WeaviateJsonlConverter"""
+class TestSQLJsonlConverter(unittest.TestCase):
+    """Unit tests for SQLJsonlConverter"""
 
     def setUp(self):
         """Creates a temporary directory and mock OHDSI CONCEPT.csv file"""
@@ -48,8 +48,8 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
         # Save mock data as tab-separated CSV
         data.to_csv(self.mock_concept_file, sep="\t", index=False)
 
-        # Initialize WeaviateJsonlConverter
-        self.converter = WeaviateJsonlConverter(dest_dir=self.temp_dir)
+        # Initialize SQLJsonlConverter
+        self.converter = SQLJsonlConverter(dest_dir=self.temp_dir)
 
         # Inject Mock Embedding Model
         self.mock_vectorizer_model = MockVectorizer()

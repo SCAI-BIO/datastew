@@ -29,7 +29,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "aiofiles>=25.1.0",
     "cachetools>=7.0.3",
     "matplotlib>=3.10.8",
     "numpy>=2.2.6",
@@ -40,23 +39,13 @@ dependencies = [
     "pgvector>=0.4.2",
     "plotly>=6.6.0",
     "psycopg2-binary>=2.9.11",
-    "pydantic>=2.12.5",
-    "python-dateutil>=2.9.0.post0",
     "python-dotenv>=1.2.2",
-    "pytz>=2026.1.post1",
     "requests>=2.32.5",
     "scikit-learn>=1.7.2",
-    "scipy>=1.15.3",
     "seaborn>=0.13.2",
     "sentence-transformers>=5.2.3",
-    "six>=1.17.0",
     "sqlalchemy>=2.0.48",
-    "thefuzz>=0.22.1",
     "torch>=2.10.0",
-    "tzdata>=2025.3",
-    "uuid>=1.30",
-    "weaviate-client>=4.20.3",
-    "wheel>=0.46.3",
 ]
 
 [project.optional-dependencies]
