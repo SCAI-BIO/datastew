@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, Optional, Sequence
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import TEXT, Column, Dialect, ForeignKey, Integer, String, Text, TypeDecorator
@@ -62,6 +62,10 @@ class Terminology(Base):
     id = Column(String, primary_key=True)
     name = Column(String)
 
+    def __init__(self, name: str, id: str):
+        self.name = name
+        self.id = id
+
 
 class Concept(Base):
     __tablename__ = "concept"
@@ -69,6 +73,14 @@ class Concept(Base):
     pref_label = Column(String)
     terminology_id = Column(String, ForeignKey("terminology.id"))
     terminology = relationship("Terminology")
+
+    def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: Optional[str] = None):
+        self.terminology = terminology
+        self.pref_label = pref_label
+        # should be unique
+        self.concept_identifier = concept_identifier
+        # enforced to be unique
+        self.id = id
 
 
 class Mapping(Base):
@@ -80,6 +92,20 @@ class Mapping(Base):
     text = Column(Text)
     embedding = Column(VectorType)
     sentence_embedder = Column(Text)
+
+    def __init__(
+        self,
+        concept: Concept,
+        text: str,
+        embedding: Optional[Sequence[float]] = None,
+        sentence_embedder: Optional[str] = None,
+        id: Optional[str] = None,
+    ):
+        self.concept = concept
+        self.text = text
+        self.embedding = embedding
+        self.sentence_embedder = sentence_embedder
+        self.id = id
 
     def __str__(self):
         return (
