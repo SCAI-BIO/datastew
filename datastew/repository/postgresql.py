@@ -121,14 +121,9 @@ class PostgreSQLRepository(BaseRepository):
             if terminology is None:
                 raise ValueError(f"No Terminology found with name: {terminology_name}")
 
-            self.session.query(Mapping).filter(
-                Mapping.concept_identifier.in_(
-                    self.session.query(Concept.concept_identifier).filter_by(terminology=terminology.id)
-                )
-            ).delete(synchronize_session=False)
-            self.session.query(Concept).filter_by(terminology_id=terminology.id).delete(synchronize_session=False)
             self.session.delete(terminology)
             self.session.commit()
+            self.session.expunge_all()
 
         except ValueError:
             raise
@@ -224,6 +219,7 @@ class PostgreSQLRepository(BaseRepository):
         self.session.query(Concept).delete()
         self.session.query(Terminology).delete()
         self.session.commit()
+        self.session.expunge_all()
 
     def import_from_jsonl(
         self, jsonl_path: str, object_type: Literal["terminology", "concept", "mapping"], chunk_size: int = 100
