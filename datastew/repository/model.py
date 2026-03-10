@@ -62,7 +62,7 @@ class Terminology(Base):
     id = Column(String, primary_key=True)
     name = Column(String)
 
-    concepts = relationship("Concept", back_populates="terminlogy", cascade="all, delete-orphan")
+    concepts = relationship("Concept", back_populates="terminology", cascade="all, delete-orphan")
 
     def __init__(self, name: str, id: str):
         self.name = name
