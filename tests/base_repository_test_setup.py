@@ -3,7 +3,7 @@ import unittest
 from typing import List, Tuple
 
 from datastew.embedding import Vectorizer
-from datastew.process.jsonl_adapter import BaseJsonlConverter
+from datastew.process.jsonl_adapter import SQLJsonlConverter
 from datastew.process.parsing import DataDictionarySource
 from datastew.repository import Concept, Mapping, Terminology
 from datastew.repository.base import BaseRepository
@@ -14,7 +14,7 @@ class BaseRepositoryTestSetup(unittest.TestCase):
 
     __test__ = False
     repository: BaseRepository
-    jsonl_converter: BaseJsonlConverter
+    jsonl_converter: SQLJsonlConverter
 
     TEST_CONCEPTS = [
         ("Diabetes mellitus (disorder)", "Concept ID: 11893007", "v1"),

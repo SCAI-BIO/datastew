@@ -7,7 +7,7 @@ import unittest
 import pandas as pd
 
 from datastew.embedding import Vectorizer
-from datastew.process.jsonl_adapter import WeaviateJsonlConverter
+from datastew.process.jsonl_adapter import SQLJsonlConverter
 
 
 class MockVectorizer(Vectorizer):
@@ -17,8 +17,8 @@ class MockVectorizer(Vectorizer):
         return [[0.1, 0.2, 0.3] for _ in texts]
 
 
-class TestWeaviateJsonlConverter(unittest.TestCase):
-    """Unit tests for WeaviateJsonlConverter"""
+class TestSQLJsonlConverter(unittest.TestCase):
+    """Unit tests for SQLJsonlConverter"""
 
     def setUp(self):
         """Creates a temporary directory and mock OHDSI CONCEPT.csv file"""
@@ -48,8 +48,8 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
         # Save mock data as tab-separated CSV
         data.to_csv(self.mock_concept_file, sep="\t", index=False)
 
-        # Initialize WeaviateJsonlConverter
-        self.converter = WeaviateJsonlConverter(dest_dir=self.temp_dir)
+        # Initialize SQLJsonlConverter
+        self.converter = SQLJsonlConverter(dest_dir=self.temp_dir)
 
         # Inject Mock Embedding Model
         self.mock_vectorizer_model = MockVectorizer()
@@ -83,7 +83,7 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
             data = [json.loads(line) for line in f.readlines()]
 
         self.assertEqual(len(data), 1, "Terminology file should contain only one entry.")
-        self.assertEqual(data[0]["properties"]["name"], "OHDSI", "Incorrect terminology name.")
+        self.assertEqual(data[0]["name"], "OHDSI", "Incorrect terminology name.")
 
     def test_concept_file_content(self):
         """Tests the correctness of the concept.jsonl file"""
@@ -95,13 +95,9 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
 
         self.assertEqual(len(data), 3, "Concept file should contain 3 concepts.")
         expected_concepts = ["Hypertension", "Diabetes", "Asthma"]
-        extracted_labels = [entry["properties"]["prefLabel"] for entry in data]
+        extracted_labels = [entry["pref_label"] for entry in data]
 
-        self.assertCountEqual(
-            extracted_labels,
-            expected_concepts,
-            "Concept labels do not match expected values.",
-        )
+        self.assertCountEqual(extracted_labels, expected_concepts, "Concept labels do not match expected values.")
 
     def test_mapping_file_content(self):
         """Tests the correctness of the mapping.jsonl file"""
@@ -115,11 +111,7 @@ class TestWeaviateJsonlConverter(unittest.TestCase):
 
         # Verify that the embeddings are correct
         for entry in data:
-            self.assertEqual(
-                entry["vector"]["default"],
-                [0.1, 0.2, 0.3],
-                "Embedding vector is incorrect.",
-            )
+            self.assertEqual(entry["embedding"], [0.1, 0.2, 0.3], "Embedding vector is incorrect.")
 
     def test_invalid_file_raises_error(self):
         """Tests that a missing file raises a FileNotFoundError"""

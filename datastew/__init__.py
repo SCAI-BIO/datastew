@@ -12,8 +12,6 @@ from .repository import (
     pagination,
     postgresql,
     sqllite,
-    weaviate,
-    weaviate_schema,
 )
 from .visualisation import (
     bar_chart_average_acc_two_distributions,
@@ -33,8 +31,6 @@ __all__ = [
     "pagination",
     "postgresql",
     "sqllite",
-    "weaviate",
-    "weaviate_schema",
     "EmbeddingModel",
     "GPT4Adapter",
     "HuggingFaceAdapter",

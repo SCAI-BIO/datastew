@@ -11,14 +11,14 @@ Steps:
 3. The resulting JSONL files will be saved in the specified output directory.
 """
 
-from datastew.process.jsonl_adapter import WeaviateJsonlConverter
+from datastew.process.jsonl_adapter import SQLJsonlConverter
 
 # --------------------------------------------------------------------
 # 1) Initialize the converter
 # --------------------------------------------------------------------
 # The output directory will contain the generated JSONL files.
 output_directory = "resources/results"
-jsonl_converter = WeaviateJsonlConverter(output_directory)
+jsonl_converter = SQLJsonlConverter(output_directory)
 
 # --------------------------------------------------------------------
 # 2) Convert the OHDSI CONCEPT.csv file
