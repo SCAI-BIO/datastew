@@ -109,6 +109,34 @@ class PostgreSQLRepository(BaseRepository):
         """
         return self.session.query(Terminology).all()
 
+    def delete_terminology(self, terminology_name: str) -> None:
+        """Deletes a Terminology and its associated Concepts and Mappings.
+
+        :param terminology_name: Name of the terminology to delete.
+        :raises ValueError: If the terminology is not found.
+        :raises ObjectStorageError: If a database error occurs during deletion.
+        """
+        try:
+            terminology = self.session.query(Terminology).filter_by(name=terminology_name).first()
+            if terminology is None:
+                raise ValueError(f"No Terminology found with name: {terminology_name}")
+
+            self.session.query(Mapping).filter(
+                Mapping.concept_identifier.in_(
+                    self.session.query(Concept.concept_identifier).filter_by(terminology=terminology.id)
+                )
+            ).delete(synchronize_session=False)
+            self.session.query(Concept).filter_by(terminology_id=terminology.id).delete(synchronize_session=False)
+            self.session.delete(terminology)
+            self.session.commit()
+
+        except ValueError:
+            raise
+        except Exception as e:
+            self.session.rollback()
+            logger.exception(f"Failed to delete terminology: {terminology_name}")
+            raise ObjectStorageError("Failed to delete terminology from the database.", e)
+
     def get_mappings(
         self,
         terminology_name: Optional[str] = None,

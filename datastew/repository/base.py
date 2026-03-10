@@ -45,6 +45,11 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
+    def delete_terminology(self, terminology_name: str) -> None:
+        """Deletes a Terminology and its associated Concepts and Mappings."""
+        pass
+
+    @abstractmethod
     def get_mappings(
         self,
         terminology_name: Optional[str] = None,

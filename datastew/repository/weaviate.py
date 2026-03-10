@@ -254,6 +254,34 @@ class WeaviateRepository(BaseRepository):
             raise RuntimeError(f"Failed to fetch terminologies: {e}")
         return terminologies
 
+    def delete_terminology(self, terminology_name: str) -> None:
+        """Deletes a Terminology and its associated Concepts and Mappings from Weaviate.
+
+        :param terminology_name: Name of the terminology to delete.
+        :raises ValueError: If the terminology is not found.
+        :raises ObjectStorageError: If an error occurs during the deletion process.
+        """
+        try:
+            if not self._terminology_exists(terminology_name):
+                raise ValueError(f"No Terminology found with name: {terminology_name}")
+
+            mapping_collection = self.client.collections.get("Mapping")
+            mapping_collection.data.delete_many(
+                where=Filter.by_ref("hasConcept").by_ref("hasTerminology").by_property("name").equal(terminology_name)
+            )
+            concept_collection = self.client.collections.get("Concept")
+            concept_collection.data.delete_many(
+                where=Filter.by_ref("hasTerminology").by_property("name").equal(terminology_name)
+            )
+            terminology_collection = self.client.collections.get("Terminology")
+            terminology_collection.data.delete_many(where=Filter.by_property("name").equal(terminology_name))
+
+        except ValueError:
+            raise
+        except Exception as e:
+            self.logger.exception(f"Failed to delete terminology: {terminology_name}")
+            raise ObjectStorageError("Failed to delete terminology from the database.", e)
+
     def get_mappings(
         self,
         terminology_name: Optional[str] = None,
