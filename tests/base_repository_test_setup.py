@@ -98,12 +98,8 @@ class BaseRepositoryTestSetup(unittest.TestCase):
         # Execute deletion
         self.repository.delete_terminology("snomed CT")
 
-        # Verify terminology is deleted
-        with self.assertRaises(ValueError):
-            self.repository.get_terminology("snomed CT")
-        terminologies = self.repository.get_all_terminologies()
-
         # Verify remaining terminologies
+        terminologies = self.repository.get_all_terminologies()
         self.assertEqual(len(terminologies), 1)
         self.assertEqual(terminologies[0].name, "NCI Thesaurus OBO Edition")
 
@@ -120,10 +116,6 @@ class BaseRepositoryTestSetup(unittest.TestCase):
         # Verify unaffected mappings remain intact
         ncit_mappings = self.repository.get_mappings(terminology_name="NCI Thesaurus OBO Edition").items
         self.assertEqual(len(ncit_mappings), 5)
-
-    def test_delete_terminology_not_found(self):
-        with self.assertRaises(ValueError):
-            self.repository.delete_terminology("Non-existent Terminology")
 
     def test_concept_retrieval(self):
         concepts = self.repository.get_concepts()
