@@ -7,7 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from datastew.embedding import Vectorizer
-from datastew.repository import PostgreSQLRepository, SQLLiteRepository
+from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import Concept, Mapping, Terminology
 
 
@@ -69,7 +69,7 @@ class SQLJsonlConverter:
 
         self._buffer.clear()
 
-    def from_repository(self, repository: Union[PostgreSQLRepository, SQLLiteRepository]):
+    def from_repository(self, repository: PostgreSQLRepository):
         """Export all records from a PostgreSQLRepository to JSONL files
 
         :param repository: Active database repository instace.

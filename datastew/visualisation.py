@@ -10,7 +10,7 @@ from sklearn.manifold import TSNE
 
 from datastew.embedding import Vectorizer
 from datastew.process.parsing import DataDictionarySource
-from datastew.repository.base import BaseRepository
+from datastew.repository.postgresql import PostgreSQLRepository
 
 
 def enrichment_plot(acc_gpt, acc_mpnet, acc_fuzzy, title, save_plot=False, save_dir="resources/results/plots"):
@@ -88,7 +88,7 @@ def bar_chart_average_acc_two_distributions(
 
 
 def get_plot_for_current_database_state(
-    repository: BaseRepository,
+    repository: PostgreSQLRepository,
     terminology: Optional[str] = None,
     sentence_embedder: Optional[str] = None,
     limit: int = 1000,

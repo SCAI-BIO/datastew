@@ -5,8 +5,8 @@ from typing import List, Tuple
 import requests
 
 from datastew.embedding import Vectorizer
-from datastew.repository.base import BaseRepository
 from datastew.repository.model import Concept, Mapping, Terminology
+from datastew.repository.postgresql import PostgreSQLRepository
 
 
 class OLSTerminologyImportTask:
@@ -83,7 +83,7 @@ class OLSTerminologyImportTask:
             logging.error(f"Failed to fetch concepts and descriptions from OLS for page {page}: {str(e)}")
             return [], []
 
-    def process_to_repository(self, repository: BaseRepository):
+    def process_to_repository(self, repository: PostgreSQLRepository):
         """
         Fetches concepts and descriptions from the OLS API and stores them in a repository.
 
