@@ -62,6 +62,8 @@ class Terminology(Base):
     id = Column(String, primary_key=True)
     name = Column(String)
 
+    concepts = relationship("Concept", back_populates="terminlogy", cascade="all, delete-orphan")
+
     def __init__(self, name: str, id: str):
         self.name = name
         self.id = id
@@ -72,7 +74,9 @@ class Concept(Base):
     concept_identifier = Column(String, primary_key=True)
     pref_label = Column(String)
     terminology_id = Column(String, ForeignKey("terminology.id"))
-    terminology = relationship("Terminology")
+
+    terminology = relationship("Terminology", back_populates="concepts")
+    mappings = relationship("Mapping", back_populates="concept", cascade="all, delete-orphan")
 
     def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: Optional[str] = None):
         self.terminology = terminology
@@ -88,7 +92,8 @@ class Mapping(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     concept_identifier = Column(String, ForeignKey("concept.concept_identifier"))
-    concept = relationship("Concept")
+
+    concept = relationship("Concept", back_populates="mappings")
     text = Column(Text)
     embedding = Column(VectorType)
     sentence_embedder = Column(Text)
