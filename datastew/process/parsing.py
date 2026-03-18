@@ -78,7 +78,7 @@ class Source(ABC):
         for df in dfs:
             # Replace control sequences in string columns / headers & remove trailing whitespaces
             df.columns = df.columns.str.replace("\r", "", regex=True).str.strip()
-            string_columns = df.select_dtypes(include=["object", "str"]).columns
+            string_columns = df.select_dtypes(include=["object"]).columns
             df[string_columns] = df[string_columns].apply(lambda x: x.str.replace("\r", "").str.strip(), axis=1)
         return pd.concat(dfs, ignore_index=True)
 
