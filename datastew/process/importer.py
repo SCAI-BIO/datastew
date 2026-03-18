@@ -66,7 +66,11 @@ class PostgreSQLImporter:
             raise RuntimeError(f"Failed to import data dictionary source: {e}")
 
     def import_from_jsonl(
-        self, jsonl_path: str, object_type: Literal["terminology", "concept", "mapping"], chunk_size: int = 50000
+        self,
+        jsonl_path: str,
+        object_type: Literal["terminology", "concept", "mapping"],
+        chunk_size: int = 50000,
+        generate_embeddings: bool = False,
     ):
         """Imports data from a JSONL file and stores it in the database via staging tables."""
         if not os.path.exists(jsonl_path):
@@ -77,7 +81,7 @@ class PostgreSQLImporter:
         elif object_type == "concept":
             self._import_concept_staging(jsonl_path, chunk_size)
         elif object_type == "mapping":
-            self._import_mapping_staging(jsonl_path, chunk_size)
+            self._import_mapping_staging(jsonl_path, chunk_size, generate_embeddings)
         else:
             raise ValueError(f"Unsupported object_type: {object_type}")
 
@@ -174,7 +178,11 @@ class PostgreSQLImporter:
             )
             conn.execute(text("DROP TABLE staging_concept"))
 
-    def _import_mapping_staging(self, jsonl_path: str, chunk_size: int):
+    def _import_mapping_staging(self, jsonl_path: str, chunk_size: int = 2048, generate_embeddings: bool = False):
+        """Loads mappings, generates embeddings in bulk, and inserts via staging table."""
+        # Cap chunk size for LLM limits only if generating embeddings
+        effective_chunk_size = min(chunk_size, 2048)
+
         with self.engine.begin() as conn:
             conn.execute(
                 text(
@@ -190,38 +198,30 @@ class PostgreSQLImporter:
             )
             conn.execute(text("TRUNCATE staging_mapping"))
 
-            def process_mapping(data: dict[str, Any]) -> dict[str, Any]:
-                embedding = data.get("embedding")
-                embedder = data.get("sentence_embedder")
+            buffer = []
+            with open(jsonl_path, "r", encoding="utf-8") as file:
+                for line in file:
+                    if not line.strip():
+                        continue
+                    data = json.loads(line)
+                    self._validate_required_fields(data, ["concept_identifier", "text"], "mapping")
 
-                if (embedding is None or embedder is None) and self.vectorizer:
-                    embedding = self.vectorizer.get_embedding(data["text"])
-                    embedder = self.vectorizer.model_name
+                    if not generate_embeddings and ("embedding" not in data or "sentence_embedder" not in data):
+                        raise ValueError(
+                            "generate_embeddings is False, but 'embedding' or 'sentence_embedder' "
+                            f"is missing in row: {data.get('concept_identifier')}"
+                        )
 
-                embedding_str = str(embedding) if embedding else None
+                    buffer.append(data)
 
-                return {
-                    "concept_identifier": data["concept_identifier"],
-                    "text": data["text"],
-                    "embedding": embedding_str,
-                    "sentence_embedder": embedder,
-                }
+                    if len(buffer) >= effective_chunk_size:
+                        self._embed_and_insert_mapping_chunk(conn, buffer, generate_embeddings)
+                        buffer.clear()
 
-            insert_query = """
-                INSERT INTO staging_mapping (concept_identifier, text, embedding, sentence_embedder)
-                VALUES (:concept_identifier, :text, CAST(:embedding AS vector(768)), :sentence_embedder)
-            """
+                if buffer:
+                    self._embed_and_insert_mapping_chunk(conn, buffer, generate_embeddings)
 
-            self._load_and_insert_staging(
-                conn=conn,
-                jsonl_path=jsonl_path,
-                chunk_size=chunk_size,
-                object_type="mapping",
-                required_keys=["concept_identifier", "text"],
-                insert_query=insert_query,
-                row_processor=process_mapping,
-            )
-
+            # Resolve FKs and Upsert to Final Table
             conn.execute(
                 text(
                     """
@@ -235,6 +235,44 @@ class PostgreSQLImporter:
                 )
             )
             conn.execute(text("DROP TABLE staging_mapping"))
+
+    def _embed_and_insert_mapping_chunk(self, conn, buffer: list[dict[str, Any]], generate_embeddings: bool):
+        """Executes LLM batch inference if flagged, then executes the staging insert."""
+        if generate_embeddings:
+            if not self.vectorizer:
+                raise ValueError("generate_embeddings is True, but no vectorizer was provided.")
+
+            texts = [item["text"] for item in buffer]
+            embeddings = self.vectorizer.get_embeddings(texts)
+            embedder_name = self.vectorizer.model_name
+
+            if len(embeddings) != len(buffer):
+                raise RuntimeError(f"LLM returned {len(embeddings)} embeddings for {len(buffer)} texts.")
+
+            for item, emb in zip(buffer, embeddings):
+                item["embedding"] = emb
+                item["sentence_embedder"] = embedder_name
+
+        insert_data = []
+        for item in buffer:
+            insert_data.append(
+                {
+                    "concept_identifier": item["concept_identifier"],
+                    "text": item["text"],
+                    "embedding": str(item["embedding"]),
+                    "sentence_embedder": item["sentence_embedder"],
+                }
+            )
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO staging_mapping (concept_identifier, text, embedding, sentence_embedder)
+                VALUES (:concept_identifier, :text, CAST(:embedding AS vector(768)), :sentence_embedder)
+                """
+            ),
+            insert_data,
+        )
 
     def _validate_required_fields(
         self, data: dict[str, Any], required_keys: list[str], object_type: Literal["terminology", "concept", "mapping"]
