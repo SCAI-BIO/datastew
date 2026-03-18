@@ -33,7 +33,7 @@ df.to_excel("result.xlxs")
 The resulting file contains the pairwise variable mapping based on the closest similarity for all possible matches
 as well as a similarity measure per row.
 
-Per default this will use the local MiniLM model, which may not yield the optimal performance. If you got an OpenAI API
+Per default this will use the local MPNet model, which may not yield the optimal performance. If you got an OpenAI API
 key it is possible to use their embedding API instead. To use your key, create a Vectorizer model and pass it to the
 function:
 
