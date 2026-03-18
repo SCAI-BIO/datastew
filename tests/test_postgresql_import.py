@@ -3,26 +3,27 @@ import os
 import random
 import shutil
 import tempfile
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 from unittest import TestCase
 
+from datastew.process.importer import PostgreSQLImporter
 from datastew.repository.postgresql import PostgreSQLRepository
 
 
-class TestWeaviateRepositoryImport(TestCase):
-
+class TestPostgreSQLImporter(TestCase):
     def setUp(self) -> None:
         POSTGRES_TEST_URL = os.getenv("TEST_POSTGRES_URI", "postgresql://testuser:testpass@localhost/testdb")
         self.repository = PostgreSQLRepository(POSTGRES_TEST_URL)
         self.repository.clear_all()
+        self.importer = PostgreSQLImporter(self.repository)
         self.temp_dir = tempfile.mkdtemp()
 
         # Sample data for JSONL files
         self.data_files = {
-            "terminology": [{"id": "import_test", "name": "import_test"}],
+            "terminology": [{"name": "import_test", "short_name": "import_test"}],
             "concept": [
-                {"concept_identifier": "import_test:G", "pref_label": "G", "terminology_id": "import_test"},
-                {"concept_identifier": "import_test:H", "pref_label": "H", "terminology_id": "import_test"},
+                {"concept_identifier": "import_test:G", "pref_label": "G", "terminology_short_name": "import_test"},
+                {"concept_identifier": "import_test:H", "pref_label": "H", "terminology_short_name": "import_test"},
             ],
             "mapping": [
                 {
@@ -45,18 +46,17 @@ class TestWeaviateRepositoryImport(TestCase):
             self.write_jsonl(os.path.join(self.temp_dir, f"{key}.jsonl"), data)
 
     @staticmethod
-    def write_jsonl(file_path: str, data: List[Dict[str, Any]]):
+    def write_jsonl(file_path: str, data: list[dict[str, Any]]):
         """Write data to a JSONL file."""
-        with open(file_path, "w") as file:
+        with open(file_path, "w", encoding="utf-8") as file:
             for obj in data:
-                json.dump(obj, file)
-                file.write("\n")
+                file.write(json.dumps(obj) + "\n")
 
-    def import_data(self, data_types: List[Literal["terminology", "concept", "mapping"]]):
+    def import_data(self, data_types: list[Literal["terminology", "concept", "mapping"]]):
         """Helper method to import multiple data types."""
         for data_type in data_types:
             file_path = os.path.join(self.temp_dir, f"{data_type}.jsonl")
-            self.repository.import_from_jsonl(file_path, data_type)
+            self.importer.import_from_jsonl(file_path, data_type)
 
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -67,10 +67,12 @@ class TestWeaviateRepositoryImport(TestCase):
         terminology = self.repository.get_all_terminologies()
 
         self.assertEqual(len(terminology), 1)
-        with self.subTest("Terminology ID"):
-            self.assertEqual(terminology[0].id, "import_test")
+        with self.subTest("Terminology Short Name"):
+            self.assertEqual(terminology[0].short_name, "import_test")
         with self.subTest("Terminology Name"):
             self.assertEqual(terminology[0].name, "import_test")
+        with self.subTest("Terminology ID is Integer"):
+            self.assertIsInstance(terminology[0].id, int)
 
     def test_import_concepts(self):
         self.import_data(["terminology", "concept"])
@@ -97,7 +99,10 @@ class TestWeaviateRepositoryImport(TestCase):
             with self.subTest(f"Sentence Embedder for {mapping.text}"):
                 self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
             with self.subTest(f"Vector Length for {mapping.text}"):
-                self.assertEqual(len(mapping.embedding), 768)
+                embedding = mapping.embedding
+                self.assertIsNotNone(embedding)
+                assert embedding is not None
+                self.assertEqual(len(embedding), 768)
             with self.subTest(f"Concept Reference for Mapping {mapping.text}"):
                 expected_label = "G" if mapping.text == "pancreas" else "H"
                 self.assertEqual(mapping.concept.pref_label, expected_label)
@@ -108,19 +113,20 @@ class TestWeaviateRepositoryImport(TestCase):
             file.write("{ invalid jsonl }")
 
         with self.assertRaises(ValueError):
-            self.repository.import_from_jsonl(invalid_file, "terminology")
+            self.importer.import_from_jsonl(invalid_file, "terminology")
 
-    def test_import_missing_id(self):
-        file_path = os.path.join(self.temp_dir, "missing_id.jsonl")
+    def test_import_missing_required_field(self):
+        file_path = os.path.join(self.temp_dir, "missing_required.jsonl")
+        # Missing 'short_name'
         self.write_jsonl(file_path, [{"name": "missing_id"}])
 
         with self.assertRaises(ValueError):
-            self.repository.import_from_jsonl(file_path, "terminology")
+            self.importer.import_from_jsonl(file_path, "terminology")
 
     def test_import_empty_file(self):
         empty_file = os.path.join(self.temp_dir, "empty.jsonl")
         open(empty_file, "w").close()
 
-        self.repository.import_from_jsonl(empty_file, "terminology")
+        self.importer.import_from_jsonl(empty_file, "terminology")
         terminology = self.repository.get_all_terminologies()
         self.assertEqual(len(terminology), 0)

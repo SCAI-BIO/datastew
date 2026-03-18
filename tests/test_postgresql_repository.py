@@ -1,11 +1,11 @@
 import os
 import unittest
-from typing import List, Tuple
 
 from datastew.embedding import Vectorizer
+from datastew.process.importer import PostgreSQLImporter
 from datastew.process.jsonl_adapter import SQLJsonlConverter
 from datastew.process.parsing import DataDictionarySource
-from datastew.repository import Concept, Mapping, Terminology
+from datastew.repository.model import MappingResult
 from datastew.repository.postgresql import PostgreSQLRepository
 
 
@@ -13,7 +13,6 @@ class TestPostgreSQLRepository(unittest.TestCase):
     """Tests for the PostgreSQL repository backend."""
 
     POSTGRES_TEST_URL = os.getenv("TEST_POSTGRES_URI", "postgresql://testuser:testpass@localhost/testdb")
-
     TEST_CONCEPTS = [
         ("Diabetes mellitus (disorder)", "Concept ID: 11893007", "v1"),
         ("Hypertension (disorder)", "Concept ID: 73211009", "v2"),
@@ -41,6 +40,7 @@ class TestPostgreSQLRepository(unittest.TestCase):
         cls.repo_args = (cls.POSTGRES_TEST_URL, cls.vectorizer1)
         cls.repository = PostgreSQLRepository(*cls.repo_args)
         cls.jsonl_converter = SQLJsonlConverter(dest_dir="test_export")
+        cls.importer = PostgreSQLImporter(cls.repository)
 
     @classmethod
     def tearDownClass(cls):
@@ -56,45 +56,33 @@ class TestPostgreSQLRepository(unittest.TestCase):
         """Clear the repo and re-import base data"""
         self.repository.clear_all()
 
-        self.terminology1 = Terminology("snomed CT", "SNOMED")
-        self.terminology2 = Terminology("NCI Thesaurus OBO Edition", "NCIT")
+        term1 = self.repository.add_terminology("snomed CT", "SNOMED")
+        term2 = self.repository.add_terminology("NCI Thesaurus OBO Edition", "NCIT")
 
-        self.concepts_mappings: List[Tuple[Concept, Mapping]] = []
         for i, (label, cid, vkey) in enumerate(self.TEST_CONCEPTS):
-            terminology = self.terminology1 if i < 6 else self.terminology2
+            term = term1 if i < 6 else term2
             vectorizer = self.vectorizer1 if vkey == "v1" else self.vectorizer2
-            concept, mapping = self._create_concept_and_mapping(terminology, label, cid, vectorizer)
-            self.concepts_mappings.append((concept, mapping))
 
-        # Store fresh objects in repo
-        self.repository.store_all(
-            [self.terminology1, self.terminology2]
-            + [c for c, _ in self.concepts_mappings]
-            + [m for _, m in self.concepts_mappings]
-        )
+            concept = self.repository.add_concept(terminology_id=term.id, pref_label=label, concept_identifier=cid)
 
-    def _create_concept_and_mapping(self, terminology: Terminology, label: str, cid: str, vectorizer: Vectorizer):
-        concept = Concept(terminology, label, cid)
-        mapping = Mapping(
-            concept,
-            label,
-            vectorizer.get_embedding(label),
-            vectorizer.model_name,
-        )
-        return concept, mapping
+            embedding = vectorizer.get_embedding(label)
+            self.repository.add_mapping(
+                concept_id=concept.id, text=label, embedding=embedding, sentence_embedder=vectorizer.model_name
+            )
 
-    # Shared test logic (repository must be set in the subclass)
     def test_terminology_retrieval(self):
-        terminology = self.repository.get_terminology("snomed CT")
+        terminology = self.repository.get_terminology_by_name("snomed CT")
         terminologies = self.repository.get_all_terminologies()
         names = [t.name for t in terminologies]
+
         self.assertEqual(terminology.name, "snomed CT")
         self.assertIn("NCI Thesaurus OBO Edition", names)
         self.assertIn("snomed CT", names)
 
     def test_concept_retrieval(self):
         concepts = self.repository.get_concepts()
-        concept = self.repository.get_concept("Concept ID: 11893007")
+        concept = self.repository.get_concept_by_identifier("Concept ID: 11893007")
+
         self.assertEqual(concept.concept_identifier, "Concept ID: 11893007")
         self.assertEqual(concept.pref_label, "Diabetes mellitus (disorder)")
         self.assertEqual(concept.terminology.name, "snomed CT")
@@ -111,65 +99,86 @@ class TestPostgreSQLRepository(unittest.TestCase):
 
     def test_closest_mappings(self):
         embedding = self.vectorizer1.get_embedding(self.test_text)
+        assert embedding is not None
         closest = self.repository.get_closest_mappings(embedding)
+
         self.assertEqual(len(closest), 5)
-        self.assertEqual(closest[0].mapping.text, "Common cold")
-        self.assertEqual(closest[0].mapping.sentence_embedder, self.model_name1)
+
+        result = closest[0]
+        assert isinstance(result, MappingResult)
+
+        self.assertEqual(result.mapping.text, "Common cold")
+        self.assertEqual(result.mapping.sentence_embedder, self.model_name1)
 
     def test_terminology_and_model_specific_mappings(self):
         embedding = self.vectorizer1.get_embedding(self.test_text)
-        mappings = self.repository.get_closest_mappings(
+        closest = self.repository.get_closest_mappings(
             embedding, terminology_name="snomed CT", sentence_embedder=self.model_name1
         )
-        self.assertEqual(len(mappings), 4)
-        self.assertEqual(mappings[0].mapping.text, "Asthma")
+        self.assertEqual(len(closest), 4)
+
+        result = closest[0]
+        assert isinstance(result, MappingResult)
+
+        self.assertEqual(result.mapping.text, "Asthma")
 
     def test_closest_mappings_with_similarities(self):
         embedding = self.vectorizer1.get_embedding(self.test_text)
-        mappings = self.repository.get_closest_mappings(embedding)
-        self.assertAlmostEqual(mappings[0].similarity, 0.6747197, 3)
+        assert embedding is not None
+        closest = self.repository.get_closest_mappings(embedding)
+
+        result = closest[0]
+        assert isinstance(result, MappingResult)
+
+        self.assertAlmostEqual(result.similarity, 0.6747197, places=3)
 
     def test_closest_mapping_with_similarity_for_identical_entry(self):
         embedding = self.vectorizer1.get_embedding("Cancer")
-        mappings = self.repository.get_closest_mappings(embedding)
-        self.assertEqual(mappings[0].mapping.text, "Cancer")
-        self.assertAlmostEqual(mappings[0].similarity, 1.0, 3)
+        assert embedding is not None
+        closest = self.repository.get_closest_mappings(embedding)
+
+        result = closest[0]
+        assert isinstance(result, MappingResult)
+
+        self.assertEqual(result.mapping.text, "Cancer")
+        self.assertAlmostEqual(result.similarity, 1.0, places=3)
 
     def test_terminology_and_model_specific_mappings_with_similarities(self):
         embedding = self.vectorizer1.get_embedding(self.test_text)
-        mappings = self.repository.get_closest_mappings(embedding, True, "snomed CT", self.model_name1)
-        self.assertEqual(len(mappings), 4)
-        self.assertEqual(mappings[0].mapping.text, "Asthma")
-        self.assertAlmostEqual(mappings[0].similarity, 0.3947341, 3)
+        assert embedding is not None
+        closest = self.repository.get_closest_mappings(embedding, True, "snomed CT", self.model_name1)
+
+        self.assertEqual(len(closest), 4)
+
+        result = closest[0]
+        assert isinstance(result, MappingResult)
+
+        self.assertEqual(result.mapping.text, "Asthma")
+        self.assertAlmostEqual(result.similarity, 0.3947341, places=3)
 
     def test_import_data_dictionary(self):
         path = os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv")
         source = DataDictionarySource(path, "VAR_1", "DESC")
-        self.repository.import_data_dictionary(source, terminology_name="import_test")
 
-        terminology = self.repository.get_terminology("import_test")
+        self.importer.import_data_dictionary(source, terminology_name="import_test", short_name="IMPORT")
+
+        terminology = self.repository.get_terminology_by_name("import_test")
         self.assertEqual("import_test", terminology.name)
 
-        mappings = self.repository.get_mappings("import_test").items
+        mappings = self.repository.get_mappings(terminology_name="import_test").items
         texts = [m.text for m in mappings]
         df = source.to_dataframe()
+
         for row in df.itertuples(index=False):
             cid = f"import_test:{row.variable}"
-            concept = self.repository.get_concept(cid)
+            concept = self.repository.get_concept_by_identifier(cid)
             self.assertEqual(concept.pref_label, row.variable)
             self.assertIn(row.description, texts)
 
     def test_repository_restart(self):
-        # Re-instantiate the repository class using optional repo_args
         repo_class = type(self.repository)
         args = getattr(self, "repo_args", ())
         repo = repo_class(*args)
-
-        repo.store_all(
-            [self.terminology1, self.terminology2]
-            + [c for c, _ in self.concepts_mappings]
-            + [m for _, m in self.concepts_mappings]
-        )
 
         mappings = repo.get_mappings(limit=5).items
         self.assertEqual(len(mappings), 5)

@@ -1,6 +1,7 @@
+import json
 import logging
 import os
-from typing import List, Tuple
+from typing import Sequence, Tuple
 
 import requests
 
@@ -14,22 +15,44 @@ class OLSTerminologyImportTask:
     def __init__(
         self,
         vectorizer: Vectorizer,
-        ontology_name: str,
         ontology_id: str,
         ols_api_base_url: str = "https://www.ebi.ac.uk/ols4/api/",
         page_size: int = 200,
-        use_weaviate_vectorizer: bool = False,
     ):
         logging.getLogger().setLevel(logging.INFO)
         self.vectorizer = vectorizer
         self.ontology_id = ontology_id
-        self.ontology_name = ontology_name
-        self.terminology = Terminology(self.ontology_name, self.ontology_id)
         self.OLS_BASE_URL = ols_api_base_url
         self.page_size = page_size
-        self.use_weaviate_vectorizer = use_weaviate_vectorizer
+
+        self.ontology_name = self.get_ontology_name()
+        self.ontology_short_name = self.get_ontology_short_name()
         self.num_pages = self.get_number_of_pages()
         self.current_page = 0
+
+    def get_ontology_name(self) -> str:
+        url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+            return data["config"]["title"]
+        except Exception as e:
+            logging.error(f"Failed to fetch ontology name from OLS: {str(e)}")
+            raise
+
+    def get_ontology_short_name(self) -> str:
+        url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+            return data["config"].get(
+                "preferredPrefix", data["config"].get("prefferedPrefix", self.ontology_id.upper())
+            )
+        except Exception as e:
+            logging.error(f"Failed to fetch ontology short name from OLS: {str(e)}")
+            raise
 
     def get_number_of_pages(self) -> int:
         url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?size={self.page_size}"
@@ -40,48 +63,7 @@ class OLSTerminologyImportTask:
             return data["page"]["totalPages"]
         except Exception as e:
             logging.error(f"Failed to fetch concepts and descriptions from OLS: {str(e)}")
-            return 0
-
-    def __process_page(self, page: int) -> Tuple[List[Concept], List[Mapping]]:
-        url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?page={page}&size={self.page_size}"
-        logging.info(f"Processing page {self.current_page}/{self.num_pages}.")
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            terms = data["_embedded"]["terms"]
-            identifiers = [term["obo_id"] for term in terms]
-            labels = [term["label"] for term in terms]
-            descriptions = []
-            for term in terms:
-                description = term.get("description")
-                if isinstance(description, list) and description:
-                    descriptions.append(description[0])
-                elif isinstance(description, str) and description:
-                    descriptions.append(description)
-                else:
-                    descriptions.append(term["label"])
-            if not self.use_weaviate_vectorizer:
-                embeddings = self.vectorizer.get_embeddings(descriptions)
-                model_name = self.vectorizer.model_name
-            concepts = []
-            mappings = []
-            if not self.use_weaviate_vectorizer:
-                for identifier, label, description, embedding in zip(identifiers, labels, descriptions, embeddings):
-                    concept = Concept(self.terminology, label, identifier)
-                    concepts.append(concept)
-                    mapping = Mapping(concept, description, embedding, model_name)
-                    mappings.append(mapping)
-            else:
-                for identifier, label, description in zip(identifiers, labels, descriptions):
-                    concept = Concept(self.terminology, label, identifier)
-                    concepts.append(concept)
-                    mapping = Mapping(concept, description)
-                    mappings.append(mapping)
-            return concepts, mappings
-        except Exception as e:
-            logging.error(f"Failed to fetch concepts and descriptions from OLS for page {page}: {str(e)}")
-            return [], []
+            raise
 
     def process_to_repository(self, repository: PostgreSQLRepository):
         """
@@ -92,31 +74,115 @@ class OLSTerminologyImportTask:
         :return: None
         """
         # init terminology
-        repository.store(self.terminology)
-        # index starts at 0
-        while self.current_page < self.num_pages - 1:
-            concepts, mappings = self.__process_page(self.current_page)
-            # concepts have to be stored always first before the corresponding mappings
-            for idx, concept in enumerate(concepts):
-                repository.store(concept)
-                repository.store(mappings[idx])
-            self.current_page += 1
+        repository.store([Terminology(name=self.ontology_name, short_name=self.ontology_short_name)])
+        term_db = repository.get_terminology_by_name(self.ontology_name)
+
+        while self.current_page < self.num_pages:
+            identifiers, labels, descriptions, embeddings = self._fetch_page_data(self.current_page)
+
+            if not identifiers:
+                self.current_page += 1
+                continue
+
+            concepts = []
+            for identifier, label in zip(identifiers, labels):
+                concepts.append(
+                    Concept(
+                        terminology_id=term_db.id,
+                        pref_label=label,
+                        concept_identifier=f"{self.ontology_short_name}:{identifier}",
+                    )
+                )
+                repository.store(concepts)
+
+                concept_identifiers = [c.concept_identifier for c in concepts]
+                saved_concepts = (
+                    repository.session.query(Concept.id, Concept.concept_identifier)
+                    .filter(Concept.concept_identifier.in_(concept_identifiers), Concept.terminology_id == term_db.id)
+                    .all()
+                )
+                concept_map = {identifier: c_id for c_id, identifier in saved_concepts}
+
+                mappings = []
+                model_name = self.vectorizer.model_name
+                for identifier, description, embedding in zip(identifiers, descriptions, embeddings):
+                    cid_str = f"{self.ontology_short_name}:{identifier}"
+                    if cid_str in concept_map:
+                        mappings.append(
+                            Mapping(
+                                concept_id=concept_map[cid_str],
+                                text=description,
+                                embedding=embedding,
+                                sentence_embedder=model_name,
+                            )
+                        )
+                repository.store(mappings)
 
     def process_to_json(self, dest_path: str):
         """
         Fetches concepts and descriptions from the OLS API and stores them in a JSON file.
         """
         os.makedirs(dest_path, exist_ok=True)
+        terminology_data = {"name": self.ontology_name, "short_name": self.ontology_short_name}
         # start with the terminology
-        with open(f"{dest_path}/terminology.json", "w") as f:
-            f.write(self.terminology.to_json())
+        with open(f"{dest_path}/terminology.json", "w", encoding="utf-8") as f:
+            json.dump(terminology_data, f, indent=2)
         # for each page
-        while self.current_page < self.num_pages - 1:
-            concepts, mappings = self.__process_page(self.current_page)
-            with open(f"{dest_path}/concepts_{self.current_page}.json", "w") as f:
-                for concept in concepts:
-                    f.write(concept.to_json())
-            with open(f"{dest_path}/mappings_{self.current_page}.json", "w") as f:
-                for mapping in mappings:
-                    f.write(mapping.to_json())
+        while self.current_page < self.num_pages:
+            identifiers, labels, descriptions, embeddings = self._fetch_page_data(self.current_page)
+
+            concepts = []
+            mappings = []
+            for identifier, label, desc, emb in zip(identifiers, labels, descriptions, embeddings):
+                cid = f"{self.ontology_short_name}:{identifier}"
+                concepts.append(
+                    {
+                        "concept_identifier": cid,
+                        "pref_label": label,
+                        "terminology_short_name": self.ontology_short_name,
+                    }
+                )
+                mappings.append(
+                    {
+                        "concept_identifier": cid,
+                        "text": desc,
+                        "embedding": emb,
+                        "sentence_embedder": self.vectorizer.model_name,
+                    }
+                )
+
+            with open(os.path.join(dest_path, f"concepts_{self.current_page}.json"), "w", encoding="utf-8") as f:
+                json.dump(concepts, f, indent=2)
+            with open(os.path.join(dest_path, f"mappings_{self.current_page}.json"), "w", encoding="utf-8") as f:
+                json.dump(mappings, f, indent=2)
+
             self.current_page += 1
+
+    def _fetch_page_data(self, page: int) -> Tuple[list[str], list[str], list[str], Sequence[Sequence[float]]]:
+        url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?page={page}&size={self.page_size}"
+        logging.info(f"Processing page {self.current_page}/{self.num_pages}.")
+
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+            terms = data.get("_embedded", {}).get("terms", [])
+
+            identifiers = [term["obo_id"] for term in terms]
+            labels = [term["label"] for term in terms]
+            descriptions = []
+
+            for term in terms:
+                description = term.get("description")
+                if isinstance(description, list) and description:
+                    descriptions.append(description[0])
+                elif isinstance(description, str) and description:
+                    descriptions.append(description)
+                else:
+                    descriptions.append(term["label"])
+
+            embeddings = self.vectorizer.get_embeddings(descriptions)
+            return identifiers, labels, descriptions, embeddings
+        except Exception as e:
+            logging.error(f"Failed to fetch concepts and descriptions from OLS for page {page}: {str(e)}")
+            raise
