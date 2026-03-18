@@ -6,8 +6,8 @@ from typing import Sequence, Tuple
 import requests
 
 from datastew.embedding import Vectorizer
+from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import Concept, Mapping, Terminology
-from datastew.repository.postgresql import PostgreSQLRepository
 
 
 class OLSTerminologyImportTask:

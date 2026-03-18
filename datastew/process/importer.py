@@ -6,8 +6,8 @@ from typing import Any, Callable, Literal
 from sqlalchemy import text
 
 from datastew.process.parsing import DataDictionarySource
+from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import Concept, Mapping, Terminology
-from datastew.repository.postgresql import PostgreSQLRepository
 
 logger = logging.getLogger(__name__)
 

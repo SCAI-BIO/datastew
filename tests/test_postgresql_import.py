@@ -8,7 +8,7 @@ from unittest import TestCase
 
 from datastew.process.importer import PostgreSQLImporter
 from datastew.process.parsing import DataDictionarySource
-from datastew.repository.postgresql import PostgreSQLRepository
+from datastew.repository import PostgreSQLRepository
 
 
 class TestPostgreSQLImporter(TestCase):

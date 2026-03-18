@@ -3,8 +3,8 @@ import unittest
 
 from datastew.embedding import Vectorizer
 from datastew.process.jsonl_adapter import SQLJsonlConverter
+from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import MappingResult
-from datastew.repository.postgresql import PostgreSQLRepository
 
 
 class TestPostgreSQLRepository(unittest.TestCase):
