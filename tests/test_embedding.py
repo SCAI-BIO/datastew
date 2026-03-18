@@ -2,7 +2,8 @@ import unittest
 from typing import Sequence
 from unittest.mock import patch
 
-from datastew.embedding import _GLOBAL_CACHES, HuggingFaceAdapter
+from datastew.embedding.base import _GLOBAL_CACHES
+from datastew.embedding.hugging_face import HuggingFaceAdapter
 
 
 class TestEmbedding(unittest.TestCase):
