@@ -1,9 +1,5 @@
 from typing import List, Literal, Optional
 
-from datastew.embedding.hugging_face import HuggingFaceAdapter
-from datastew.embedding.ollama import OllamaAdapter
-from datastew.embedding.openai import GPT4Adapter
-
 SupportedModel = Literal[
     "sentence-transformers/all-MiniLM-L6-v2",
     "sentence-transformers/all-mpnet-base-v2",
@@ -33,23 +29,36 @@ class Vectorizer:
         self.model = self.initialize_model(model, api_key, host, cache)
         self.model_name = self.model.model_name
 
-    def initialize_model(self, model: str, api_key: Optional[str], host: str, cache: bool):
-        if model == "sentence-transformers/all-MiniLM-L6-v2":
+    def initialize_model(self, model: SupportedModel, api_key: Optional[str], host: str, cache: bool):
+        if model in [
+            "sentence-transformers/all-MiniLM-L6-v2",
+            "sentence-transformers/all-mpnet-base-v2",
+            "FremyCompany/BioLORD-2023",
+        ]:
+            from datastew.embedding.hugging_face import HuggingFaceAdapter
+
             return HuggingFaceAdapter(model, cache)
-        elif model == "sentence-transformers/all-mpnet-base-v2":
-            return HuggingFaceAdapter(model, cache)
-        elif model == "FremyCompany/BioLORD-2023":
-            return HuggingFaceAdapter(model, cache)
-        elif model == "text-embedding-ada-002" and api_key:
+
+        elif (
+            model
+            in [
+                "text-embedding-ada-002",
+                "text-embedding-3-large",
+                "text-embedding-3-small",
+            ]
+            and api_key
+        ):
+            from datastew.embedding.openai import GPT4Adapter
+
             return GPT4Adapter(api_key, model, cache)
-        elif model == "text-embedding-3-large" and api_key:
-            return GPT4Adapter(api_key, model, cache)
-        elif model == "text-embedding-3-small" and api_key:
-            return GPT4Adapter(api_key, model, cache)
+
         elif model == "nomic-embed-text":
+            from datastew.embedding.ollama import OllamaAdapter
+
             return OllamaAdapter(model, host, cache)
+
         else:
-            raise NotImplementedError(f"The model '{model}' is not supported.")
+            raise NotImplementedError(f"The model '{model}' is not supported or missing API key.")
 
     def get_embedding(self, text: str):
         return self.model.get_embedding(text)
