@@ -22,7 +22,7 @@ class Terminology(Base):
 
 class Concept(Base):
     __tablename__ = "concept"
-    __table_args__ = UniqueConstraint("terminology_id", "concept_identifier", name="uix_term_concept")
+    __table_args__ = (UniqueConstraint("terminology_id", "concept_identifier", name="uix_term_concept"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     concept_identifier: Mapped[str] = mapped_column(String, nullable=False)
@@ -36,8 +36,8 @@ class Concept(Base):
 
 class Mapping(Base):
     __tablename__ = "mapping"
-    __table_args__ = UniqueConstraint(
-        "concept_id", "sentence_embedder", "text", name="uix_mapping_concept_embedder_text"
+    __table_args__ = (
+        UniqueConstraint("concept_id", "sentence_embedder", "text", name="uix_mapping_concept_embedder_text"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
