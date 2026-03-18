@@ -328,14 +328,14 @@ class OllamaAdapter(EmbeddingModel):
 class Vectorizer:
     def __init__(
         self,
-        model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        model: str = "sentence-transformers/all-mpnet-base-v2",
         api_key: Optional[str] = None,
         host: str = "http://localhost:11434",
         cache: bool = False,
     ):
         """Initializes the Vectorizer with the specified model and settings.
 
-        :param model: The model to use for generating embeddings, defaults to sentence-transformers/all-MiniLM-L6-v2.
+        :param model: The model to use for generating embeddings, defaults to sentence-transformers/all-mpnet-base-v2.
         :param api_key: The API key for GPT-based models, defaults to None.
         :param host: The host URL for locally hosted Ollama models. defaults to http://localhost:11434.
         :param cache: Whether to enable caching for embeddings, defaults to False.
