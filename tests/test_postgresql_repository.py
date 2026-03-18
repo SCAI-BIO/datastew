@@ -2,9 +2,7 @@ import os
 import unittest
 
 from datastew.embedding import Vectorizer
-from datastew.process.importer import PostgreSQLImporter
 from datastew.process.jsonl_adapter import SQLJsonlConverter
-from datastew.process.parsing import DataDictionarySource
 from datastew.repository.model import MappingResult
 from datastew.repository.postgresql import PostgreSQLRepository
 
@@ -40,7 +38,6 @@ class TestPostgreSQLRepository(unittest.TestCase):
         cls.repo_args = (cls.POSTGRES_TEST_URL, cls.vectorizer1)
         cls.repository = PostgreSQLRepository(*cls.repo_args)
         cls.jsonl_converter = SQLJsonlConverter(dest_dir="test_export")
-        cls.importer = PostgreSQLImporter(cls.repository)
 
     @classmethod
     def tearDownClass(cls):
@@ -155,25 +152,6 @@ class TestPostgreSQLRepository(unittest.TestCase):
 
         self.assertEqual(result.mapping.text, "Asthma")
         self.assertAlmostEqual(result.similarity, 0.3947341, places=3)
-
-    def test_import_data_dictionary(self):
-        path = os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv")
-        source = DataDictionarySource(path, "VAR_1", "DESC")
-
-        self.importer.import_data_dictionary(source, terminology_name="import_test", short_name="IMPORT")
-
-        terminology = self.repository.get_terminology_by_name("import_test")
-        self.assertEqual("import_test", terminology.name)
-
-        mappings = self.repository.get_mappings(terminology_name="import_test").items
-        texts = [m.text for m in mappings]
-        df = source.to_dataframe()
-
-        for row in df.itertuples(index=False):
-            cid = f"import_test:{row.variable}"
-            concept = self.repository.get_concept_by_identifier(cid)
-            self.assertEqual(concept.pref_label, row.variable)
-            self.assertIn(row.description, texts)
 
     def test_repository_restart(self):
         repo_class = type(self.repository)

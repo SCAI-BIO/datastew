@@ -7,12 +7,15 @@ from typing import Any, Literal
 from unittest import TestCase
 
 from datastew.process.importer import PostgreSQLImporter
+from datastew.process.parsing import DataDictionarySource
 from datastew.repository.postgresql import PostgreSQLRepository
 
 
 class TestPostgreSQLImporter(TestCase):
     def setUp(self) -> None:
+
         POSTGRES_TEST_URL = os.getenv("TEST_POSTGRES_URI", "postgresql://testuser:testpass@localhost/testdb")
+        self.TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
         self.repository = PostgreSQLRepository(POSTGRES_TEST_URL)
         self.repository.clear_all()
         self.importer = PostgreSQLImporter(self.repository)
@@ -130,3 +133,22 @@ class TestPostgreSQLImporter(TestCase):
         self.importer.import_from_jsonl(empty_file, "terminology")
         terminology = self.repository.get_all_terminologies()
         self.assertEqual(len(terminology), 0)
+
+    def test_import_data_dictionary(self):
+        path = os.path.join(self.TEST_DIR_PATH, "resources", "test_data_dict.csv")
+        source = DataDictionarySource(path, "VAR_1", "DESC")
+
+        self.importer.import_data_dictionary(source, terminology_name="import_test", short_name="IMPORT")
+
+        terminology = self.repository.get_terminology_by_name("import_test")
+        self.assertEqual("import_test", terminology.name)
+
+        mappings = self.repository.get_mappings(terminology_name="import_test").items
+        texts = [m.text for m in mappings]
+        df = source.to_dataframe()
+
+        for row in df.itertuples(index=False):
+            cid = f"import_test:{row.variable}"
+            concept = self.repository.get_concept_by_identifier(cid)
+            self.assertEqual(concept.pref_label, row.variable)
+            self.assertIn(row.description, texts)
