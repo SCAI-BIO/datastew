@@ -25,7 +25,7 @@ python examples/get_closest_mappings.py
 
 from datastew.embedding import Vectorizer
 from datastew.repository import PostgreSQLRepository
-from datastew.repository.model import Concept, Mapping, MappingResult, Terminology
+from datastew.repository.model import MappingResult
 
 # --------------------------------------------------------------------
 # 1) Connect to PostgreSQL
@@ -46,17 +46,19 @@ repository = PostgreSQLRepository(connection_string, vectorizer=vectorizer)
 # --------------------------------------------------------------------
 # 2) Add a small SNOMED CT baseline
 # --------------------------------------------------------------------
-terminology = Terminology("snomed CT", "SNOMED")
+terminology = repository.add_terminology(name="snomed CT", short_name="SNOMED")
 
 text1 = "Diabetes mellitus (disorder)"
-concept1 = Concept(terminology, text1, "Concept ID: 11893007")
-mapping1 = Mapping(concept1, text1, vectorizer.get_embedding(text1), vectorizer.model_name)
+concept1 = repository.add_concept(
+    terminology_id=terminology.id, pref_label=text1, concept_identifier="Concept ID: 11893007"
+)
+repository.add_mapping(concept_id=concept1.id, text=text1)
 
 text2 = "Hypertension (disorder)"
-concept2 = Concept(terminology, text2, "Concept ID: 73211009")
-mapping2 = Mapping(concept2, text2, vectorizer.get_embedding(text2), vectorizer.model_name)
-
-repository.store_all([terminology, concept1, mapping1, concept2, mapping2])
+concept2 = repository.add_concept(
+    terminology_id=terminology.id, pref_label=text2, concept_identifier="Concept ID: 73211009"
+)
+repository.add_mapping(concept_id=concept2.id, text=text2)
 
 # --------------------------------------------------------------------
 # 3) Find closest mappings for a new phrase
@@ -70,7 +72,6 @@ results = repository.get_closest_mappings(embedding, similarities=True, limit=2)
 # --------------------------------------------------------------------
 print(f'Query: "{query_text}"\n')
 for r in results:
-    # If similarities=True, repo returns MappingResult; else Mapping.
     if isinstance(r, MappingResult):
         print(r)
     else:
