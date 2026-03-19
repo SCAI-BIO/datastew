@@ -8,7 +8,7 @@ import pandas as pd
 from datastew.io.source import DataDictionarySource, EmbeddingSource, MappingSource
 
 
-class TestParsing(TestCase):
+class TestSource(TestCase):
     TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
     def setUp(self):
@@ -40,7 +40,7 @@ class TestParsing(TestCase):
         self.assertIn("variable", df.columns)
         self.assertIn("description", df.columns)
 
-    @patch("datastew.process.parsing.Vectorizer")
+    @patch("datastew.io.source.Vectorizer")
     def test_get_embeddings(self, mock_vectorizer_class):
         mock_vectorizer = Mock()
         mock_vectorizer.get_embeddings.return_value = [[0.1 * 5]] * 11
