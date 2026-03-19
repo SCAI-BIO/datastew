@@ -19,8 +19,8 @@ csv, tsv or excel file. An example how to match two separate variable descriptio
 [datastew/scripts/mapping_excel_example.py](datastew/scripts/mapping_excel_example.py):
 
 ```python
-from datastew.process.parsing import DataDictionarySource
-from datastew.process.mapping import map_dictionary_to_dictionary
+from datastew.io.source import DataDictionarySource
+from datastew.harmonization import map_dictionary_to_dictionary
 
 # Variable and description refer to the corresponding column names in your excel sheet
 source = DataDictionarySource("source.xlxs", variable_field="var", description_field="desc")
@@ -39,7 +39,7 @@ function:
 
 ```python
 from datastew.embedding import Vectorizer
-from datastew.process.mapping import map_dictionary_to_dictionary
+from datastew.harmonization import map_dictionary_to_dictionary
 
 vectorizer = Vectorizer("text-embedding-ada-002", key="your_api_key")
 df = map_dictionary_to_dictionary(source, target, vectorizer=vectorizer)
@@ -135,7 +135,7 @@ language models. An example how to generate a t-sne plot is shown in
 
 ```python
 from datastew.embedding import Vectorizer
-from datastew.process.parsing import DataDictionarySource
+from datastew.io.source import DataDictionarySource
 from datastew.visualisation import plot_embeddings
 
 # Variable and description refer to the corresponding column names in your excel sheet

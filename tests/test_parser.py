@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pandas as pd
 
-from datastew.process.parsing import DataDictionarySource, EmbeddingSource, MappingSource
+from datastew.io.source import DataDictionarySource, EmbeddingSource, MappingSource
 
 
 class TestParsing(TestCase):

@@ -6,8 +6,8 @@ import tempfile
 from typing import Any, Literal
 from unittest import TestCase
 
-from datastew.process.importer import PostgreSQLImporter
-from datastew.process.parsing import DataDictionarySource
+from datastew.io.importer import Importer
+from datastew.io.source import DataDictionarySource
 from datastew.repository import PostgreSQLRepository
 
 
@@ -18,7 +18,7 @@ class TestPostgreSQLImporter(TestCase):
         self.TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
         self.repository = PostgreSQLRepository(POSTGRES_TEST_URL)
         self.repository.clear_all()
-        self.importer = PostgreSQLImporter(self.repository)
+        self.importer = Importer(self.repository)
         self.temp_dir = tempfile.mkdtemp()
 
         # Sample data for JSONL files

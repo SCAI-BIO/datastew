@@ -5,14 +5,14 @@ from typing import Any, Callable, Literal
 
 from sqlalchemy import text
 
-from datastew.process.parsing import DataDictionarySource
+from datastew.io.source import DataDictionarySource
 from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import Concept, Mapping, Terminology
 
 logger = logging.getLogger(__name__)
 
 
-class PostgreSQLImporter:
+class Importer:
     def __init__(self, repository: PostgreSQLRepository):
         self.repository = repository
         self.engine = repository.engine

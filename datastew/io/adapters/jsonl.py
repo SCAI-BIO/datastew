@@ -11,7 +11,7 @@ from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import Concept, Mapping, Terminology
 
 
-class SQLJsonlConverter:
+class JsonlAdapter:
     def __init__(self, dest_dir: str, buffer_size: int = 1000):
         """Initialize the converter.
 

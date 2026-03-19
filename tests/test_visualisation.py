@@ -4,7 +4,7 @@ from unittest import TestCase
 import numpy as np
 import pandas as pd
 
-from datastew.process.parsing import DataDictionarySource, MappingSource
+from datastew.io.source import DataDictionarySource, MappingSource
 from datastew.visualisation import bar_chart_average_acc_two_distributions, enrichment_plot, plot_embeddings
 
 
