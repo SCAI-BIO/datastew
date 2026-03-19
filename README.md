@@ -33,7 +33,7 @@ df.to_excel("result.xlxs")
 The resulting file contains the pairwise variable mapping based on the closest similarity for all possible matches
 as well as a similarity measure per row.
 
-Per default this will use the local MiniLM model, which may not yield the optimal performance. If you got an OpenAI API
+Per default this will use the local MPNet model, which may not yield the optimal performance. If you got an OpenAI API
 key it is possible to use their embedding API instead. To use your key, create a Vectorizer model and pass it to the
 function:
 
@@ -57,7 +57,6 @@ A simple example how to initialize an in memory database and compute a similarit
     ```python
     from datastew.embedding import Vectorizer
     from datastew.repository import PostgreSQLRepository
-    from datastew.repository.model import Concept, Mapping, MappingResult, Terminology
 
     POSTGRES_USER = "user"
     POSTGRES_PASSWORD = "password"
@@ -79,17 +78,23 @@ A simple example how to initialize an in memory database and compute a similarit
     descriptions can point to the same Concept.
 
     ```python
-    terminology = Terminology("snomed CT", "SNOMED")
+    terminology = repository.add_terminology(name="snomed CT", short_name="SNOMED")
 
     text1 = "Diabetes mellitus (disorder)"
-    concept1 = Concept(terminology, text1, "Concept ID: 11893007")
-    mapping1 = Mapping(concept1, text1, vectorizer.get_embedding(text1), vectorizer.model_name)
+    concept1 = repository.add_concept(
+        terminology_id=terminology.id,
+        pref_label=text1,
+        concept_identifier="Concept ID: 11893007"
+    )
+    repository.add_mapping(concept_id=concept1.id, text=text1)
 
     text2 = "Hypertension (disorder)"
-    concept2 = Concept(terminology, text2, "Concept ID: 73211009")
-    mapping2 = Mapping(concept2, text2, vectorizer.get_embedding(text2), vectorizer.model_name)
-
-    repository.store_all([terminology, concept1, mapping1, concept2, mapping2])
+    concept2 = repository.add_concept(
+    terminology_id=terminology.id,
+    pref_label=text2,
+    concept_identifier="Concept ID: 73211009"
+    )
+    repository.add_mapping(concept_id=concept2.id, text=text2)
     ```
 
 3.  Retrieve the closest mappings and their similarities for a given text:

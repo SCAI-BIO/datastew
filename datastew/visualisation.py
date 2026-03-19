@@ -10,7 +10,7 @@ from sklearn.manifold import TSNE
 
 from datastew.embedding import Vectorizer
 from datastew.process.parsing import DataDictionarySource
-from datastew.repository.postgresql import PostgreSQLRepository
+from datastew.repository import PostgreSQLRepository
 
 
 def enrichment_plot(acc_gpt, acc_mpnet, acc_fuzzy, title, save_plot=False, save_dir="resources/results/plots"):

@@ -83,7 +83,10 @@ class TestSQLJsonlConverter(unittest.TestCase):
             data = [json.loads(line) for line in f.readlines()]
 
         self.assertEqual(len(data), 1, "Terminology file should contain only one entry.")
-        self.assertEqual(data[0]["name"], "OHDSI", "Incorrect terminology name.")
+        self.assertEqual(
+            data[0]["name"], "Observational Health Data Sciences and Informatics", "Incorrect terminology short name."
+        )
+        self.assertEqual(data[0]["short_name"], "OHDSI", "Incorrect terminology short name.")
 
     def test_concept_file_content(self):
         """Tests the correctness of the concept.jsonl file"""

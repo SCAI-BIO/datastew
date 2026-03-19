@@ -79,22 +79,19 @@ class SQLJsonlConverter:
         # Export Terminologies
         terminology_file_path = self._get_file_path("terminology")
         for t in tqdm(session.query(Terminology).all(), desc="Exporting Terminologies"):
-            terminology = self._object_to_dict(t)
-            self._write_to_jsonl(terminology_file_path, terminology)
+            self._write_to_jsonl(terminology_file_path, self._object_to_dict(t))
         self._flush_to_file(terminology_file_path)
 
         # Export Concepts
         concept_file_path = self._get_file_path("concept")
         for c in tqdm(session.query(Concept).all(), desc="Exporting Concepts"):
-            concept = self._object_to_dict(c)
-            self._write_to_jsonl(concept_file_path, concept)
+            self._write_to_jsonl(concept_file_path, self._object_to_dict(c))
         self._flush_to_file(concept_file_path)
 
         # Export Mappings
         mapping_file_path = self._get_file_path("mapping")
         for m in tqdm(session.query(Mapping).all(), desc="Exporting Mappings"):
-            mapping = self._object_to_dict(m)
-            self._write_to_jsonl(mapping_file_path, mapping)
+            self._write_to_jsonl(mapping_file_path, self._object_to_dict(m))
         self._flush_to_file(mapping_file_path)
 
     def from_ohdsi(self, src: str, vectorizer: Vectorizer = Vectorizer(), include_vectors: bool = True):
@@ -113,7 +110,10 @@ class SQLJsonlConverter:
         mapping_file_path = self._get_file_path("mapping")
 
         # Write single OHDSI terminology entry
-        self._write_to_jsonl(terminology_file_path, {"id": "OHDSI", "name": "OHDSI"})
+        self._write_to_jsonl(
+            terminology_file_path,
+            {"name": "Observational Health Data Sciences and Informatics", "short_name": "OHDSI"},
+        )
         self._flush_to_file(terminology_file_path)
 
         for chunk in tqdm(
@@ -145,7 +145,7 @@ class SQLJsonlConverter:
                     {
                         "concept_identifier": concept_identifier,
                         "pref_label": label,
-                        "terminology_id": "OHDSI",
+                        "terminology_short_name": "OHDSI",
                     }
                 )
 
@@ -154,6 +154,7 @@ class SQLJsonlConverter:
                     "concept_identifier": concept_identifier,
                     "text": label,
                 }
+
                 if include_vectors:
                     mapping["sentence_embedder"] = vectorizer.model_name
                     mapping["embedding"] = embeddings[i]
@@ -164,21 +165,19 @@ class SQLJsonlConverter:
             for concept_data in concepts:
                 self._write_to_jsonl(concept_file_path, concept_data)
             self._flush_to_file(concept_file_path)
+
             for mapping_data in mappings:
                 self._write_to_jsonl(mapping_file_path, mapping_data)
             self._flush_to_file(mapping_file_path)
 
     def _object_to_dict(self, obj: Union[Terminology, Concept, Mapping]) -> Dict[str, Any]:
         if isinstance(obj, Terminology):
-            return {
-                "id": obj.id,
-                "name": obj.name,
-            }
+            return {"name": obj.name, "short_name": obj.short_name}
         elif isinstance(obj, Concept):
             return {
                 "concept_identifier": obj.concept_identifier,
                 "pref_label": obj.pref_label,
-                "terminology_id": obj.terminology.id,
+                "terminology_short_name": obj.terminology.short_name,
             }
         elif isinstance(obj, Mapping):
             return {

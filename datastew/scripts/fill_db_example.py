@@ -28,7 +28,6 @@ python examples/get_closest_mappings.py
 
 from datastew.embedding import Vectorizer
 from datastew.repository import PostgreSQLRepository
-from datastew.repository.model import Concept, Mapping, Terminology
 
 # --------------------------------------------------------------------
 # 1) Connect to PostgreSQL
@@ -49,7 +48,7 @@ repository = PostgreSQLRepository(connection_string, vectorizer=vectorizer)
 # --------------------------------------------------------------------
 # 2) Define a terminology namespace
 # --------------------------------------------------------------------
-terminology = Terminology("snomed CT", "SNOMED")
+terminology = repository.add_terminology(name="snomed CT", short_name="SNOMED")
 
 # --------------------------------------------------------------------
 # 3) Define example medical concepts
@@ -70,18 +69,11 @@ concept_texts = {
 # --------------------------------------------------------------------
 # 4) Convert to datastew concepts + mappings
 # --------------------------------------------------------------------
-concepts, mappings = [], []
 for concept_id, label in concept_texts.items():
-    concept = Concept(terminology, label, concept_id)
-    embedding = vectorizer.get_embedding(label)
-    mapping = Mapping(concept, label, embedding, vectorizer.model_name)
-    concepts.append(concept)
-    mappings.append(mapping)
+    # Construct a globally unique string identifier
+    identifier = f"SNOMED:{concept_id}"
+    concept = repository.add_concept(terminology_id=terminology.id, pref_label=label, concept_identifier=identifier)
+    repository.add_mapping(concept_id=concept.id, text=label)
 
-# --------------------------------------------------------------------
-# 5) Store everything in the repository
-# --------------------------------------------------------------------
-repository.store_all([terminology, *concepts, *mappings])
-
-print(f"Stored {len(concepts)} concepts and mappings in PostgreSQL.")
+print(f"Stored {len(concept_texts)} concepts and mappings in PostgreSQL.")
 print("You can now query them using `repository.get_closest_mappings()`.")
