@@ -5,7 +5,7 @@ from datastew.harmonization import map_dictionary_to_dictionary
 from datastew.io.source import DataDictionarySource
 
 
-class TestEmbedding(unittest.TestCase):
+class TestHarmonization(unittest.TestCase):
 
     TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 

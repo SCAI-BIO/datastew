@@ -17,7 +17,7 @@ class MockVectorizer(Vectorizer):
         return [[0.1, 0.2, 0.3] for _ in texts]
 
 
-class TestSQLJsonlConverter(unittest.TestCase):
+class TestJsonlAdapter(unittest.TestCase):
     """Unit tests for SQLJsonlConverter"""
 
     def setUp(self):

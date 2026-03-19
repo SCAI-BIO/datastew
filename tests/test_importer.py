@@ -11,7 +11,7 @@ from datastew.io.source import DataDictionarySource
 from datastew.repository import PostgreSQLRepository
 
 
-class TestPostgreSQLImporter(TestCase):
+class TestImporter(TestCase):
     def setUp(self) -> None:
 
         POSTGRES_TEST_URL = os.getenv("TEST_POSTGRES_URI", "postgresql://testuser:testpass@localhost/testdb")
