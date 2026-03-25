@@ -1,5 +1,5 @@
 import os
-from unittest import TestCase
+import unittest
 from unittest.mock import Mock, patch
 
 import numpy as np
@@ -8,7 +8,7 @@ import pandas as pd
 from datastew.io.source import DataDictionarySource, EmbeddingSource, MappingSource
 
 
-class TestSource(TestCase):
+class TestSource(unittest.TestCase):
     TEST_DIR = os.path.dirname(os.path.realpath(__file__))
 
     def setUp(self):
@@ -57,8 +57,8 @@ class TestSource(TestCase):
         np.testing.assert_array_equal(arr, np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]))
 
     def test_embedding_source_export(self):
+        dst_path = self.embedding_path.replace(".csv", "_out.csv")
         try:
-            dst_path = self.embedding_path.replace(".csv", "_out.csv")
             source = EmbeddingSource(self.embedding_path, "DESC", "EMB")
             source.export(dst_path)
             exported_df = pd.read_csv(dst_path)
@@ -66,3 +66,7 @@ class TestSource(TestCase):
         finally:
             if os.path.exists(dst_path):
                 os.remove(dst_path)
+
+
+if __name__ == "__main__":
+    unittest.main()
