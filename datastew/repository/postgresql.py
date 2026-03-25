@@ -87,7 +87,7 @@ class PostgreSQLRepository:
         except Exception as e:
             self.session.rollback()
             logger.exception("Failed to store objects in bulk.")
-            raise ObjectStorageError("Failed to store objects in the database.", e)
+            raise ObjectStorageError("Failed to store objects in the database.") from e
 
     def add_terminology(self, name: str, short_name: str) -> Terminology:
         """Create and store a new Terminology.
