@@ -9,7 +9,7 @@ import seaborn as sns
 from sklearn.manifold import TSNE
 
 from datastew.embedding import Vectorizer
-from datastew.process.parsing import DataDictionarySource
+from datastew.io.source import DataDictionarySource
 from datastew.repository import PostgreSQLRepository
 
 

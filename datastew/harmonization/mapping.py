@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
 from datastew.embedding import Vectorizer
-from datastew.process.parsing import DataDictionarySource
+from datastew.io.source import DataDictionarySource
 
 
 def map_dictionary_to_dictionary(

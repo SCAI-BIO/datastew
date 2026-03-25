@@ -20,7 +20,7 @@ Before running this example:
 """
 
 from datastew.embedding import Vectorizer
-from datastew.process.ols import OLSTerminologyImportTask
+from datastew.integrations.ols import OlsClient
 from datastew.repository import PostgreSQLRepository
 
 # --------------------------------------------------------------------
@@ -44,7 +44,7 @@ repository = PostgreSQLRepository(connection_string, vectorizer)
 # The first argument is the embedding model.
 # The second argument is the OLS display name of the terminology.
 # The third argument is the short identifier used internally.
-task = OLSTerminologyImportTask(vectorizer, "SNOMED CT", "snomed")
+task = OlsClient(vectorizer, "SNOMED CT", "snomed")
 
 # This method fetches, embeds, and uploads the terminology to PostgreSQL.
 task.process_to_repository(repository)

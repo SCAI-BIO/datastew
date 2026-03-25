@@ -1,8 +1,9 @@
 from ._version import __version__
 from .embedding import Vectorizer
-
-# Importing submodules to expose their attributes if needed
-from .process import jsonl_adapter, mapping, ols, parsing
+from .harmonization import mapping
+from .integrations import ols
+from .io import source
+from .io.adapters import jsonl
 from .repository import model, postgresql
 from .visualisation import (
     bar_chart_average_acc_two_distributions,
@@ -13,15 +14,15 @@ from .visualisation import (
 
 __all__ = [
     "__version__",
-    "jsonl_adapter",
-    "mapping",
-    "ols",
-    "parsing",
-    "model",
-    "postgresql",
     "Vectorizer",
     "bar_chart_average_acc_two_distributions",
     "enrichment_plot",
     "get_plot_for_current_database_state",
+    "jsonl",
+    "mapping",
+    "model",
+    "ols",
+    "source",
     "plot_embeddings",
+    "postgresql",
 ]

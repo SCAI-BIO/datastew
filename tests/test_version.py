@@ -4,7 +4,7 @@ from unittest import TestCase
 import datastew
 
 
-class Test(TestCase):
+class TestVersion(TestCase):
     def test_canonical_version(self):
         version = datastew.__version__
         is_canonical = (

@@ -4,11 +4,11 @@ from unittest import TestCase
 import numpy as np
 import pandas as pd
 
-from datastew.process.parsing import DataDictionarySource, MappingSource
+from datastew.io.source import DataDictionarySource, MappingSource
 from datastew.visualisation import bar_chart_average_acc_two_distributions, enrichment_plot, plot_embeddings
 
 
-class Test(TestCase):
+class TestVisualization(TestCase):
     TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
     mapping_source = MappingSource(os.path.join(TEST_DIR_PATH, "resources", "test_mapping.xlsx"), "VAR_1", "ID_1")

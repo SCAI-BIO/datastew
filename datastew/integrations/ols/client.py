@@ -10,7 +10,7 @@ from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import Concept, Mapping, Terminology
 
 
-class OLSTerminologyImportTask:
+class OlsClient:
 
     def __init__(
         self,

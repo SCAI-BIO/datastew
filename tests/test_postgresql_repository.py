@@ -2,7 +2,7 @@ import os
 import unittest
 
 from datastew.embedding import Vectorizer
-from datastew.process.jsonl_adapter import SQLJsonlConverter
+from datastew.io.adapters import JsonlAdapter
 from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import MappingResult
 
@@ -37,7 +37,7 @@ class TestPostgreSQLRepository(unittest.TestCase):
 
         cls.repo_args = (cls.POSTGRES_TEST_URL, cls.vectorizer1)
         cls.repository = PostgreSQLRepository(*cls.repo_args)
-        cls.jsonl_converter = SQLJsonlConverter(dest_dir="test_export")
+        cls.jsonl_converter = JsonlAdapter(dest_dir="test_export")
 
     @classmethod
     def tearDownClass(cls):

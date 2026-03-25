@@ -7,7 +7,7 @@ import unittest
 import pandas as pd
 
 from datastew.embedding import Vectorizer
-from datastew.process.jsonl_adapter import SQLJsonlConverter
+from datastew.io.adapters import JsonlAdapter
 
 
 class MockVectorizer(Vectorizer):
@@ -17,7 +17,7 @@ class MockVectorizer(Vectorizer):
         return [[0.1, 0.2, 0.3] for _ in texts]
 
 
-class TestSQLJsonlConverter(unittest.TestCase):
+class TestJsonlAdapter(unittest.TestCase):
     """Unit tests for SQLJsonlConverter"""
 
     def setUp(self):
@@ -49,7 +49,7 @@ class TestSQLJsonlConverter(unittest.TestCase):
         data.to_csv(self.mock_concept_file, sep="\t", index=False)
 
         # Initialize SQLJsonlConverter
-        self.converter = SQLJsonlConverter(dest_dir=self.temp_dir)
+        self.converter = JsonlAdapter(dest_dir=self.temp_dir)
 
         # Inject Mock Embedding Model
         self.mock_vectorizer_model = MockVectorizer()

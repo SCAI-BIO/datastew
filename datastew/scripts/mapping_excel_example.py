@@ -23,8 +23,8 @@ python examples/map_data_dictionaries.py
 #    result.xlsx — containing matched variables and similarity scores
 """
 
-from datastew.process.mapping import map_dictionary_to_dictionary
-from datastew.process.parsing import DataDictionarySource
+from datastew.harmonization import map_dictionary_to_dictionary
+from datastew.io.source import DataDictionarySource
 
 # --------------------------------------------------------------------
 # 1) Load source and target data dictionaries
