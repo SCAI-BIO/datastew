@@ -1,103 +1,72 @@
 import os
+import unittest
 from unittest import TestCase
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
-from datastew.io.source import DataDictionarySource, MappingSource
-from datastew.visualisation import bar_chart_average_acc_two_distributions, enrichment_plot, plot_embeddings
+from datastew.io.source import DataDictionarySource
+from datastew.visualisation import (
+    _get_off_diag_mean,
+    bar_chart_average_acc_two_distributions,
+    enrichment_plot,
+    plot_embeddings,
+)
 
 
 class TestVisualization(TestCase):
-    TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+    @classmethod
+    def setUpClass(cls):
+        cls.TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+        cls.dict_path_1 = os.path.join(cls.TEST_DIR_PATH, "resources", "data_dict1.csv")
+        cls.dict_path_2 = os.path.join(cls.TEST_DIR_PATH, "resources", "data_dict2.csv")
 
-    mapping_source = MappingSource(os.path.join(TEST_DIR_PATH, "resources", "test_mapping.xlsx"), "VAR_1", "ID_1")
-    data_dictionary_source = DataDictionarySource(
-        os.path.join(TEST_DIR_PATH, "resources", "test_data_dict.csv"), "VAR_1", "DESC"
-    )
+    def test_off_diag_calculation(self):
+        """Verify the mathematical correctness of off-diagnol averaging."""
+        df = pd.DataFrame({"A": [1.0, 0.4], "B": [0.2, 1.0]})
+        result = _get_off_diag_mean(df)
+        self.assertAlmostEqual(result, 0.3)
+        self.assertIsInstance(result, float)
 
-    embeddings1 = [
-        [1.1, 2.2, 3.3],
-        [4.4, 5.5, 6.6],
-        [7.7, 8.8, 9.9],
-        np.nan,
-        [13.4, 14.5, 15.6],
-        [16.7, 17.8, 18.9],
-        [19.1, 20.2, 21.3],
-        [22.4, 23.5, 24.6],
-        [25.7, 26.8, 27.9],
-        [28.1, 29.2, 30.3],
-        [31.4, 32.5, 33.6],
-    ]
+    def test_enrichment_plot_mismatched_lengths(self):
+        """Ensure ValueError is raised when input lists have different lengths."""
+        with self.assertRaises(ValueError):
+            enrichment_plot([0.5], [0.5, 0.6], [0.5], "Should Fail")
 
-    embeddings2 = [
-        [2.1, 3.2, 4.3],
-        [5.4, 6.5, 7.6],
-        [8.7, 9.8, 10.9],
-        [11.1, 12.2, 13.3],
-        [14.4, 15.5, 16.6],
-        [17.7, 18.8, 19.9],
-        [20.1, 21.2, 22.3],
-        [23.4, 24.5, 25.6],
-        [26.7, 27.8, 28.9],
-        np.nan,
-        [32.4, 33.5, 34.6],
-    ]
+    def test_bar_chart_non_square_matrix(self):
+        """Ensure ValueError is raised if matrices are not square (needed for diagonal masking)."""
+        df_rect = pd.DataFrame(np.random.rand(3, 2))
+        df_sq = pd.DataFrame(np.random.rand(3, 3))
+        with self.assertRaises(ValueError):
+            bar_chart_average_acc_two_distributions(df_rect, df_sq, df_sq, df_sq, df_sq, df_sq, "Title", "L1", "L2")
 
-    embeddings3 = [
-        [3.1, 4.2, 5.3],
-        np.nan,
-        [9.7, 10.8, 11.9],
-        [12.1, 13.2, 14.3],
-        [15.4, 16.5, 17.6],
-        [18.7, 19.8, 20.9],
-        [21.1, 22.2, 23.3],
-        [24.4, 25.5, 26.6],
-        [27.7, 28.8, 29.9],
-        [30.1, 31.2, 32.3],
-        [33.4, 34.5, 35.6],
-    ]
+    @patch("matplotlib.pyplot.show")
+    def test_enrichment_plot(self, mock_show):
+        """Verify the function completes and calls the plot display."""
+        acc = [0.4, 0.6, 0.8]
+        enrichment_plot(acc, acc, acc, "Test Title", save_plot=False)
+        mock_show.assert_called_once()
 
-    embeddings4 = [
-        np.nan,
-        [7.4, 8.5, 9.6],
-        [10.7, 11.8, 12.9],
-        [13.1, 14.2, 15.3],
-        [16.4, 17.5, 18.6],
-        [19.7, 20.8, 21.9],
-        [22.1, 23.2, 24.3],
-        [25.4, 26.5, 27.6],
-        [28.7, 29.8, 30.9],
-        [31.1, 32.2, 33.3],
-        np.nan,
-    ]
+    @patch("matplotlib.pyplot.show")
+    def test_bar_chart_execution(self, mock_show):
+        """Verify bar chart logic executes and displays."""
+        labels = ["M1", "M2"]
+        df = pd.DataFrame({"M1": [1, 0.5], "M2": [0.5, 1]}, index=labels).T
+        bar_chart_average_acc_two_distributions(df, df, df, df, df, df, "Title", "A", "B")
+        mock_show.assert_called_once()
 
-    def test_enrichment_plot(self):
-        acc_gpt = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0]
-        acc_mpnet = [0.3, 0.4, 0.5, 0.6, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0]
-        acc_fuzzy = [0.2, 0.3, 0.4, 0.5, 0.8, 0.9, 1.0, 1.0, 1.0, 1.0]
-        title = "Test"
-        enrichment_plot(acc_gpt, acc_mpnet, acc_fuzzy, title, save_plot=False)
+    @patch("plotly.graph_objects.Figure.show")
+    def test_plot_data_dict(self, mock_plotly_show):
+        """Verify t-SNE logic and Plotly integration."""
+        if os.path.exists(self.dict_path_1) and os.path.exists(self.dict_path_2):
+            source1 = DataDictionarySource(self.dict_path_1, "VAR", "DESC")
+            source2 = DataDictionarySource(self.dict_path_2, "VAR", "DESC")
+            plot_embeddings([source1, source2], perplexity=1)
+            mock_plotly_show.assert_called()
+        else:
+            self.skipTest("Test resource files missing; skipping embedding plot test.")
 
-    def test_bar_chart_average_acc_two_distributions(self):
-        labels = ["M1", "M2", "M3"]
-        fuzzy_1 = pd.DataFrame({"M1": [1, 0.2, 0.23], "M2": [0.3, 1, 0.16], "M3": [0.27, 0.22, 1]}, index=labels).T
-        fuzzy_2 = pd.DataFrame({"M1": [1, 0.19, 0.21], "M2": [0.29, 1, 0.18], "M3": [0.29, 0.21, 1]}, index=labels).T
-        gpt_1 = pd.DataFrame({"M1": [1, 0.9, 0.78], "M2": [0.8, 1, 0.78], "M3": [0.82, 0.89, 1]}, index=labels).T
-        gpt_2 = pd.DataFrame({"M1": [1, 0.88, 0.78], "M2": [0.79, 1, 0.78], "M3": [0.81, 0.85, 1]}, index=labels).T
-        mpnet_1 = pd.DataFrame({"M1": [1, 0.8, 0.7], "M2": [0.7, 0.9, 0.68], "M3": [0.72, 0.79, 0.9]}, index=labels).T
-        mpnet_2 = pd.DataFrame(
-            {"M1": [0.9, 0.78, 0.68], "M2": [0.69, 0.9, 0.68], "M3": [0.71, 0.75, 0.9]}, index=labels
-        ).T
 
-        bar_chart_average_acc_two_distributions(fuzzy_1, gpt_1, mpnet_1, fuzzy_2, gpt_2, mpnet_2, "title", "AD", "PD")
-
-    def test_plot_data_dict(self):
-        TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
-        data_dictionary_source_1 = DataDictionarySource(
-            os.path.join(TEST_DIR_PATH, "resources", "data_dict1.csv"), "VAR", "DESC"
-        )
-        data_dictionary_source_2 = DataDictionarySource(
-            os.path.join(TEST_DIR_PATH, "resources", "data_dict2.csv"), "VAR", "DESC"
-        )
-        plot_embeddings([data_dictionary_source_1, data_dictionary_source_2])
+if __name__ == "__main__":
+    unittest.main()
