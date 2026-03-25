@@ -36,14 +36,12 @@ class Concept(Base):
 
 class Mapping(Base):
     __tablename__ = "mapping"
-    __table_args__ = (
-        UniqueConstraint("concept_id", "sentence_embedder", "text", name="uix_mapping_concept_embedder_text"),
-    )
+    __table_args__ = (UniqueConstraint("concept_id", "vectorizer", "text", name="uix_mapping_concept_embedder_text"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(String, nullable=False)
     embedding: Mapped[Optional[list[float]]] = mapped_column(Vector(768), nullable=False)
-    sentence_embedder: Mapped[str] = mapped_column(String, nullable=False)
+    vectorizer: Mapped[str] = mapped_column(String, nullable=False)
 
     concept_id: Mapped[int] = mapped_column(ForeignKey("concept.id", ondelete="CASCADE"))
     concept: Mapped["Concept"] = relationship(back_populates="mappings")
