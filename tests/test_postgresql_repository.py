@@ -64,7 +64,7 @@ class TestPostgreSQLRepository(unittest.TestCase):
 
             embedding = vectorizer.get_embedding(label)
             self.repository.add_mapping(
-                concept_id=concept.id, text=label, embedding=embedding, sentence_embedder=vectorizer.model_name
+                concept_id=concept.id, text=label, embedding=embedding, vectorizer=vectorizer.model_name
             )
 
     def test_terminology_retrieval(self):
@@ -89,8 +89,8 @@ class TestPostgreSQLRepository(unittest.TestCase):
         mappings = self.repository.get_mappings(limit=5).items
         self.assertEqual(len(mappings), 5)
 
-    def test_sentence_embedders(self):
-        embedders = self.repository.get_all_sentence_embedders()
+    def test_vectorizers(self):
+        embedders = self.repository.get_all_vectorizers()
         self.assertIn(self.model_name1, embedders)
         self.assertIn(self.model_name2, embedders)
 
@@ -105,12 +105,12 @@ class TestPostgreSQLRepository(unittest.TestCase):
         assert isinstance(result, MappingResult)
 
         self.assertEqual(result.mapping.text, "Common cold")
-        self.assertEqual(result.mapping.sentence_embedder, self.model_name1)
+        self.assertEqual(result.mapping.vectorizer, self.model_name1)
 
     def test_terminology_and_model_specific_mappings(self):
         embedding = self.vectorizer1.get_embedding(self.test_text)
         closest = self.repository.get_closest_mappings(
-            embedding, terminology_name="snomed CT", sentence_embedder=self.model_name1
+            embedding, terminology_name="snomed CT", vectorizer=self.model_name1
         )
         self.assertEqual(len(closest), 4)
 
