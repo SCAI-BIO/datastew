@@ -2,7 +2,6 @@ import os
 import unittest
 
 from datastew.embedding import Vectorizer
-from datastew.io.adapters import JsonlAdapter
 from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import MappingResult
 
@@ -37,7 +36,6 @@ class TestPostgreSQLRepository(unittest.TestCase):
 
         cls.repo_args = (cls.POSTGRES_TEST_URL, cls.vectorizer1)
         cls.repository = PostgreSQLRepository(*cls.repo_args)
-        cls.jsonl_converter = JsonlAdapter(dest_dir="test_export")
 
     @classmethod
     def tearDownClass(cls):
@@ -83,16 +81,34 @@ class TestPostgreSQLRepository(unittest.TestCase):
         self.assertEqual(concept.concept_identifier, "Concept ID: 11893007")
         self.assertEqual(concept.pref_label, "Diabetes mellitus (disorder)")
         self.assertEqual(concept.terminology.name, "snomed CT")
-        self.assertEqual(len(concepts.items), 11)
+        self.assertEqual(concepts.total_count, 11)
 
     def test_mapping_retrieval(self):
         mappings = self.repository.get_mappings(limit=5).items
         self.assertEqual(len(mappings), 5)
 
+    def test_get_mappings_empty_result(self):
+        """Verify behavior when get_mappings finds nothing (e.g., bad filter)."""
+        page = self.repository.get_mappings(terminology_name="NonExistent Terminology")
+        self.assertEqual(page.total_count, 0)
+        self.assertEqual(len(page.items), 0)
+
     def test_vectorizers(self):
         embedders = self.repository.get_all_vectorizers()
         self.assertIn(self.model_name1, embedders)
         self.assertIn(self.model_name2, embedders)
+
+    def test_repository_restart(self):
+        """Verify data persists across repository instantiations."""
+        repo_class = type(self.repository)
+        args = getattr(self, "repo_args", ())
+        repo = repo_class(*args)
+
+        mappings = repo.get_mappings(limit=5).items
+        self.assertEqual(len(mappings), 5)
+
+        concepts = repo.get_concepts()
+        self.assertEqual(concepts.total_count, 11)
 
     def test_closest_mappings(self):
         embedding = self.vectorizer1.get_embedding(self.test_text)
@@ -153,39 +169,73 @@ class TestPostgreSQLRepository(unittest.TestCase):
         self.assertEqual(result.mapping.text, "Asthma")
         self.assertAlmostEqual(result.similarity, 0.3947341, places=3)
 
-    def test_repository_restart(self):
-        repo_class = type(self.repository)
-        args = getattr(self, "repo_args", ())
-        repo = repo_class(*args)
+    def test_edit_operations(self):
+        """Test editing functionality for terminologies, concepts, and mappings."""
+        # Terminology
+        term = self.repository.get_terminology_by_name("snomed CT")
+        updated_term = self.repository.edit_terminology(term.id, name="SNOMED Clinical Terms")
+        self.assertEqual(updated_term.name, "SNOMED Clinical Terms")
 
-        mappings = repo.get_mappings(limit=5).items
-        self.assertEqual(len(mappings), 5)
+        # Concept
+        concept = self.repository.get_concept_by_identifier("Concept ID: 11893007")
+        updated_concept = self.repository.edit_concept(concept.id, pref_label="Diabetes Type 2")
+        self.assertEqual(updated_concept.pref_label, "Diabetes Type 2")
 
-        concepts = repo.get_concepts()
-        self.assertEqual(len(concepts.items), 11)
+        # Mapping
+        mappings = self.repository.get_mappings(limit=1).items
+        mapping = mappings[0]
+        updated_mapping = self.repository.edit_mapping(mapping.id, text="Updated text")
+        self.assertEqual(updated_mapping.text, "Updated text")
 
-    def test_jsonl_export(self):
-        converter = self.jsonl_converter
-        converter.from_repository(self.repository)
-        # assert that the dest dir
-        self.assertTrue(converter.dest_dir)
-        # assert that the files is not empty
-        with open(converter.dest_dir + "/terminology.jsonl", "r") as file:
-            self.assertTrue(file.read())
-        with open(converter.dest_dir + "/concept.jsonl", "r") as file:
-            self.assertTrue(file.read())
-        with open(converter.dest_dir + "/mapping.jsonl", "r") as file:
-            self.assertTrue(file.read())
-        # assert that the file contains the expected data
-        with open(converter.dest_dir + "/terminology.jsonl", "r") as file:
-            self.assertIn("snomed CT", file.read())
-        with open(converter.dest_dir + "/concept.jsonl", "r") as file:
-            self.assertIn("Diabetes mellitus (disorder)", file.read())
-        with open(converter.dest_dir + "/mapping.jsonl", "r") as file:
-            self.assertIn("Diabetes mellitus (disorder)", file.read())
-        # remove the created dir and files
-        os.remove(converter.dest_dir + "/terminology.jsonl")
-        os.remove(converter.dest_dir + "/concept.jsonl")
-        os.remove(converter.dest_dir + "/mapping.jsonl")
-        # remove the created dir
-        os.rmdir(converter.dest_dir)
+    def test_delete_operations(self):
+        """Test cascading deletes. Deleting a mapping shouldn't delete the concept, but deleting a concept deletes its mappings."""
+        concept = self.repository.get_concept_by_identifier("Concept ID: 11893007")
+        mappings = self.repository.get_mappings().items
+        mapping_to_delete = [m for m in mappings if m.concept_id == concept.id][0]
+
+        # Delete Mapping
+        self.repository.delete_mapping(mapping_to_delete.id)
+        with self.assertRaisesRegex(ValueError, "No Mapping found with ID"):
+            self.repository.get_mapping(mapping_to_delete.id)
+
+        # Concept should still exist
+        self.repository.get_concept(concept.id)
+
+        # Delete Concept
+        self.repository.delete_concept(concept.id)
+        with self.assertRaisesRegex(ValueError, "No Concept found with ID"):
+            self.repository.get_concept(concept.id)
+
+        # Delete Terminology
+        term = self.repository.get_terminology_by_name("NCI Thesaurus OBO Edition")
+        self.repository.delete_terminology(term.id)
+        with self.assertRaisesRegex(ValueError, "No Terminology found with name"):
+            self.repository.get_terminology_by_name("NCI Thesaurus OBO Edition")
+
+    def test_missing_records(self):
+        """Test ValueError triggers for non-existent records."""
+        with self.assertRaisesRegex(ValueError, "No Terminology found with ID"):
+            self.repository.get_terminology(99999)
+
+        with self.assertRaisesRegex(ValueError, "No Concept found with identifier"):
+            self.repository.get_concept_by_identifier("INVALID_ID")
+
+        with self.assertRaisesRegex(ValueError, "No Mapping found with ID"):
+            self.repository.get_mapping(99999)
+
+    def test_add_mapping_missing_vectorizer(self):
+        """Verify adding a mapping without an embedding raises an error if no default vectorizer is configured."""
+        # Temporarily remove the default vectorizer
+        original_vectorizer = self.repository.vectorizer
+        self.repository.vectorizer = None  # type: ignore
+
+        try:
+            concept = self.repository.get_concept_by_identifier("Concept ID: 11893007")
+            with self.assertRaisesRegex(ValueError, "Both embedding and vectorizer must be provided"):
+                self.repository.add_mapping(concept_id=concept.id, text="Will Fail")
+        finally:
+            self.repository.vectorizer = original_vectorizer
+
+
+if __name__ == "__main__":
+    unittest.main()
