@@ -1,4 +1,5 @@
-from typing import List, Optional
+import os
+from typing import Literal, Optional, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,30 +14,47 @@ from datastew.io.source import DataDictionarySource
 from datastew.repository import PostgreSQLRepository
 
 
-def enrichment_plot(acc_gpt, acc_mpnet, acc_fuzzy, title, save_plot=False, save_dir="resources/results/plots"):
+def enrichment_plot(
+    acc_gpt: list[float],
+    acc_mpnet: list[float],
+    acc_fuzzy: list[float],
+    title: str,
+    save_plot: bool = False,
+    save_dir: str = "resources/results/plots",
+):
+    """Generate and display a line plot comparing the accuracy of GPT, MPNet, and Fuzzy
+    matching accross different ranks.
+
+    :param acc_gpt: List of accuracy scores for GPT embeddings.
+    :param acc_mpnet: List of accuracy scores for MPNet embeddings.
+    :param acc_fuzzy: List of accuracy scores for Fuzzy string matching.
+    :param title: The title of the generated plot.
+    :param save_plot: Boolean flag to save the plot to a file, defaults to False.
+    :param save_dir: Directory path where the plot image will be saved, defaults to "resources/results/plots".
+    :raises ValueError: If the input accuracy lists are not of equal length.
+    """
     if not (len(acc_gpt) == len(acc_fuzzy) == len(acc_mpnet)):
         raise ValueError("acc_gpt, acc_mpnet and acc_fuzzy should be of the same length!")
-    data = {
-        "Maximum Considered Rank": list(range(1, len(acc_gpt) + 1)),
-        "GPT": acc_gpt,
-        "MPNet": acc_mpnet,
-        "Fuzzy": acc_fuzzy,
-    }
-    df = pd.DataFrame(data)
+
+    ranks = list(range(1, len(acc_gpt) + 1))
+    df_wide = pd.DataFrame(
+        {"Maximum Considered Rank": ranks, "GPT": acc_gpt, "MPNET": acc_mpnet, "Fuzzy String Matching": acc_fuzzy}
+    )
+
+    # Melt for automatic Seaborn legend and color mapping
+    df_long = df_wide.melt(id_vars="Maximum Considered Rank", var_name="Method", value_name="Accuracy")
+    plt.figure(figsize=(10, 6))
     sns.set_theme(style="whitegrid")
-    sns.lineplot(data=df, x="Maximum Considered Rank", y="GPT", label="GPT")
-    sns.lineplot(data=df, x="Maximum Considered Rank", y="MPNet", label="MPNet")
-    sns.lineplot(data=df, x="Maximum Considered Rank", y="Fuzzy", label="Fuzzy String Matching")
-    sns.set_theme(style="whitegrid")
+    sns.lineplot(data=df_long, x="Maximum Considered Rank", y="Accuracy", hue="Method")
+    plt.title(title)
     plt.xlabel("Maximum Considered Rank")
     plt.ylabel("Accuracy")
-    plt.xticks(range(1, len(acc_gpt) + 1), labels=range(1, len(acc_gpt) + 1))
-    plt.yticks([i / 10 for i in range(11)])
-    plt.gca().set_yticklabels([f"{i:.1f}" for i in plt.gca().get_yticks()])
-    plt.title(title)
-    plt.legend()
+    plt.xticks(ranks, labels=[str(r) for r in ranks])
+    plt.yticks(np.linspace(0, 1, 11))
     if save_plot:
-        plt.savefig(save_dir + "/" + title)
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"{title.replace(' ', '_')}.png")
+        plt.savefig(save_path)
     plt.show()
 
 
@@ -51,32 +69,36 @@ def bar_chart_average_acc_two_distributions(
     label1: str,
     label2: str,
 ):
-    if not all(
-        dist.shape == fuzzy.shape == mpnet.shape
-        for dist, mpnet, fuzzy in [(dist1_gpt, dist1_mpnet, dist1_fuzzy), (dist2_gpt, dist2_mpnet, dist2_fuzzy)]
-    ):
-        raise ValueError("Each pair of dist and fuzzy DataFrames must have the same dimensions")
-    if not all(dist.shape[0] == dist.shape[1] for dist in [dist1_fuzzy, dist2_fuzzy]):
-        raise ValueError("Each dist DataFrame must be square")
-    if not all(
-        dist.index.equals(fuzzy.index) and dist.columns.equals(fuzzy.columns)
-        for dist, fuzzy in [(dist1_fuzzy, dist1_gpt), (dist2_fuzzy, dist2_gpt)]
-    ):
-        raise ValueError("All row and column labels within each pair of dist and fuzzy DataFrames must be equal")
-    # average value without the diagonal, since diagonal contains matching of the same pair
-    avg_acc_fuzzy1 = np.mean(dist1_fuzzy.values[~np.eye(dist1_fuzzy.shape[0], dtype=bool)])
-    avg_acc_fuzzy2 = np.mean(dist2_fuzzy.values[~np.eye(dist2_fuzzy.shape[0], dtype=bool)])
-    avg_acc_gpt1 = np.mean(dist1_gpt.values[~np.eye(dist1_gpt.shape[0], dtype=bool)])
-    avg_acc_gpt2 = np.mean(dist2_gpt.values[~np.eye(dist2_gpt.shape[0], dtype=bool)])
-    avg_acc_mpnet1 = np.mean(dist1_mpnet.values[~np.eye(dist1_mpnet.shape[0], dtype=bool)])
-    avg_acc_mpnet2 = np.mean(dist2_mpnet.values[~np.eye(dist2_mpnet.shape[0], dtype=bool)])
+    """Compare the average accuracy of three matching methods across two distinct
+    distributions using a grouped bar chart.
+
+    :param dist1_fuzzy: Square DataFrame of fuzzy matching scores for the first distribution.
+    :param dist1_gpt: Square DataFrame of GPT matching scores for the first distribution.
+    :param dist1_mpnet: Square DataFrame of MPNet matching scores for the first distribution.
+    :param dist2_fuzzy: Square DataFrame of fuzzy matching scores for the second distribution.
+    :param dist2_gpt: Square DataFrame of GPT matching scores for the second distribution.
+    :param dist2_mpnet: Square DataFrame of MPNet matching scores for the second distribution.
+    :param title: The title of the generated bar chart.
+    :param label1: Label for the first distribution (e.g., 'Source A').
+    :param label2: Label for the second distribution (e.g., 'Source B').
+    :raises ValueError: If DataFrames in a set have mismatched dimensions.
+    :raises ValueError: If DataFrames in a set are not squiare.
+    :raises ValueError: If DataFrames in a set have inconsistent indices/columns.
+    """
+    sets = [(dist1_gpt, dist1_mpnet, dist1_fuzzy), (dist2_gpt, dist2_mpnet, dist2_fuzzy)]
+    for gpt, mpnet, fuzzy in sets:
+        if not (gpt.shape == mpnet.shape == fuzzy.shape):
+            raise ValueError("DataFrames within a distribution set must have the same dimensions")
+        if gpt.shape[0] != gpt.shape[1]:
+            raise ValueError("DataFrames must be square to mask the diagonal correctly")
+        if not (gpt.index.equals(fuzzy.index) and gpt.columns.equals(fuzzy.columns)):
+            raise ValueError("Row and column labels must match across DataFrames in the same set")
     data = {
-        "Fuzzy String Matching": [avg_acc_fuzzy1, avg_acc_fuzzy2],
-        "GPT Embeddings": [avg_acc_gpt1, avg_acc_gpt2],
-        "MPNet Embeddings": [avg_acc_mpnet1, avg_acc_mpnet2],
+        "Fuzzy String Matching": [_get_off_diag_mean(dist1_fuzzy), _get_off_diag_mean(dist2_fuzzy)],
+        "GPT Embeddings": [_get_off_diag_mean(dist1_gpt), _get_off_diag_mean(dist2_gpt)],
+        "MPNet Embeddings": [_get_off_diag_mean(dist1_mpnet), _get_off_diag_mean(dist2_mpnet)],
     }
     df = pd.DataFrame(data, index=[label1, label2])
-    print(df)
     df_melted = df.reset_index().melt(id_vars="index", var_name="Method", value_name="Accuracy")
     plt.figure(figsize=(10, 6))
     sns.set_theme(style="whitegrid")
@@ -90,97 +112,119 @@ def bar_chart_average_acc_two_distributions(
 def get_plot_for_current_database_state(
     repository: PostgreSQLRepository,
     terminology: Optional[str] = None,
-    sentence_embedder: Optional[str] = None,
+    vectorizer: Optional[str] = None,
     limit: int = 1000,
     offset: int = 0,
     perplexity: int = 5,
-    return_type: str = "html",
+    return_type: Literal["html", "json"] = "html",
 ) -> str:
+    """Retrieve mappings from a database and generate an interactive t-SNE scatter plot
+    representing the state of the database.
+
+    :param repository: The PostgreSQLRepository instance to query.
+    :param terminology: Optional filter for a specific terminology name, defaults to None.
+    :param vectorizer: Optional filter for a specific vectorizer model name, defaults to None.
+    :param limit: Maximum number of entries to retrieve, defaults to 1000.
+    :param offset: Pagination offset for the database query, defaults to 0.
+    :param perplexity: The perplexity value for the t-SNE algorithm, defaults to 5.
+    :param return_type: Format of the returned plot data, defaults to "html".
+    :return: A string containing either HTML or JSON representation of the Plotly
+             figure, or a bolded HTML warning message if data is insufficient.
+    """
     mappings = repository.get_mappings(
-        terminology_name=terminology, sentence_embedder=sentence_embedder, limit=limit, offset=offset
+        terminology_name=terminology, vectorizer=vectorizer, limit=limit, offset=offset
     ).items
+
+    if not mappings:
+        return "<b>No entries found in the database.</b>"
+
     # Extract embeddings
     embeddings = np.array([mapping.embedding for mapping in mappings])
-    # Increase perplexity up to 30 if applicable
-    if embeddings.shape[0] > 30:
-        perplexity = 30
-    if embeddings.shape[0] > perplexity:
-        # Compute t-SNE embeddings
-        tsne_embeddings = TSNE(n_components=2, perplexity=perplexity).fit_transform(embeddings)
-        # Create Plotly scatter plot
-        scatter_plot = go.Scatter(
-            x=tsne_embeddings[:, 0],
-            y=tsne_embeddings[:, 1],
-            mode="markers",
-            marker=dict(size=8, color="blue", opacity=0.5),
-            text=[str(mapping) for mapping in mappings],
-            hoverinfo="text",
+    n_samples = embeddings.shape[0]
+
+    # Safe perplexity calculation
+    actual_perplexity = _get_safe_perplexity(n_samples, 30 if n_samples > 30 else perplexity)
+
+    if n_samples > actual_perplexity:
+        tsne_embeddings = TSNE(
+            n_components=2, perplexity=actual_perplexity, init="pca", learning_rate="auto"
+        ).fit_transform(embeddings)
+
+        fig = go.Figure(
+            data=[
+                go.Scatter(
+                    x=tsne_embeddings[:, 0],
+                    y=tsne_embeddings[:, 1],
+                    mode="markers",
+                    marker=dict(size=8, color="blue", opacity=0.5),
+                    text=[str(mapping) for mapping in mappings],
+                    hoverinfo="text",
+                )
+            ]
         )
-        layout = go.Layout(
+
+        fig.update_layout(
             title="t-SNE Embeddings of Database Mappings",
-            xaxis=dict(title="t-SNE Component 1"),
-            yaxis=dict(title="t-SNE Component 2"),
+            xaxis_title="t-SNE Component 1",
+            yaxis_title="t-SNE Component 2",
         )
-        fig = go.Figure(data=[scatter_plot], layout=layout)
+
         if return_type == "html":
-            plot = fig.to_html(full_html=False)
+            return cast(str, fig.to_html(full_html=False))
         elif return_type == "json":
-            plot = fig.to_json()
-        else:
-            raise ValueError(f'Return type {return_type} is not viable. Use either "html" or "json".')
-    else:
-        plot = "<b>Too few database entries to visualize</b>"
-    return plot
+            return cast(str, fig.to_json())
+    return "<b>Too few database entries to visualize</b>"
 
 
 def plot_embeddings(
-    data_dictionaries: List[DataDictionarySource], vectorizer: Vectorizer = Vectorizer(), perplexity: int = 5
+    data_dictionaries: list[DataDictionarySource], vectorizer: Vectorizer = Vectorizer(), perplexity: int = 5
 ):
-    """
-    Plots a t-SNE representation of embeddings from multiple data dictionaries and displays the plot.
+    """Generate and display an interactive t-SNE scatter plot for embeddings extracted
+    from multiple data dictionary sources.
 
     :param data_dictionaries: A list of DataDictionarySource objects to extract embeddings from.
-    :param embedding_model: The embedding model used to compute embeddings. Defaults to MPNetAdapter.
-    :param perplexity: The perplexity for the t-SNE algorithm. Higher values give more global structure.
+    :param vectorizer: The model used to compute embeddings. Defaults to Vectorizer().
+    :param perplexity: The perplexity for the t-SNE algorithm, defaults to 5.
     """
     all_embeddings = []
     all_texts = []
-    all_colors = []
-    plotly_colors = px.colors.qualitative.Plotly
+    all_source_names = []
+
     for idx, dictionary in enumerate(data_dictionaries):
+        source_name = getattr(dictionary, "name", f"Source {idx+1}")
         embeddings_dict = dictionary.get_embeddings(vectorizer)
-        embeddings = list(embeddings_dict.values())
-        texts = dictionary.to_dataframe()["description"]
-        color = plotly_colors[idx % len(plotly_colors)]
-        all_embeddings.extend(embeddings)
-        all_texts.extend(texts)
-        all_colors.extend([color] * len(embeddings))
+        all_embeddings.extend(list(embeddings_dict.values()))
+        all_texts.extend(dictionary.to_dataframe()["description"].tolist())
+        all_source_names.extend([source_name] * len(embeddings_dict))
     embeddings_array = np.array(all_embeddings)
-    # Adjust perplexity if there are enough points
-    if embeddings_array.shape[0] > 30:
-        perplexity = min(perplexity, 30)
-    if embeddings_array.shape[0] > perplexity:
-        # Compute t-SNE embeddings
-        tsne_embeddings = TSNE(n_components=2, perplexity=perplexity).fit_transform(embeddings_array)
-        # Create Plotly scatter plot
-        scatter_plot = go.Scatter(
-            x=tsne_embeddings[:, 0],
-            y=tsne_embeddings[:, 1],
-            mode="markers",
-            marker=dict(size=8, color=all_colors, opacity=0.7),  # Use the assigned colors from Plotly palette
-            text=all_texts,
-            hoverinfo="text",
-        )
-        layout = go.Layout(
+    n_samples = embeddings_array.shape[0]
+    safe_perplexity = _get_safe_perplexity(n_samples, perplexity)
+
+    if n_samples > safe_perplexity and n_samples > 1:
+        tsne_results = TSNE(
+            n_components=2, perplexity=safe_perplexity, init="pca", learning_rate="auto"
+        ).fit_transform(embeddings_array)
+
+        fig = px.scatter(
+            x=tsne_results[:, 0],
+            y=tsne_results[:, 1],
+            color=all_source_names,
+            hover_name=all_texts,
             title="t-SNE Embeddings of Data Dictionaries",
-            xaxis=dict(title="t-SNE Component 1"),
-            yaxis=dict(title="t-SNE Component 2"),
+            labels={"x": "t-SNE Component 1", "y": "t-SNE Component 2", "color": "Source"},
         )
-        fig = go.Figure(data=[scatter_plot], layout=layout)
-        # Display the plot
+        fig.update_traces(marker=dict(size=8, opacity=0.7))
         fig.show()
     else:
-        print(
-            "Too few data dictionary entries to visualize. Adjust param 'perplexity' to a value less then the number "
-            "of data points."
-        )
+        print(f"Insufficient data points ({n_samples}) to visualize with perplexity {perplexity}.")
+
+
+def _get_safe_perplexity(n_samples: int, requested_perplexity: int) -> int:
+    """Helper to ensure perplexity is always < n_samples and >= 1."""
+    if n_samples <= 1:
+        return 0
+    return max(1, min(requested_perplexity, n_samples - 1))
+
+
+def _get_off_diag_mean(df: pd.DataFrame) -> float:
+    return float(np.mean(df.values[~np.eye(df.shape[0], dtype=bool)]))

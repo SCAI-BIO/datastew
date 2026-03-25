@@ -33,13 +33,13 @@ class TestImporter(TestCase):
                     "text": "pancreas",
                     "concept_identifier": "import_test:G",
                     "embedding": [random.uniform(-1, 1) for _ in range(768)],
-                    "sentence_embedder": "sentence-transformers/all-mpnet-base-v2",
+                    "vectorizer": "sentence-transformers/all-mpnet-base-v2",
                 },
                 {
                     "text": "liver",
                     "concept_identifier": "import_test:H",
                     "embedding": [random.uniform(-1, 1) for _ in range(768)],
-                    "sentence_embedder": "sentence-transformers/all-mpnet-base-v2",
+                    "vectorizer": "sentence-transformers/all-mpnet-base-v2",
                 },
             ],
         }
@@ -99,8 +99,8 @@ class TestImporter(TestCase):
         for mapping in mappings:
             with self.subTest(f"Mapping Text for {mapping.text}"):
                 self.assertIn(mapping.text, ["pancreas", "liver"])
-            with self.subTest(f"Sentence Embedder for {mapping.text}"):
-                self.assertEqual(mapping.sentence_embedder, "sentence-transformers/all-mpnet-base-v2")
+            with self.subTest(f"Vectorizer for {mapping.text}"):
+                self.assertEqual(mapping.vectorizer, "sentence-transformers/all-mpnet-base-v2")
             with self.subTest(f"Vector Length for {mapping.text}"):
                 embedding = mapping.embedding
                 self.assertIsNotNone(embedding)

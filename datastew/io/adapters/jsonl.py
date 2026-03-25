@@ -156,7 +156,7 @@ class JsonlAdapter:
                 }
 
                 if include_vectors:
-                    mapping["sentence_embedder"] = vectorizer.model_name
+                    mapping["vectorizer"] = vectorizer.model_name
                     mapping["embedding"] = embeddings[i]
 
                 mappings.append(mapping)
@@ -184,7 +184,7 @@ class JsonlAdapter:
                 "concept_identifier": obj.concept.concept_identifier,
                 "text": obj.text,
                 "embedding": obj.embedding,
-                "sentence_embedder": obj.sentence_embedder,
+                "vectorizer": obj.vectorizer,
             }
         else:
             raise TypeError(f"Unsupported object type: {type(obj)}")
