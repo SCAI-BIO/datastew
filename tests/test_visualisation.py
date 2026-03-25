@@ -1,6 +1,5 @@
 import os
 import unittest
-from unittest import TestCase
 from unittest.mock import patch
 
 import numpy as np
@@ -15,7 +14,7 @@ from datastew.visualisation import (
 )
 
 
-class TestVisualization(TestCase):
+class TestVisualization(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))

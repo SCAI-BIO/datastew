@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from typing import Optional, Sequence, Union
 
-from sqlalchemy import create_engine, func, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import joinedload, sessionmaker
 
@@ -142,7 +142,7 @@ class PostgreSQLRepository:
         for key, value in kwargs.items():
             if hasattr(terminology, key):
                 setattr(terminology, key, value)
-        self.store(terminology)
+        self.session.commit()
         return terminology
 
     def delete_terminology(self, id: int):
@@ -199,7 +199,7 @@ class PostgreSQLRepository:
         if terminology_name:
             query = query.join(Concept.terminology).filter(Terminology.name == terminology_name)
 
-        total_count = query.with_entities(func.count()).scalar()
+        total_count = query.count()
         concepts = query.offset(offset).limit(limit).all()
         return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)
 
@@ -214,7 +214,7 @@ class PostgreSQLRepository:
         for key, value in kwargs.items():
             if hasattr(concept, key):
                 setattr(concept, key, value)
-        self.store(concept)
+        self.session.commit()
         return concept
 
     def delete_concept(self, id: int):
@@ -311,7 +311,7 @@ class PostgreSQLRepository:
         for key, value in kwargs.items():
             if hasattr(mapping, key):
                 setattr(mapping, key, value)
-        self.store(mapping)
+        self.session.commit()
         return mapping
 
     def delete_mapping(self, id: int):

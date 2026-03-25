@@ -1,4 +1,5 @@
 import logging
+import re
 from abc import ABC, abstractmethod
 from threading import Lock
 from typing import List, Optional, Sequence, Tuple
@@ -9,6 +10,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 _GLOBAL_CACHES = {}
 _GLOBAL_LOCKS = {}
+_INIT_LOCK = Lock()
 
 
 class EmbeddingModel(ABC):
@@ -23,9 +25,10 @@ class EmbeddingModel(ABC):
         self.use_cache = cache
 
         if self.use_cache:
-            if model_name not in _GLOBAL_CACHES:
-                _GLOBAL_CACHES[model_name] = LRUCache(maxsize=cache_size)
-                _GLOBAL_LOCKS[model_name] = Lock()
+            with _INIT_LOCK:
+                if model_name not in _GLOBAL_CACHES:
+                    _GLOBAL_CACHES[model_name] = LRUCache(maxsize=cache_size)
+                    _GLOBAL_LOCKS[model_name] = Lock()
 
             self._cache = _GLOBAL_CACHES[model_name]
             self._cache_lock = _GLOBAL_LOCKS[model_name]
@@ -115,4 +118,4 @@ class EmbeddingModel(ABC):
         :param message: The input text message.
         :return: Sanitized text.
         """
-        return message.strip().lower().replace("\n", " ").replace("\t", " ")
+        return re.sub(r"\s+", " ", message).strip().lower()

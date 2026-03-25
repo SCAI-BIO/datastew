@@ -40,7 +40,7 @@ class Source(ABC):
         :return: A pandas DataFrame with raw content.
         """
         file_ext = self.file_path.lower()
-        required_cols = list(self.required_fields.keys())
+        required_cols = set(self.required_fields.keys())
 
         def usecols_func(col: str) -> bool:
             return col in required_cols
