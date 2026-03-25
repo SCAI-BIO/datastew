@@ -22,7 +22,7 @@ __all__ = [
     "mapping",
     "model",
     "ols",
-    "source",
     "plot_embeddings",
     "postgresql",
+    "source",
 ]
