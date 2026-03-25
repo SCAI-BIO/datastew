@@ -294,9 +294,6 @@ class Importer:
         :raises RuntimeError: If the vectorizer returns an inconsistent number of embeddings.
         """
         if generate_embeddings:
-            if not self.vectorizer:
-                raise ValueError("generate_embeddings is True, but no vectorizer was provided.")
-
             texts = [item["text"] for item in buffer]
             embeddings = self.vectorizer.get_embeddings(texts)
             vectorizer_name = self.vectorizer.model_name
