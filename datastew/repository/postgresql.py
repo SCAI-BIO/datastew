@@ -26,8 +26,7 @@ class PostgreSQLRepository:
         """Initializes the repository with a PostgreSQL backend.
 
         :param connection_string: Full DB URI (e.g., 'postgresql://user:pass@localhost/dbname').
-        :param vectorizer: An instance of Vectorizer for generating embeddings,
-            defaults to Vectorizer("FremyCompany/BioLORD-2023").
+        :param vectorizer: An instance of Vectorizer for generating embeddings, defaults to Vectorizer().
         :param pool_size: The number of connections to keep in the connection pool.
         :param max_overflow: The maximum number of connections to allow in overflow.
         :param pool_timeout: The maximum time (in seconds) to wait for a connection from
@@ -43,6 +42,12 @@ class PostgreSQLRepository:
         self.session = Session()
 
     def store(self, objects: Union[Terminology, Concept, Mapping, list[Union[Terminology, Concept, Mapping]]]):
+        """Store one or multiple database objects (Terminology, Concept, or Mapping ) in bulk. Handles conflicts by
+        updating existing records based on unique constraints.
+
+        :param objects: A single object or a list of objects to be stored.
+        :raises ObjectStorageError: If the bulk insert or update operation fails.
+        """
         if not isinstance(objects, list):
             objects = [objects]
 
@@ -73,7 +78,7 @@ class PostgreSQLRepository:
                     )
                 elif model_class == Mapping:
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=["concept_id", "sentence_embedder", "text"],
+                        index_elements=["concept_id", "vectorizer", "text"],
                         set_={"embedding": stmt.excluded.embedding},
                     )
 
@@ -85,26 +90,54 @@ class PostgreSQLRepository:
             raise ObjectStorageError("Failed to store objects in the database.", e)
 
     def add_terminology(self, name: str, short_name: str) -> Terminology:
+        """Create and store a new Terminology.
+
+        :param name: The full name of the terminology.
+        :param short_name: A shortened name or acronym for the terminology.
+        :return: The stored Terminology object.
+        """
         terminology = Terminology(name=name, short_name=short_name)
         self.store(terminology)
         return self.get_terminology_by_name(name)
 
     def get_terminology(self, id: int) -> Terminology:
+        """Retrieve a Terminology by its database ID.
+
+        :param id: The primary key ID of the terminology.
+        :raises ValueError: If no terminology is found with the given ID.
+        :return: The matching Terminology object.
+        """
         terminology = self.session.get(Terminology, id)
         if terminology is None:
             raise ValueError(f"No Terminology found with ID: {id}")
         return terminology
 
     def get_terminology_by_name(self, terminology_name: str) -> Terminology:
+        """Retrieve a Terminology by its full name.
+
+        :param terminology_name: The exact name of the terminology.
+        :raises ValueError: If no terminology is found with the given name.
+        :return: The matching Terminology object.
+        """
         terminology = self.session.query(Terminology).filter_by(name=terminology_name).first()
         if terminology is None:
             raise ValueError(f"No Terminology found with name: {terminology_name}")
         return terminology
 
     def get_all_terminologies(self) -> list[Terminology]:
+        """Retrieve all stored Terminologies.
+
+        :return: A list of all Terminology object in the database.
+        """
         return self.session.query(Terminology).all()
 
     def edit_terminology(self, id: int, **kwargs) -> Terminology:
+        """Update the attributes of an existing Terminology.
+
+        :param id: The primary key ID of the terminology to update.
+        :param kwargs: Key-value pairs representing the attributes to update.
+        :return: The updated Terminology object.
+        """
         terminology = self.get_terminology(id)
         for key, value in kwargs.items():
             if hasattr(terminology, key):
@@ -113,22 +146,45 @@ class PostgreSQLRepository:
         return terminology
 
     def delete_terminology(self, id: int):
+        """Delete a Terminology from the database by its ID.
+
+        :param id: The primary key ID of the terminology to delete.
+        """
         terminology = self.get_terminology(id)
         self.session.delete(terminology)
         self.session.commit()
 
     def add_concept(self, terminology_id: int, pref_label: str, concept_identifier: str) -> Concept:
+        """Create and store a new Concept linked to a specific Terminology.
+
+        :param terminology_id: The ID of the parent Terminology.
+        :param pref_label: The preferred label or standard name for the concept.
+        :param concept_identifier: The unique identifier code for the concept.
+        :return: The stored Concept object.
+        """
         concept = Concept(terminology_id=terminology_id, pref_label=pref_label, concept_identifier=concept_identifier)
         self.store(concept)
         return self.get_concept_by_identifier(concept_identifier)
 
     def get_concept(self, id: int) -> Concept:
+        """Retrieve a Concept by its database ID.
+
+        :param id: The primary key ID of the concept.
+        :raises ValueError: If no concept is found with the given ID.
+        :return: The matching Concept object.
+        """
         concept = self.session.get(Concept, id)
         if concept is None:
             raise ValueError(f"No Concept found with ID: {id}")
         return concept
 
     def get_concept_by_identifier(self, concept_identifier: str) -> Concept:
+        """Retrieve a Concept by its unique identifier code.
+
+        :param concept_identifier: The identifier string of the concept.
+        :raises ValueError: If no concept is found with the given identifier.
+        :return: The matching Concept object.
+        """
         concept = self.session.query(Concept).filter_by(concept_identifier=concept_identifier).first()
         if concept is None:
             raise ValueError(f"No Concept found with identifier: {concept_identifier}")
@@ -148,6 +204,12 @@ class PostgreSQLRepository:
         return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)
 
     def edit_concept(self, id: int, **kwargs) -> Concept:
+        """Update the attributes of an existing Concept.
+
+        :param id: The primary key ID of the concept to update.
+        :param kwargs: Key-value pairs representing the attributes to update.
+        :return: The updated Concept object.
+        """
         concept = self.get_concept(id)
         for key, value in kwargs.items():
             if hasattr(concept, key):
@@ -156,6 +218,10 @@ class PostgreSQLRepository:
         return concept
 
     def delete_concept(self, id: int):
+        """Delete a Concept from the database by its ID.
+
+        :param id: The primary key ID of the concept to delete.
+        """
         concept = self.get_concept(id)
         self.session.delete(concept)
         self.session.commit()
@@ -165,20 +231,28 @@ class PostgreSQLRepository:
         concept_id: int,
         text: str,
         embedding: Optional[Sequence[float]] = None,
-        sentence_embedder: Optional[str] = None,
+        vectorizer: Optional[str] = None,
     ) -> Mapping:
-        if (embedding is None or sentence_embedder is None) and self.vectorizer:
-            embedding = self.vectorizer.get_embedding(text)
-            sentence_embedder = self.vectorizer.model_name
-        elif embedding is None or sentence_embedder is None:
-            raise ValueError("Both embedding and sentence_embedder must be provided if no vectorizer is initialized.")
+        """Create and store a new Mapping for a concept, generating an embedding if not provided.
 
-        mapping = Mapping(concept_id=concept_id, text=text, embedding=embedding, sentence_embedder=sentence_embedder)
+        :param concept_id: The ID of the concept this mapping belongs to.
+        :param text: The source text for the mapping.
+        :param embedding: The vectory representation of the text. Generated if None, defaults to None.
+        :param vectorizer: The name of the model used for the embedding. Generated if None, defaults to None
+        :raises ValueError: If embedding/vectorizer are omitted and no default vectorizer is configured.
+        :raises RuntimeError: If the mapping cannot be retrieved after storage.
+        :return: The stored Mapping object.
+        """
+        if (embedding is None or vectorizer is None) and self.vectorizer:
+            embedding = self.vectorizer.get_embedding(text)
+            vectorizer = self.vectorizer.model_name
+        elif embedding is None or vectorizer is None:
+            raise ValueError("Both embedding and vectorizer must be provided if no vectorizer is initialized.")
+
+        mapping = Mapping(concept_id=concept_id, text=text, embedding=embedding, vectorizer=vectorizer)
         self.store(mapping)
         saved_mapping = (
-            self.session.query(Mapping)
-            .filter_by(concept_id=concept_id, sentence_embedder=sentence_embedder, text=text)
-            .first()
+            self.session.query(Mapping).filter_by(concept_id=concept_id, vectorizer=vectorizer, text=text).first()
         )
 
         if saved_mapping is None:
@@ -187,6 +261,12 @@ class PostgreSQLRepository:
         return saved_mapping
 
     def get_mapping(self, id: int) -> Mapping:
+        """Retrieve a Mapping by its database ID.
+
+        :param id: The primary key ID of the mapping.
+        :raises ValueError: If no mapping is found with the given ID.
+        :return: The matching Mapping object.
+        """
         mapping = self.session.get(Mapping, id)
         if mapping is None:
             raise ValueError(f"No Mapping found with ID: {id}")
@@ -195,14 +275,14 @@ class PostgreSQLRepository:
     def get_mappings(
         self,
         terminology_name: Optional[str] = None,
-        sentence_embedder: Optional[str] = None,
+        vectorizer: Optional[str] = None,
         limit: int = 1000,
         offset: int = 0,
     ) -> Page[Mapping]:
-        """Retrieves a paginated list of mappings, optionally filtered by terminology name and/or sentence embedder.
+        """Retrieves a paginated list of mappings, optionally filtered by terminology name and/or vectorizer.
 
         :param terminology_name: Name of the terminology to filter by, defaults to None
-        :param sentence_embedder: Name of the sentence embedding model to filter by, defaults to None
+        :param vectorizer: Name of the vectorizer model to filter by, defaults to None
         :param limit: Maximum number of results to return, defaults to 1000
         :param offset: Number of items to skip, defaults to 0
         :return: A paginated result containing mappings and metadata.
@@ -210,8 +290,8 @@ class PostgreSQLRepository:
         query = self.session.query(Mapping)
         if terminology_name:
             query = query.join(Concept).join(Terminology).filter(Terminology.name == terminology_name)
-        if sentence_embedder:
-            query = query.filter(Mapping.sentence_embedder == sentence_embedder)
+        if vectorizer:
+            query = query.filter(Mapping.vectorizer == vectorizer)
 
         total_count = query.count()
         if total_count == 0:
@@ -221,6 +301,12 @@ class PostgreSQLRepository:
         return Page(items=items, limit=limit, offset=offset, total_count=total_count)
 
     def edit_mapping(self, id: int, **kwargs) -> Mapping:
+        """Update the attributes of an existing Mapping.
+
+        :param id: The primary key ID of the mapping to update.
+        :param kwargs: Key-value pairs representing the attributes to update.
+        :return: The updated Mapping object.
+        """
         mapping = self.get_mapping(id)
         for key, value in kwargs.items():
             if hasattr(mapping, key):
@@ -229,23 +315,27 @@ class PostgreSQLRepository:
         return mapping
 
     def delete_mapping(self, id: int):
+        """Delete a Mapping from the database by its ID.
+
+        :param id: The primary key ID of the mapping to delete.
+        """
         mapping = self.get_mapping(id)
         self.session.delete(mapping)
         self.session.commit()
 
-    def get_all_sentence_embedders(self) -> list[str]:
-        """Retrieves all distinct sentence embedder names used in the mappings.
+    def get_all_vectorizers(self) -> list[str]:
+        """Retrieves all distinct vectorizer names used in the mappings.
 
-        :return: Unique sentence embedder identifiers.
+        :return: Unique vectorizer identifiers.
         """
-        return [embedder for embedder, in self.session.query(Mapping.sentence_embedder).distinct().all()]
+        return [embedder for embedder, in self.session.query(Mapping.vectorizer).distinct().all()]
 
     def get_closest_mappings(
         self,
         embedding: Sequence[float],
         similarities: bool = True,
         terminology_name: Optional[str] = None,
-        sentence_embedder: Optional[str] = None,
+        vectorizer: Optional[str] = None,
         limit: int = 5,
     ) -> Union[list[Mapping], list[MappingResult]]:
         """Finds the closest mappings by cosine similarity to a given embedding, optionally filtered.
@@ -253,7 +343,7 @@ class PostgreSQLRepository:
         :param embedding: The target embedding vector to compare against.
         :param similarities: If True, returns MappingResult objects with similarity scores, defaults to True.
         :param terminology_name: Filter by terminology name, defaults to None.
-        :param sentence_embedder: Filter by sentence embedder name, defaults to None.
+        :param vectorizer: Filter by vectorizer name, defaults to None.
         :param limit: Maximum number of results to return, defaults to 5.
         :return: Closest mappings, with or without similarity scores.
         """
@@ -262,8 +352,8 @@ class PostgreSQLRepository:
         if terminology_name:
             query = query.join(Concept).join(Terminology).filter(Terminology.name == terminology_name)
 
-        if sentence_embedder:
-            query = query.filter(Mapping.sentence_embedder == sentence_embedder)
+        if vectorizer:
+            query = query.filter(Mapping.vectorizer == vectorizer)
 
         results = query.order_by("distance").limit(limit).all()
 
@@ -292,5 +382,8 @@ class PostgreSQLRepository:
         self.session.commit()
 
     def _initialize_pgvector(self):
+        """
+        Initialize the pgvector extension in the PostgreSQL database if it does not already exist.
+        """
         with self.engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))

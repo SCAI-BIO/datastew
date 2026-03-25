@@ -19,6 +19,13 @@ class OlsClient:
         ols_api_base_url: str = "https://www.ebi.ac.uk/ols4/api/",
         page_size: int = 200,
     ):
+        """Initializes the OlsClient to fetch ontology data from the OLS API.
+
+        :param vectorizer: The model used to convert concept descriptions into embeddings.
+        :param ontology_id: The identifier of the target ontology in OLS (e.g., 'ncit', 'efo').
+        :param ols_api_base_url: The base URL for the OLS API, defaults to "https://www.ebi.ac.uk/ols4/api/"
+        :param page_size: The number of terms to fetch per API request, defaults to 200
+        """
         logging.getLogger().setLevel(logging.INFO)
         self.vectorizer = vectorizer
         self.ontology_id = ontology_id
@@ -31,6 +38,10 @@ class OlsClient:
         self.current_page = 0
 
     def get_ontology_name(self) -> str:
+        """Retrieves the full title of the ontology from the OLS API.
+
+        :return: The full name/title of the ontology.
+        """
         url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}"
         try:
             response = requests.get(url)
@@ -42,6 +53,10 @@ class OlsClient:
             raise
 
     def get_ontology_short_name(self) -> str:
+        """Retrieves the preferred prefix or short name of the ontology.
+
+        :return: The short name of the ontology.
+        """
         url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}"
         try:
             response = requests.get(url)
@@ -55,6 +70,10 @@ class OlsClient:
             raise
 
     def get_number_of_pages(self) -> int:
+        """Calculates the total number of pages required to fetch all terms based on the configured page size.
+
+        :return: The total number of pages available for the ontology.
+        """
         url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?size={self.page_size}"
         try:
             response = requests.get(url)
@@ -65,12 +84,10 @@ class OlsClient:
             logging.error(f"Failed to fetch concepts and descriptions from OLS: {str(e)}")
             raise
 
-    def process_to_repository(self, repository: PostgreSQLRepository):
-        """
-        Fetches concepts and descriptions from the OLS API and stores them in a repository.
+    def process_to_repository(self, repository: PostgreSQLRepository) -> None:
+        """Fetches concepts and descriptions from the OLS API and stores them in a repository.
 
         :param repository: The repository to store the concepts and mappings.
-
         :return: None
         """
         # init terminology
@@ -113,14 +130,17 @@ class OlsClient:
                                 concept_id=concept_map[cid_str],
                                 text=description,
                                 embedding=embedding,
-                                sentence_embedder=model_name,
+                                vectorizer=model_name,
                             )
                         )
                 repository.store(mappings)
+                self.current_page += 1
 
-    def process_to_json(self, dest_path: str):
-        """
-        Fetches concepts and descriptions from the OLS API and stores them in a JSON file.
+    def process_to_json(self, dest_path: str) -> None:
+        """Fetches concepts and descriptions from the OLS API and stores them in a JSON files to a specified directory.
+
+        :param dest_path: The directory path where the resulting JSON files will be saved.
+        :return: None.
         """
         os.makedirs(dest_path, exist_ok=True)
         terminology_data = {"name": self.ontology_name, "short_name": self.ontology_short_name}
@@ -147,7 +167,7 @@ class OlsClient:
                         "concept_identifier": cid,
                         "text": desc,
                         "embedding": emb,
-                        "sentence_embedder": self.vectorizer.model_name,
+                        "vectorizer": self.vectorizer.model_name,
                     }
                 )
 
@@ -159,6 +179,15 @@ class OlsClient:
             self.current_page += 1
 
     def _fetch_page_data(self, page: int) -> Tuple[list[str], list[str], list[str], Sequence[Sequence[float]]]:
+        """Retrieves a single page of terms from the OLS API and computes text embeddings for their descriptions.
+
+        :param page: The page index to fetch from the API.
+        :return: A tuple containing four elements:
+                - A list of concept identifiers (obo_id).
+                - A list of preferred labels.
+                - A list of text descriptions.
+                - A sequence of computed embeddings for the descriptions.
+        """
         url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?page={page}&size={self.page_size}"
         logging.info(f"Processing page {self.current_page}/{self.num_pages}.")
 
