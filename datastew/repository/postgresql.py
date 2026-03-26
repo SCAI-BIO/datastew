@@ -2,9 +2,9 @@ import logging
 from collections import defaultdict
 from typing import Optional, Sequence, Union
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import Engine, delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.orm import joinedload, sessionmaker
+from sqlalchemy.orm import Session, joinedload
 
 from datastew.embedding import Vectorizer
 from datastew.exceptions import ObjectStorageError
@@ -15,31 +15,23 @@ logger = logging.getLogger(__name__)
 
 
 class PostgreSQLRepository:
-    def __init__(
-        self,
-        connection_string: str,
-        vectorizer: Vectorizer = Vectorizer(),
-        pool_size: int = 10,
-        max_overflow: int = 20,
-        pool_timeout: int = 30,
-    ):
-        """Initializes the repository with a PostgreSQL backend.
+    def __init__(self, session: Session, vectorizer: Vectorizer = Vectorizer()):
+        """Initializes the repository with an injected database session.
 
-        :param connection_string: Full DB URI (e.g., 'postgresql://user:pass@localhost/dbname').
-        :param vectorizer: An instance of Vectorizer for generating embeddings, defaults to Vectorizer().
-        :param pool_size: The number of connections to keep in the connection pool.
-        :param max_overflow: The maximum number of connections to allow in overflow.
-        :param pool_timeout: The maximum time (in seconds) to wait for a connection from
-            the pool before raising an exception.
+        :param session: The active SQLAlchemy session for database operations.
+        :param vectorizer: An instance of Vectorizer for generating embeddings.
         """
+        self.session = session
         self.vectorizer = vectorizer
-        self.engine = create_engine(
-            connection_string, pool_size=pool_size, max_overflow=max_overflow, pool_timeout=pool_timeout
-        )
-        self._initialize_pgvector()
-        Base.metadata.create_all(self.engine)
-        Session = sessionmaker(bind=self.engine, autoflush=False)
-        self.session = Session()
+
+    @staticmethod
+    def setup_database(engine: Engine):
+        """Creates the pgvector extension and database tables.
+        Must be executed once before the repository is used.
+        """
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        Base.metadata.create_all(engine)
 
     def store(self, objects: Union[Terminology, Concept, Mapping, list[Union[Terminology, Concept, Mapping]]]):
         """Store one or multiple database objects (Terminology, Concept, or Mapping ) in bulk. Handles conflicts by
@@ -83,9 +75,7 @@ class PostgreSQLRepository:
                     )
 
                 self.session.execute(stmt)
-            self.session.commit()
         except Exception as e:
-            self.session.rollback()
             logger.exception("Failed to store objects in bulk.")
             raise ObjectStorageError("Failed to store objects in the database.") from e
 
@@ -119,7 +109,8 @@ class PostgreSQLRepository:
         :raises ValueError: If no terminology is found with the given name.
         :return: The matching Terminology object.
         """
-        terminology = self.session.query(Terminology).filter_by(name=terminology_name).first()
+        stmt = select(Terminology).filter_by(name=terminology_name)
+        terminology = self.session.execute(stmt).scalar_one_or_none()
         if terminology is None:
             raise ValueError(f"No Terminology found with name: {terminology_name}")
         return terminology
@@ -129,7 +120,8 @@ class PostgreSQLRepository:
 
         :return: A list of all Terminology object in the database.
         """
-        return self.session.query(Terminology).all()
+        stmt = select(Terminology)
+        return list(self.session.execute(stmt).scalars().all())
 
     def edit_terminology(self, id: int, **kwargs) -> Terminology:
         """Update the attributes of an existing Terminology.
@@ -142,7 +134,6 @@ class PostgreSQLRepository:
         for key, value in kwargs.items():
             if hasattr(terminology, key):
                 setattr(terminology, key, value)
-        self.session.commit()
         return terminology
 
     def delete_terminology(self, id: int):
@@ -152,7 +143,6 @@ class PostgreSQLRepository:
         """
         terminology = self.get_terminology(id)
         self.session.delete(terminology)
-        self.session.commit()
 
     def add_concept(self, terminology_id: int, pref_label: str, concept_identifier: str) -> Concept:
         """Create and store a new Concept linked to a specific Terminology.
@@ -185,7 +175,8 @@ class PostgreSQLRepository:
         :raises ValueError: If no concept is found with the given identifier.
         :return: The matching Concept object.
         """
-        concept = self.session.query(Concept).filter_by(concept_identifier=concept_identifier).first()
+        stmt = select(Concept).filter_by(concept_identifier=concept_identifier)
+        concept = self.session.execute(stmt).scalar_one_or_none()
         if concept is None:
             raise ValueError(f"No Concept found with identifier: {concept_identifier}")
         return concept
@@ -195,12 +186,15 @@ class PostgreSQLRepository:
 
         :return: All stored Concept objects.
         """
-        query = self.session.query(Concept).options(joinedload(Concept.terminology))
-        if terminology_name:
-            query = query.join(Concept.terminology).filter(Terminology.name == terminology_name)
+        stmt = select(Concept).options(joinedload(Concept.terminology))
+        count_stmt = select(func.count()).select_from(Concept)
 
-        total_count = query.count()
-        concepts = query.offset(offset).limit(limit).all()
+        if terminology_name:
+            stmt = stmt.join(Concept.terminology).filter(Terminology.name == terminology_name)
+            count_stmt = count_stmt.join(Concept.terminology).filter(Terminology.name == terminology_name)
+
+        total_count = self.session.scalar(count_stmt) or 0
+        concepts = list(self.session.execute(stmt.offset(offset).limit(limit)).scalars().all())
         return Page[Concept](items=concepts, limit=limit, offset=offset, total_count=total_count)
 
     def edit_concept(self, id: int, **kwargs) -> Concept:
@@ -214,7 +208,6 @@ class PostgreSQLRepository:
         for key, value in kwargs.items():
             if hasattr(concept, key):
                 setattr(concept, key, value)
-        self.session.commit()
         return concept
 
     def delete_concept(self, id: int):
@@ -224,7 +217,6 @@ class PostgreSQLRepository:
         """
         concept = self.get_concept(id)
         self.session.delete(concept)
-        self.session.commit()
 
     def add_mapping(
         self,
@@ -239,21 +231,18 @@ class PostgreSQLRepository:
         :param text: The source text for the mapping.
         :param embedding: The vectory representation of the text. Generated if None, defaults to None.
         :param vectorizer: The name of the model used for the embedding. Generated if None, defaults to None
-        :raises ValueError: If embedding/vectorizer are omitted and no default vectorizer is configured.
         :raises RuntimeError: If the mapping cannot be retrieved after storage.
         :return: The stored Mapping object.
         """
-        if (embedding is None or vectorizer is None) and self.vectorizer:
+        if embedding is None or vectorizer is None:
             embedding = self.vectorizer.get_embedding(text)
             vectorizer = self.vectorizer.model_name
-        elif embedding is None or vectorizer is None:
-            raise ValueError("Both embedding and vectorizer must be provided if no vectorizer is initialized.")
 
         mapping = Mapping(concept_id=concept_id, text=text, embedding=embedding, vectorizer=vectorizer)
         self.store(mapping)
-        saved_mapping = (
-            self.session.query(Mapping).filter_by(concept_id=concept_id, vectorizer=vectorizer, text=text).first()
-        )
+
+        stmt = select(Mapping).filter_by(concept_id=concept_id, vectorizer=vectorizer, text=text)
+        saved_mapping = self.session.execute(stmt).scalar_one_or_none()
 
         if saved_mapping is None:
             raise RuntimeError("Failed to retrieve the mapping after storing it.")
@@ -287,17 +276,21 @@ class PostgreSQLRepository:
         :param offset: Number of items to skip, defaults to 0
         :return: A paginated result containing mappings and metadata.
         """
-        query = self.session.query(Mapping)
-        if terminology_name:
-            query = query.join(Concept).join(Terminology).filter(Terminology.name == terminology_name)
-        if vectorizer:
-            query = query.filter(Mapping.vectorizer == vectorizer)
+        stmt = select(Mapping)
+        count_stmt = select(func.count()).select_from(Mapping)
 
-        total_count = query.count()
+        if terminology_name:
+            stmt = stmt.join(Concept).join(Terminology).filter(Terminology.name == terminology_name)
+            count_stmt = count_stmt.join(Concept).join(Terminology).filter(Terminology.name == terminology_name)
+        if vectorizer:
+            stmt = stmt.filter(Mapping.vectorizer == vectorizer)
+            count_stmt = count_stmt.filter(Mapping.vectorizer == vectorizer)
+
+        total_count = self.session.scalar(count_stmt) or 0
         if total_count == 0:
             return Page(items=[], limit=limit, offset=offset, total_count=total_count)
 
-        items = query.offset(offset).limit(limit).all()
+        items = list(self.session.execute(stmt.offset(offset).limit(limit)).scalars().all())
         return Page(items=items, limit=limit, offset=offset, total_count=total_count)
 
     def edit_mapping(self, id: int, **kwargs) -> Mapping:
@@ -311,7 +304,6 @@ class PostgreSQLRepository:
         for key, value in kwargs.items():
             if hasattr(mapping, key):
                 setattr(mapping, key, value)
-        self.session.commit()
         return mapping
 
     def delete_mapping(self, id: int):
@@ -321,14 +313,14 @@ class PostgreSQLRepository:
         """
         mapping = self.get_mapping(id)
         self.session.delete(mapping)
-        self.session.commit()
 
     def get_all_vectorizers(self) -> list[str]:
         """Retrieves all distinct vectorizer names used in the mappings.
 
         :return: Unique vectorizer identifiers.
         """
-        return [embedder for embedder, in self.session.query(Mapping.vectorizer).distinct().all()]
+        stmt = select(Mapping.vectorizer).distinct()
+        return list(self.session.execute(stmt).scalars().all())
 
     def get_closest_mappings(
         self,
@@ -347,26 +339,19 @@ class PostgreSQLRepository:
         :param limit: Maximum number of results to return, defaults to 5.
         :return: Closest mappings, with or without similarity scores.
         """
-        query = self.session.query(Mapping, Mapping.embedding.cosine_distance(embedding).label("distance"))
+        stmt = select(Mapping, Mapping.embedding.cosine_distance(embedding).label("distance"))
 
         if terminology_name:
-            query = query.join(Concept).join(Terminology).filter(Terminology.name == terminology_name)
+            stmt = stmt.join(Concept).join(Terminology).filter(Terminology.name == terminology_name)
 
         if vectorizer:
-            query = query.filter(Mapping.vectorizer == vectorizer)
+            stmt = stmt.filter(Mapping.vectorizer == vectorizer)
 
-        results = query.order_by("distance").limit(limit).all()
+        results = self.session.execute(stmt.order_by("distance").limit(limit)).all()
 
         if similarities:
-            return [MappingResult(mapping=m, similarity=1 - d) for m, d in results]
-        return [m for m, _ in results]
-
-    def shut_down(self):
-        """
-        Closes the SQLAlchemy session and releases database resources.
-        """
-        self.session.close()
-        self.engine.dispose()
+            return [MappingResult(mapping=row.Mapping, similarity=1 - row.distance) for row in results]
+        return [row.Mapping for row in results]
 
     def clear_all(self):
         """Deletes all Terminology, Concept, and Mapping entries from the database.
@@ -376,14 +361,6 @@ class PostgreSQLRepository:
         correct dependency order (Mappings → Concepts → Terminologies) and commits
         the changes.
         """
-        self.session.query(Mapping).delete()
-        self.session.query(Concept).delete()
-        self.session.query(Terminology).delete()
-        self.session.commit()
-
-    def _initialize_pgvector(self):
-        """
-        Initialize the pgvector extension in the PostgreSQL database if it does not already exist.
-        """
-        with self.engine.begin() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        self.session.execute(delete(Mapping))
+        self.session.execute(delete(Concept))
+        self.session.execute(delete(Terminology))

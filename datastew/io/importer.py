@@ -4,6 +4,7 @@ import os
 from typing import Any, Callable, Literal
 
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from datastew.io.source import DataDictionarySource
 from datastew.repository import PostgreSQLRepository
@@ -19,7 +20,6 @@ class Importer:
         :param repository: The configured PostgreSQLRepository instance.
         """
         self.repository = repository
-        self.engine = repository.engine
         self.vectorizer = repository.vectorizer
 
     def import_data_dictionary(self, data_dictionary: DataDictionarySource, terminology_name: str, short_name: str):
@@ -105,7 +105,7 @@ class Importer:
 
     def _load_and_insert_staging(
         self,
-        conn,
+        session: Session,
         jsonl_path: str,
         chunk_size: int,
         object_type: Literal["concept", "mapping"],
@@ -115,7 +115,7 @@ class Importer:
     ):
         """Reads a JSONL file in chunks, processes each row, and executes a bulk insert query into a staging table.
 
-        :param conn: The SQLAlchemy connection object.
+        :param conn: The SQLAlchemy session.
         :param jsonl_path: The path to the JSONL file.
         :param chunk_size: The number of rows per batch to insert.
         :param object_type: The type of object being processed (used for error logging).
@@ -134,11 +134,11 @@ class Importer:
                 buffer.append(row_processor(data))
 
                 if len(buffer) >= chunk_size:
-                    conn.execute(text(insert_query), buffer)
+                    session.execute(text(insert_query), buffer)
                     buffer.clear()
 
             if buffer:
-                conn.execute(text(insert_query), buffer)
+                session.execute(text(insert_query), buffer)
 
     def _import_terminology_staging(self, jsonl_path: str, chunk_size: int):
         """Parses terminology data from a JSONL file and inserts it directly into the terminology table in chunks.
@@ -169,54 +169,55 @@ class Importer:
         :param jsonl_path: The path to the JSONL file containing concept definitions.
         :param chunk_size: The batch size for reading and inserting into the staging table.
         """
-        with self.engine.begin() as conn:
-            conn.execute(
-                text(
-                    """
-                    CREATE UNLOGGED TABLE IF NOT EXISTS staging_concept (
-                        terminology_short_name TEXT,
-                        pref_label TEXT,
-                        concept_identifier TEXT)
-                    """
-                )
+        session = self.repository.session
+
+        session.execute(
+            text(
+                """
+                CREATE UNLOGGED TABLE IF NOT EXISTS staging_concept (
+                    terminology_short_name TEXT,
+                    pref_label TEXT,
+                    concept_identifier TEXT)
+                """
             )
-            conn.execute(text("TRUNCATE staging_concept"))
+        )
+        session.execute(text("TRUNCATE staging_concept"))
 
-            def process_concept(data: dict[str, Any]) -> dict[str, Any]:
-                return {
-                    "terminology_short_name": data["terminology_short_name"],
-                    "pref_label": data["pref_label"],
-                    "concept_identifier": data["concept_identifier"],
-                }
+        def process_concept(data: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "terminology_short_name": data["terminology_short_name"],
+                "pref_label": data["pref_label"],
+                "concept_identifier": data["concept_identifier"],
+            }
 
-            insert_query = """
-                INSERT INTO staging_concept (terminology_short_name, pref_label, concept_identifier)
-                VALUES (:terminology_short_name, :pref_label, :concept_identifier)
-            """
+        insert_query = """
+            INSERT INTO staging_concept (terminology_short_name, pref_label, concept_identifier)
+            VALUES (:terminology_short_name, :pref_label, :concept_identifier)
+        """
 
-            self._load_and_insert_staging(
-                conn=conn,
-                jsonl_path=jsonl_path,
-                chunk_size=chunk_size,
-                object_type="concept",
-                required_keys=["terminology_short_name", "pref_label", "concept_identifier"],
-                insert_query=insert_query,
-                row_processor=process_concept,
+        self._load_and_insert_staging(
+            session=session,
+            jsonl_path=jsonl_path,
+            chunk_size=chunk_size,
+            object_type="concept",
+            required_keys=["terminology_short_name", "pref_label", "concept_identifier"],
+            insert_query=insert_query,
+            row_processor=process_concept,
+        )
+
+        session.execute(
+            text(
+                """
+                INSERT INTO concept (terminology_id, pref_label, concept_identifier)
+                SELECT t.id, s.pref_label, s.concept_identifier
+                FROM staging_concept s
+                JOIN terminology t ON s.terminology_short_name = t.short_name
+                ON CONFLICT (terminology_id, concept_identifier)
+                DO UPDATE SET pref_label = EXCLUDED.pref_label
+                """
             )
-
-            conn.execute(
-                text(
-                    """
-                    INSERT INTO concept (terminology_id, pref_label, concept_identifier)
-                    SELECT t.id, s.pref_label, s.concept_identifier
-                    FROM staging_concept s
-                    JOIN terminology t ON s.terminology_short_name = t.short_name
-                    ON CONFLICT (terminology_id, concept_identifier)
-                    DO UPDATE SET pref_label = EXCLUDED.pref_label
-                    """
-                )
-            )
-            conn.execute(text("DROP TABLE staging_concept"))
+        )
+        session.execute(text("DROP TABLE staging_concept"))
 
     def _import_mapping_staging(self, jsonl_path: str, chunk_size: int = 2048, generate_embeddings: bool = False):
         """Loads mappings from a JSONL file, optionally generates embeddings via LLM
@@ -230,64 +231,66 @@ class Importer:
         """
         # Cap chunk size for LLM limits only if generating embeddings
         effective_chunk_size = min(chunk_size, 2048)
+        session = self.repository.session
 
-        with self.engine.begin() as conn:
-            conn.execute(
-                text(
-                    """
-                    CREATE UNLOGGED TABLE IF NOT EXISTS staging_mapping (
-                        concept_identifier TEXT,
-                        text TEXT,
-                        embedding vector(768),
-                        vectorizer TEXT
+        session.execute(
+            text(
+                """
+                CREATE UNLOGGED TABLE IF NOT EXISTS staging_mapping (
+                    concept_identifier TEXT,
+                    text TEXT,
+                    embedding vector(768),
+                    vectorizer TEXT
+                )
+                """
+            )
+        )
+        session.execute(text("TRUNCATE staging_mapping"))
+
+        buffer = []
+        with open(jsonl_path, "r", encoding="utf-8") as file:
+            for line in file:
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                self._validate_required_fields(data, ["concept_identifier", "text"], "mapping")
+
+                if not generate_embeddings and ("embedding" not in data or "vectorizer" not in data):
+                    raise ValueError(
+                        "generate_embeddings is False, but 'embedding' or 'vectorizer' "
+                        f"is missing in row: {data.get('concept_identifier')}"
                     )
-                    """
-                )
+
+                buffer.append(data)
+
+                if len(buffer) >= effective_chunk_size:
+                    self._embed_and_insert_mapping_chunk(session, buffer, generate_embeddings)
+                    buffer.clear()
+
+            if buffer:
+                self._embed_and_insert_mapping_chunk(session, buffer, generate_embeddings)
+
+        # Resolve FKs and Upsert to Final Table
+        session.execute(
+            text(
+                """
+                INSERT INTO mapping (concept_id, text, embedding, vectorizer)
+                SELECT c.id, s.text, s.embedding, s.vectorizer
+                FROM staging_mapping s
+                JOIN concept c ON s.concept_identifier = c.concept_identifier
+                ON CONFLICT (concept_id, vectorizer, text)
+                DO UPDATE SET embedding = EXCLUDED.embedding
+                """
             )
-            conn.execute(text("TRUNCATE staging_mapping"))
+        )
+        session.execute(text("DROP TABLE staging_mapping"))
 
-            buffer = []
-            with open(jsonl_path, "r", encoding="utf-8") as file:
-                for line in file:
-                    if not line.strip():
-                        continue
-                    data = json.loads(line)
-                    self._validate_required_fields(data, ["concept_identifier", "text"], "mapping")
-
-                    if not generate_embeddings and ("embedding" not in data or "vectorizer" not in data):
-                        raise ValueError(
-                            "generate_embeddings is False, but 'embedding' or 'vectorizer' "
-                            f"is missing in row: {data.get('concept_identifier')}"
-                        )
-
-                    buffer.append(data)
-
-                    if len(buffer) >= effective_chunk_size:
-                        self._embed_and_insert_mapping_chunk(conn, buffer, generate_embeddings)
-                        buffer.clear()
-
-                if buffer:
-                    self._embed_and_insert_mapping_chunk(conn, buffer, generate_embeddings)
-
-            # Resolve FKs and Upsert to Final Table
-            conn.execute(
-                text(
-                    """
-                    INSERT INTO mapping (concept_id, text, embedding, vectorizer)
-                    SELECT c.id, s.text, s.embedding, s.vectorizer
-                    FROM staging_mapping s
-                    JOIN concept c ON s.concept_identifier = c.concept_identifier
-                    ON CONFLICT (concept_id, vectorizer, text)
-                    DO UPDATE SET embedding = EXCLUDED.embedding
-                    """
-                )
-            )
-            conn.execute(text("DROP TABLE staging_mapping"))
-
-    def _embed_and_insert_mapping_chunk(self, conn, buffer: list[dict[str, Any]], generate_embeddings: bool):
+    def _embed_and_insert_mapping_chunk(
+        self, session: Session, buffer: list[dict[str, Any]], generate_embeddings: bool
+    ):
         """Executes LLM batch inference if flagged, formats the data, and executes the SQL insert into staging.
 
-        :param conn: The SQLAlchemy connection object.
+        :param conn: The SQLAlchemy sesssion.
         :param buffer: A list of dictionary objects representing the rows to insert.
         :param generate_embeddings: Flag indicating whether to fetch embeddings from the vectorizer.
         :raises ValueError: If generate_embeddings is True but the repository lacks a configured vectorizer.
@@ -316,7 +319,7 @@ class Importer:
                 }
             )
 
-        conn.execute(
+        session.execute(
             text(
                 """
                 INSERT INTO staging_mapping (concept_identifier, text, embedding, vectorizer)
