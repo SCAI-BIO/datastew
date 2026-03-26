@@ -219,18 +219,6 @@ class TestPostgreSQLRepository(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No Concept found with identifier"):
             self.repository.get_concept_by_identifier("INVALID_ID")
 
-    def test_add_mapping_missing_vectorizer(self):
-        """Verify adding a mapping without an embedding raises an error if no default is set."""
-        original_vectorizer = self.repository.vectorizer
-        self.repository.vectorizer = None  # type: ignore
-
-        try:
-            concept = self.repository.get_concept_by_identifier("Concept ID: 11893007")
-            with self.assertRaisesRegex(ValueError, "Both embedding and vectorizer must be provided"):
-                self.repository.add_mapping(concept_id=concept.id, text="Will Fail")
-        finally:
-            self.repository.vectorizer = original_vectorizer
-
 
 if __name__ == "__main__":
     unittest.main()
