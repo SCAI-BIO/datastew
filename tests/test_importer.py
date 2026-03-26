@@ -7,6 +7,9 @@ import unittest
 from typing import Any, Literal
 from unittest.mock import Mock, patch
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from datastew.io.importer import Importer
 from datastew.io.source import DataDictionarySource
 from datastew.repository import PostgreSQLRepository
@@ -14,10 +17,22 @@ from datastew.repository import PostgreSQLRepository
 
 class TestImporter(unittest.TestCase):
     def setUp(self):
-        POSTGRES_TEST_URL = os.getenv("TEST_POSTGRES_URI", "postgresql://testuser:testpass@localhost/testdb")
+        postgres_url = os.getenv("TEST_POSTGRES_URI", "postgresql://testuser:testpass@localhost/testdb")
+        if postgres_url.startswith("postgresql://"):
+            postgres_url = postgres_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
         self.TEST_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
-        self.repository = PostgreSQLRepository(POSTGRES_TEST_URL)
+
+        self.engine = create_engine(postgres_url)
+        PostgreSQLRepository.setup_database(self.engine)
+
+        self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False)
+        self.session = self.SessionLocal()
+
+        self.repository = PostgreSQLRepository(session=self.session)
         self.repository.clear_all()
+        self.session.commit()
+
         self.importer = Importer(self.repository)
         self.temp_dir = tempfile.mkdtemp()
 
@@ -60,10 +75,12 @@ class TestImporter(unittest.TestCase):
         for data_type in data_types:
             file_path = os.path.join(self.temp_dir, f"{data_type}.jsonl")
             self.importer.import_from_jsonl(file_path, data_type)
+        self.session.commit()
 
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-        self.repository.shut_down()
+        self.session.close()
+        self.engine.dispose()
 
     def test_import_terminology(self):
         self.import_data(["terminology"])
@@ -152,6 +169,7 @@ class TestImporter(unittest.TestCase):
 
         try:
             self.importer.import_from_jsonl(file_path, "mapping", generate_embeddings=True)
+            self.session.commit()
             mappings = self.repository.get_mappings().items
             self.assertEqual(len(mappings), 1)
             self.assertEqual(mappings[0].vectorizer, "fake-model")
@@ -177,6 +195,7 @@ class TestImporter(unittest.TestCase):
         open(empty_file, "w").close()
 
         self.importer.import_from_jsonl(empty_file, "terminology")
+        self.session.commit()
         terminology = self.repository.get_all_terminologies()
         self.assertEqual(len(terminology), 0)
 
@@ -185,6 +204,7 @@ class TestImporter(unittest.TestCase):
         source = DataDictionarySource(path, "VAR_1", "DESC")
 
         self.importer.import_data_dictionary(source, terminology_name="import_test", short_name="IMPORT")
+        self.session.commit()
 
         terminology = self.repository.get_terminology_by_name("import_test")
         self.assertEqual("import_test", terminology.name)
