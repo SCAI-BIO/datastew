@@ -49,69 +49,74 @@ df = map_dictionary_to_dictionary(source, target, vectorizer=vectorizer)
 
 ### Creating and using stored mappings
 
-A simple example how to initialize an in memory database and compute a similarity mapping is shown in
-[datastew/scripts/mapping_db_example.py](datastew/scripts/mapping_db_example.py):
+Datastew uses a PostgreSQL backend with the pgvector extension to store and query embeddings. This allows for persistent terminology management and high-performance semantic search.
 
 1.  Initialize the repository and embedding model:
 
+    First, set up your database engine and ensure the schema is initialized. Datastew uses the psycopg (v3) driver for synchronous communication.
+
     ```python
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
     from datastew.embedding import Vectorizer
     from datastew.repository import PostgreSQLRepository
 
-    POSTGRES_USER = "user"
-    POSTGRES_PASSWORD = "password"
-    POSTGRES_HOST = "localhost"
-    POSTGRES_PORT = "5432"
-    POSTGRES_DB = "testdb"
+    # 1. Define connection string (note the +psycopg driver)
+    DB_URL = "postgresql+psycopg://user:password@localhost:5432/testdb"
+    engine = create_engine(DB_URL)
 
-    connection_string = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    # 2. Initialize the database schema and pgvector extension (Run once)
+    PostgreSQLRepository.setup_database(engine)
 
-    # You can use an OpenAI model if you have an API key:
-    # vectorizer = Vectorizer("text-embedding-3-small", api_key="your_openai_api_key")
+    # 3. Create a session factory
+    SessionLocal = sessionmaker(bind=engine, autoflush=False)
+    ```
+
+2.  Populate the Repository
+
+    Use a session context to add terminologies, concepts, and mappings. Note: You must call session.commit() to persist changes before they become searchable.
+
+    ```python
     vectorizer = Vectorizer()
-    repository = PostgreSQLRepository(connection_string, vectorizer=vectorizer)
+
+    with SessionLocal() as session: # Inject the session into the repository
+        repository = PostgreSQLRepository(session=session, vectorizer=vectorizer)
+
+        # Add a terminology
+        terminology = repository.add_terminology(name="snomed CT", short_name="SNOMED")
+
+        # Create a concept
+        text1 = "Diabetes mellitus (disorder)"
+        concept1 = repository.add_concept(
+            terminology_id=terminology.id,
+            pref_label=text1,
+            concept_identifier="SNOMED:11893007"
+        )
+
+        # Add a mapping (this generates the embedding and stores it)
+        repository.add_mapping(concept_id=concept1.id, text=text1)
+
+        # Persist the data
+        session.commit()
     ```
 
-2.  Create a baseline of data to map to in the initialized repository. Text gets attached to any unique concept of an
-    existing or custom vocabulary or terminology namespace in the form of a mapping object containing the text, embedding,
-    and the name of sentence embedder used. Multiple Mapping objects with textually different but semantically equal
-    descriptions can point to the same Concept.
+3.  Retrieve Closest Mappings
+
+    Query the database by generating an embedding for a new phrase and comparing it against stored records.
 
     ```python
-    terminology = repository.add_terminology(name="snomed CT", short_name="SNOMED")
+    with SessionLocal() as session:
+        repository = PostgreSQLRepository(session=session, vectorizer=vectorizer)
 
-    text1 = "Diabetes mellitus (disorder)"
-    concept1 = repository.add_concept(
-        terminology_id=terminology.id,
-        pref_label=text1,
-        concept_identifier="Concept ID: 11893007"
-    )
-    repository.add_mapping(concept_id=concept1.id, text=text1)
+        query_text = "Sugar sickness"
+        embedding = vectorizer.get_embedding(query_text)
 
-    text2 = "Hypertension (disorder)"
-    concept2 = repository.add_concept(
-    terminology_id=terminology.id,
-    pref_label=text2,
-    concept_identifier="Concept ID: 73211009"
-    )
-    repository.add_mapping(concept_id=concept2.id, text=text2)
-    ```
+        # Retrieve top 2 matches with similarity scores
+        results = repository.get_closest_mappings(embedding, similarities=True, limit=2)
 
-3.  Retrieve the closest mappings and their similarities for a given text:
-
-    ```python
-    query_text = "Sugar sickness"  # semantically similar to "Diabetes mellitus (disorder)"
-    embedding = vectorizer.get_embedding(query_text)
-    results = repository.get_closest_mappings(embedding, similarities=True, limit=2)
-
-    print(f'Query: "{query_text}"\n')
-    for r in results:
-        # If similarities=True, repo returns MappingResult; else Mapping.
-        if isinstance(r, MappingResult):
-            print(r)
-        else:
-            print(str(r))
-
+        for r in results:
+            # Returns a MappingResult object containing the Mapping and a similarity float
+            print(f"{r.mapping.concept.pref_label} | Similarity: {r.similarity:.4f}")
     ```
 
 output:
