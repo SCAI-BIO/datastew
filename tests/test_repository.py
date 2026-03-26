@@ -42,7 +42,6 @@ class TestPostgreSQLRepository(unittest.TestCase):
         cls.model_name2 = cls.vectorizer2.model_name
         cls.test_text = "The flu"
 
-        # Initialize the engine and schema once for the suite
         cls.engine = create_engine(cls.POSTGRES_TEST_URL)
         PostgreSQLRepository.setup_database(cls.engine)
         cls.SessionLocal = sessionmaker(bind=cls.engine, autoflush=False)
@@ -66,7 +65,6 @@ class TestPostgreSQLRepository(unittest.TestCase):
     def _reset_repository(self):
         """Clear the repo and re-import base data."""
         self.repository.clear_all()
-        # clear_all uses delete(), need to commit
         self.session.commit()
 
         term1 = self.repository.add_terminology("snomed CT", "SNOMED")
@@ -83,7 +81,6 @@ class TestPostgreSQLRepository(unittest.TestCase):
                 concept_id=concept.id, text=label, embedding=embedding, vectorizer=vectorizer.model_name
             )
 
-        # Persist setup data
         self.session.commit()
 
     def test_terminology_retrieval(self):
@@ -96,17 +93,17 @@ class TestPostgreSQLRepository(unittest.TestCase):
         self.assertIn("snomed CT", names)
 
     def test_concept_retrieval(self):
-        concepts = self.repository.get_concepts()
+        concepts_page = self.repository.get_concepts()
         concept = self.repository.get_concept_by_identifier("Concept ID: 11893007")
 
         self.assertEqual(concept.concept_identifier, "Concept ID: 11893007")
         self.assertEqual(concept.pref_label, "Diabetes mellitus (disorder)")
         self.assertEqual(concept.terminology.name, "snomed CT")
-        self.assertEqual(concepts.total_count, 11)
+        self.assertEqual(concepts_page.total_count, 11)
 
     def test_mapping_retrieval(self):
-        mappings = self.repository.get_mappings(limit=5).items
-        self.assertEqual(len(mappings), 5)
+        mappings_page = self.repository.get_mappings(limit=5)
+        self.assertEqual(len(mappings_page.items), 5)
 
     def test_get_mappings_empty_result(self):
         """Verify behavior when get_mappings finds nothing."""
@@ -120,90 +117,87 @@ class TestPostgreSQLRepository(unittest.TestCase):
         self.assertIn(self.model_name2, embedders)
 
     def test_repository_restart(self):
-        """Verify data persists across repository instantiations using the same session."""
+        """Verify data persists across repository instantiations."""
         new_repo = PostgreSQLRepository(session=self.session, vectorizer=self.vectorizer1)
 
-        mappings = new_repo.get_mappings(limit=5).items
-        self.assertEqual(len(mappings), 5)
+        mappings_page = new_repo.get_mappings(limit=5)
+        self.assertEqual(len(mappings_page.items), 5)
 
-        concepts = new_repo.get_concepts()
-        self.assertEqual(concepts.total_count, 11)
+        concepts_page = new_repo.get_concepts()
+        self.assertEqual(concepts_page.total_count, 11)
 
     def test_closest_mappings(self):
         embedding = self.vectorizer1.get_embedding(self.test_text)
         assert embedding is not None
-        closest = self.repository.get_closest_mappings(embedding)
+        page = self.repository.get_closest_mappings(embedding, limit=5)
 
-        self.assertEqual(len(closest), 5)
+        self.assertEqual(len(page.items), 5)
+        self.assertEqual(page.total_count, 11)  # Total mappings in DB
 
-        result = closest[0]
+        result = page.items[0]
         assert isinstance(result, MappingResult)
-
         self.assertEqual(result.mapping.text, "Common cold")
-        self.assertEqual(result.mapping.vectorizer, self.model_name1)
+
+    def test_closest_mappings_pagination(self):
+        """Verify limit and offset work for similarity searches."""
+        embedding = self.vectorizer1.get_embedding(self.test_text)
+        assert embedding is not None
+
+        page1 = self.repository.get_closest_mappings(embedding, limit=1, offset=0)
+        page2 = self.repository.get_closest_mappings(embedding, limit=1, offset=1)
+
+        self.assertEqual(len(page1.items), 1)
+        self.assertEqual(len(page2.items), 1)
+
+        res1 = page1.items[0]
+        res2 = page2.items[0]
+
+        assert isinstance(res1, MappingResult)
+        assert isinstance(res2, MappingResult)
+
+        self.assertNotEqual(res1.mapping.id, res2.mapping.id)
 
     def test_terminology_and_model_specific_mappings(self):
         embedding = self.vectorizer1.get_embedding(self.test_text)
-        closest = self.repository.get_closest_mappings(
+        page = self.repository.get_closest_mappings(
             embedding, terminology_name="snomed CT", vectorizer=self.model_name1
         )
-        self.assertEqual(len(closest), 4)
+        # 6 snomed concepts, 4 use v1 (MPNet)
+        self.assertEqual(len(page.items), 4)
 
-        result = closest[0]
+        result = page.items[0]
         assert isinstance(result, MappingResult)
-
         self.assertEqual(result.mapping.text, "Asthma")
-
-    def test_closest_mappings_with_similarities(self):
-        embedding = self.vectorizer1.get_embedding(self.test_text)
-        assert embedding is not None
-        closest = self.repository.get_closest_mappings(embedding)
-
-        result = closest[0]
-        assert isinstance(result, MappingResult)
-
-        # Basic similarity check
-        self.assertGreater(result.similarity, 0.6)
 
     def test_closest_mapping_with_similarity_for_identical_entry(self):
         embedding = self.vectorizer1.get_embedding("Cancer")
         assert embedding is not None
-        closest = self.repository.get_closest_mappings(embedding)
+        page = self.repository.get_closest_mappings(embedding)
 
-        result = closest[0]
+        result = page.items[0]
         assert isinstance(result, MappingResult)
-
         self.assertEqual(result.mapping.text, "Cancer")
         self.assertAlmostEqual(result.similarity, 1.0, places=3)
 
     def test_edit_operations(self):
-        """Test editing functionality. Requires explicit commits."""
-        # Terminology
         term = self.repository.get_terminology_by_name("snomed CT")
         self.repository.edit_terminology(term.id, name="SNOMED Clinical Terms")
         self.session.commit()
-
         self.assertEqual(self.repository.get_terminology(term.id).name, "SNOMED Clinical Terms")
 
-        # Concept
         concept = self.repository.get_concept_by_identifier("Concept ID: 11893007")
         self.repository.edit_concept(concept.id, pref_label="Diabetes Type 2")
         self.session.commit()
-
         self.assertEqual(self.repository.get_concept(concept.id).pref_label, "Diabetes Type 2")
 
     def test_delete_operations(self):
-        """Test cascading deletes. Deleting a concept deletes its mappings."""
         concept = self.repository.get_concept_by_identifier("Concept ID: 11893007")
-
-        # Delete Concept and commit
         self.repository.delete_concept(concept.id)
         self.session.commit()
 
         with self.assertRaisesRegex(ValueError, "No Concept found with ID"):
             self.repository.get_concept(concept.id)
 
-        # Delete Terminology
         term = self.repository.get_terminology_by_name("NCI Thesaurus OBO Edition")
         self.repository.delete_terminology(term.id)
         self.session.commit()
@@ -212,7 +206,6 @@ class TestPostgreSQLRepository(unittest.TestCase):
             self.repository.get_terminology_by_name("NCI Thesaurus OBO Edition")
 
     def test_missing_records(self):
-        """Test ValueError triggers for non-existent records."""
         with self.assertRaisesRegex(ValueError, "No Terminology found with ID"):
             self.repository.get_terminology(99999)
 

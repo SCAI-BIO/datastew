@@ -328,8 +328,9 @@ class PostgreSQLRepository:
         similarities: bool = True,
         terminology_name: Optional[str] = None,
         vectorizer: Optional[str] = None,
-        limit: int = 5,
-    ) -> Union[list[Mapping], list[MappingResult]]:
+        limit: int = 10,
+        offset: int = 0,
+    ) -> Page[Union[Mapping, MappingResult]]:
         """Finds the closest mappings by cosine similarity to a given embedding, optionally filtered.
 
         :param embedding: The target embedding vector to compare against.
@@ -339,7 +340,8 @@ class PostgreSQLRepository:
         :param limit: Maximum number of results to return, defaults to 5.
         :return: Closest mappings, with or without similarity scores.
         """
-        stmt = select(Mapping, Mapping.embedding.cosine_distance(embedding).label("distance"))
+        distance_col = Mapping.embedding.cosine_distance(embedding).label("distance")
+        stmt = select(Mapping, distance_col)
 
         if terminology_name:
             stmt = stmt.join(Concept).join(Terminology).filter(Terminology.name == terminology_name)
@@ -347,11 +349,20 @@ class PostgreSQLRepository:
         if vectorizer:
             stmt = stmt.filter(Mapping.vectorizer == vectorizer)
 
-        results = self.session.execute(stmt.order_by("distance").limit(limit)).all()
+        stmt = stmt.order_by("distance").offset(offset).limit(limit)
+        results = self.session.execute(stmt).all()
 
-        if similarities:
-            return [MappingResult(mapping=row.Mapping, similarity=1 - row.distance) for row in results]
-        return [row.Mapping for row in results]
+        count_stmt = select(func.count()).select_from(Mapping)
+        total_count = self.session.scalar(count_stmt) or 0
+
+        items = []
+        for row in results:
+            if similarities:
+                items.append(MappingResult(mapping=row.Mapping, similarity=1 - row.distance))
+            else:
+                items.append(row.Mapping)
+
+        return Page[Union[Mapping, MappingResult]](items=items, limit=limit, offset=offset, total_count=total_count)
 
     def clear_all(self):
         """Deletes all Terminology, Concept, and Mapping entries from the database.

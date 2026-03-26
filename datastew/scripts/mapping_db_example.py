@@ -5,7 +5,7 @@ This script shows how to:
 1. Start a local PostgreSQL instance via Docker.
 2. Initialize the database schema and inject a session.
 3. Store two simple SNOMED CT concepts in the database.
-4. Retrieve the closest mappings for an input phrase.
+4. Retrieve the paginated closest mappings for an input phrase.
 
 ---
 
@@ -83,18 +83,25 @@ with SessionLocal() as session:
     session.commit()
 
     # --------------------------------------------------------------------
-    # 4) Find closest mappings for a new phrase
+    # 4) Find closest mappings for a new phrase (Paginated)
     # --------------------------------------------------------------------
     query_text = "Sugar sickness"  # semantically similar to "Diabetes mellitus (disorder)"
     embedding = vectorizer.get_embedding(query_text)
-    results = repository.get_closest_mappings(embedding, similarities=True, limit=2)
+
+    # Returns a Page object containing items, total_count, offset, and limit
+    page = repository.get_closest_mappings(embedding, similarities=True, limit=2, offset=0)
 
     # --------------------------------------------------------------------
     # 5) Display the results
     # --------------------------------------------------------------------
-    print(f'\nQuery: "{query_text}"\n')
-    for r in results:
+    print(f'\nQuery: "{query_text}"')
+    print(f"Total results found in DB: {page.total_count}\n")
+
+    for r in page.items:
         if isinstance(r, MappingResult):
             print(r)
         else:
             print(str(r))
+
+    if page.has_next_page():
+        print(f"\nMore results available at offset {page.offset + page.limit}")
