@@ -16,7 +16,7 @@ Before running this example:
 """
 
 from datastew.embedding import Vectorizer
-from datastew.process.parsing import DataDictionarySource
+from datastew.io.source import DataDictionarySource
 from datastew.visualisation import plot_embeddings
 
 # --------------------------------------------------------------------

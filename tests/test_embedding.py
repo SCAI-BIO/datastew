@@ -2,13 +2,15 @@ import unittest
 from typing import Sequence
 from unittest.mock import patch
 
-from datastew.embedding import _GLOBAL_CACHES, HuggingFaceAdapter
+from datastew.embedding.base import _GLOBAL_CACHES, _GLOBAL_LOCKS
+from datastew.embedding.hugging_face import HuggingFaceAdapter
 
 
 class TestEmbedding(unittest.TestCase):
 
     def setUp(self):
         _GLOBAL_CACHES.clear()
+        _GLOBAL_LOCKS.clear()
         self.adapter = HuggingFaceAdapter(cache=True)
 
     def test_hugging_face_adapter_get_embedding(self):
@@ -82,3 +84,7 @@ class TestEmbedding(unittest.TestCase):
 
         self.assertIs(adapter1.model, adapter2.model)
         self.assertEqual(HuggingFaceAdapter._load_count, 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
 from datastew.embedding import Vectorizer
-from datastew.process.parsing import DataDictionarySource
+from datastew.io.source import DataDictionarySource
 
 
 def map_dictionary_to_dictionary(
@@ -30,8 +30,8 @@ def map_dictionary_to_dictionary(
     df_target = target.to_dataframe()
 
     # Compute embeddings
-    embeddings_source = vectorizer.get_embeddings(df_source["description"].tolist())
-    embeddings_target = vectorizer.get_embeddings(df_target["description"].tolist())
+    embeddings_source = np.array(vectorizer.get_embeddings(df_source["description"].tolist()))
+    embeddings_target = np.array(vectorizer.get_embeddings(df_target["description"].tolist()))
 
     # Compute cosine similarities
     similarities = cosine_similarity(embeddings_source, embeddings_target)
@@ -54,7 +54,9 @@ def map_dictionary_to_dictionary(
 
     else:
         if limit > len(df_target):
-            ValueError(f"The limit {limit} cannot be greater than the number of target variables {len(df_target)}.")
+            raise ValueError(
+                f"The limit {limit} cannot be greater than the number of target variables {len(df_target)}."
+            )
 
         # Get the indices of the top "limit" matches for each source variable
         top_matches_indices = np.argsort(similarities, axis=1)[:, -limit:][:, ::-1]

@@ -1,111 +1,50 @@
-import json
-from typing import Any, Optional, Sequence
+from dataclasses import dataclass
+from typing import Optional
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import TEXT, Column, Dialect, ForeignKey, Integer, String, Text, TypeDecorator
-from sqlalchemy.orm import declarative_base, relationship
-from sqlalchemy.sql.type_api import TypeEngine
-
-Base = declarative_base()
+from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
-class VectorType(TypeDecorator):
-    impl = TEXT
-    cache_ok = True
-
-    @property
-    def comparator_factory(self):
-        return Vector.comparator_factory
-
-    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any]:
-        """Returns the appropriate SQLAlchemy type descriptor based on the database dialect.
-
-        :param dialect: The SQLAlchemy Dialect in use (e.g., 'postgresql', 'sqlite').
-        :return: A type descriptor suitable for the target database dialect.
-        """
-        if dialect.name == "postgresql":
-            return dialect.type_descriptor(Vector(768))
-        else:
-            return dialect.type_descriptor(TEXT())
-
-    def process_bind_param(self, value: Any | None, dialect: Dialect) -> Any:
-        """Serializes the Python object to a format suitable for storage in the database.
-
-        :param value: The Python value to be stored in the database (typically a list of floats).
-        :param dialect: The SQLAlchemy Dialect in use.
-        :return: A database-compatible representation of the value.
-        """
-        if value is None:
-            return None
-        if dialect.name == "postgresql":
-            return value
-        else:
-            return json.dumps(value)
-
-    def process_result_value(self, value: Any | None, dialect: Dialect) -> Any | None:
-        """Deserializes the database value back into a Python object
-
-        :param value: The value fetched from the database.
-        :param dialect: The SQLAlchemy Dialect in use.
-        :return: The deserialized Python object (typically a list of floats).
-        """
-        if value is None:
-            return None
-        if dialect.name == "postgresql":
-            return value
-        else:
-            return json.loads(value)
+class Base(DeclarativeBase):
+    pass
 
 
 class Terminology(Base):
     __tablename__ = "terminology"
-    id = Column(String, primary_key=True)
-    name = Column(String)
 
-    def __init__(self, name: str, id: str):
-        self.name = name
-        self.id = id
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    short_name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+
+    concepts: Mapped[list["Concept"]] = relationship(back_populates="terminology", cascade="all, delete-orphan")
 
 
 class Concept(Base):
     __tablename__ = "concept"
-    concept_identifier = Column(String, primary_key=True)
-    pref_label = Column(String)
-    terminology_id = Column(String, ForeignKey("terminology.id"))
-    terminology = relationship("Terminology")
+    __table_args__ = (UniqueConstraint("terminology_id", "concept_identifier", name="uix_term_concept"),)
 
-    def __init__(self, terminology: Terminology, pref_label: str, concept_identifier: str, id: Optional[str] = None):
-        self.terminology = terminology
-        self.pref_label = pref_label
-        # should be unique
-        self.concept_identifier = concept_identifier
-        # enforced to be unique
-        self.id = id
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    concept_identifier: Mapped[str] = mapped_column(String, nullable=False)
+    pref_label: Mapped[str] = mapped_column(String, nullable=False)
+
+    terminology_id: Mapped[int] = mapped_column(ForeignKey("terminology.id", ondelete="CASCADE"))
+    terminology: Mapped["Terminology"] = relationship(back_populates="concepts")
+
+    mappings: Mapped[list["Mapping"]] = relationship(back_populates="concept", cascade="all, delete-orphan")
 
 
 class Mapping(Base):
     __tablename__ = "mapping"
+    __table_args__ = (UniqueConstraint("concept_id", "vectorizer", "text", name="uix_mapping_concept_embedder_text"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    concept_identifier = Column(String, ForeignKey("concept.concept_identifier"))
-    concept = relationship("Concept")
-    text = Column(Text)
-    embedding = Column(VectorType)
-    sentence_embedder = Column(Text)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    text: Mapped[str] = mapped_column(String, nullable=False)
+    embedding: Mapped[Optional[list[float]]] = mapped_column(Vector(768), nullable=False)
+    vectorizer: Mapped[str] = mapped_column(String, nullable=False)
 
-    def __init__(
-        self,
-        concept: Concept,
-        text: str,
-        embedding: Optional[Sequence[float]] = None,
-        sentence_embedder: Optional[str] = None,
-        id: Optional[str] = None,
-    ):
-        self.concept = concept
-        self.text = text
-        self.embedding = embedding
-        self.sentence_embedder = sentence_embedder
-        self.id = id
+    concept_id: Mapped[int] = mapped_column(ForeignKey("concept.id", ondelete="CASCADE"))
+    concept: Mapped["Concept"] = relationship(back_populates="mappings")
 
     def __str__(self):
         return (
@@ -115,11 +54,10 @@ class Mapping(Base):
         )
 
 
+@dataclass
 class MappingResult:
-
-    def __init__(self, mapping: Mapping, similarity: float):
-        self.mapping = mapping
-        self.similarity = similarity
+    mapping: Mapping
+    similarity: float
 
     def __str__(self):
         return f"{self.mapping} | Similarity: {self.similarity}"

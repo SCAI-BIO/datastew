@@ -1,8 +1,6 @@
-from typing import Generic, List, TypeVar
+from typing import Generic, TypeVar
 
-from datastew.repository.model import Concept, Terminology, Mapping
-
-T = TypeVar("T", Concept, Terminology, Mapping)
+T = TypeVar("T")
 
 
 class Page(Generic[T]):
@@ -10,13 +8,13 @@ class Page(Generic[T]):
     A generic class to represent a paginated set of results restricted to certain types.
 
     Attributes:
-        items (List[T]): The list of retrieved objects.
+        items (list[T]): The list of retrieved objects.
         limit (int): The number of items per page.
         offset (int): The starting offset for the items.
         total_count (int): The total number of objects in the collection.
     """
 
-    def __init__(self, items: List[T], limit: int, offset: int, total_count: int):
+    def __init__(self, items: list[T], limit: int, offset: int, total_count: int):
         self.items = items
         self.limit = limit
         self.offset = offset
