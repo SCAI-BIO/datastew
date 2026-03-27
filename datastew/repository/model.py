@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
@@ -61,3 +61,17 @@ class MappingResult:
 
     def __str__(self):
         return f"{self.mapping} | Similarity: {self.similarity}"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "concept": {
+                "concept_identifier": self.mapping.concept.concept_identifier,
+                "pref_label": self.mapping.concept.pref_label,
+                "terminology": {
+                    "short_name": self.mapping.concept.terminology.short_name,
+                    "name": self.mapping.concept.terminology.name,
+                },
+            },
+            "text": self.mapping.text,
+            "similarity": self.similarity,
+        }
