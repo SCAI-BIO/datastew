@@ -57,7 +57,7 @@ class TestEmbedding(unittest.TestCase):
     def test_partial_cache_hit_batch(self):
         messages = ["A", "B", "C"]
         # Cache "A" manually
-        self.adapter.add_batch_to_cache([self.adapter.sanitize("A")], [[0.1, 0.2]])
+        self.adapter._add_batch_to_cache([self.adapter._sanitize("A")], [[0.1, 0.2]])
 
         with patch.object(self.adapter.model, "encode", wraps=self.adapter.model.encode) as spy_encode:
             embeddings = self.adapter.get_embeddings(messages)
@@ -75,15 +75,22 @@ class TestEmbedding(unittest.TestCase):
 
             self.assertTrue("API Down" in str(context.exception))
 
-    def test_huggingface_model_loaded_once(self):
+    @patch("datastew.embedding.hugging_face.SentenceTransformer")
+    def test_huggingface_model_loaded_once(self, mock_transformer):
+        """Verify LRUCache singleton behavior and maxsize enforcement"""
         HuggingFaceAdapter._model_cache.clear()
-        HuggingFaceAdapter._load_count = 0
 
-        adapter1 = HuggingFaceAdapter(cache=True)
-        adapter2 = HuggingFaceAdapter(cache=True)
-
+        adapter1 = HuggingFaceAdapter(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        adapter2 = HuggingFaceAdapter(model_name="sentence-transformers/all-MiniLM-L6-v2")
         self.assertIs(adapter1.model, adapter2.model)
-        self.assertEqual(HuggingFaceAdapter._load_count, 1)
+        self.assertEqual(len(HuggingFaceAdapter._model_cache), 1)
+        self.assertEqual(mock_transformer.call_count, 1)
+        HuggingFaceAdapter(model_name="model_A")
+        HuggingFaceAdapter(model_name="model_B")
+        HuggingFaceAdapter(model_name="model_C")
+        self.assertEqual(len(HuggingFaceAdapter._model_cache), 3)
+        self.assertNotIn("sentence-transformers/all-MiniLM-L6-v2", HuggingFaceAdapter._model_cache)
+        self.assertEqual(mock_transformer.call_count, 4)
 
 
 if __name__ == "__main__":
