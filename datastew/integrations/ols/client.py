@@ -1,13 +1,15 @@
 import json
 import logging
 import os
-from typing import Sequence, Tuple
+from typing import Optional, Sequence, Tuple
 
 import requests
 
 from datastew.embedding import Vectorizer
 from datastew.repository import PostgreSQLRepository
 from datastew.repository.model import Concept, Mapping, Terminology
+
+logger = logging.getLogger(__name__)
 
 
 class OlsClient:
@@ -26,157 +28,158 @@ class OlsClient:
         :param ols_api_base_url: The base URL for the OLS API, defaults to "https://www.ebi.ac.uk/ols4/api/"
         :param page_size: The number of terms to fetch per API request, defaults to 200
         """
-        logging.getLogger().setLevel(logging.INFO)
         self.vectorizer = vectorizer
         self.ontology_id = ontology_id
         self.OLS_BASE_URL = ols_api_base_url
         self.page_size = page_size
 
-        self.ontology_name = self.get_ontology_name()
-        self.ontology_short_name = self.get_ontology_short_name()
-        self.num_pages = self.get_number_of_pages()
-        self.current_page = 0
+        self._ontology_name: Optional[str] = None
+        self._ontology_short_name: Optional[str] = None
+        self._num_pages: Optional[int] = None
 
-    def get_ontology_name(self) -> str:
-        """Retrieves the full title of the ontology from the OLS API.
+    def _initialize_metadata(self) -> None:
+        """Fetches ontology metadata in a single network request block."""
+        if self._num_pages is not None:
+            return
 
-        :return: The full name/title of the ontology.
-        """
-        url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}"
+        # Fetch config (Name & Short Name)
+        config_url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}"
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            return data["config"]["title"]
-        except Exception as e:
-            logging.error(f"Failed to fetch ontology name from OLS: {str(e)}")
-            raise
-
-    def get_ontology_short_name(self) -> str:
-        """Retrieves the preferred prefix or short name of the ontology.
-
-        :return: The short name of the ontology.
-        """
-        url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}"
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            return data["config"].get(
+            resp = requests.get(config_url)
+            resp.raise_for_status()
+            data = resp.json()
+            self._ontology_name = data["config"]["title"]
+            self._ontology_short_name = data["config"].get(
                 "preferredPrefix", data["config"].get("prefferedPrefix", self.ontology_id.upper())
             )
         except Exception as e:
-            logging.error(f"Failed to fetch ontology short name from OLS: {str(e)}")
+            logger.error(f"Failed to fetch ontology config: {e}")
             raise
 
-    def get_number_of_pages(self) -> int:
-        """Calculates the total number of pages required to fetch all terms based on the configured page size.
-
-        :return: The total number of pages available for the ontology.
-        """
-        url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?size={self.page_size}"
+        # Fetch page count
+        terms_url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?size={self.page_size}"
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            return data["page"]["totalPages"]
+            resp = requests.get(terms_url)
+            resp.raise_for_status()
+            self._num_pages = resp.json()["page"]["totalPages"]
         except Exception as e:
-            logging.error(f"Failed to fetch concepts and descriptions from OLS: {str(e)}")
+            logger.error(f"Failed to fetch term pagination: {e}")
             raise
 
-    def process_to_repository(self, repository: PostgreSQLRepository) -> None:
+    def process_to_repository(self, repository: PostgreSQLRepository, start_page: int = 0) -> None:
         """Fetches concepts and descriptions from the OLS API and stores them in a repository.
 
         :param repository: The repository to store the concepts and mappings.
         :return: None
         """
-        # init terminology
-        repository.store([Terminology(name=self.ontology_name, short_name=self.ontology_short_name)])
-        term_db = repository.get_terminology_by_name(self.ontology_name)
+        self._initialize_metadata()
 
-        while self.current_page < self.num_pages:
-            identifiers, labels, descriptions, embeddings = self._fetch_page_data(self.current_page)
+        num_pages = self._num_pages
+        if num_pages is None or self._ontology_name is None or self._ontology_short_name is None:
+            raise RuntimeError("Ontology metadata failed to initialize properly.")
 
-            if not identifiers:
-                self.current_page += 1
-                continue
+        repository.store([Terminology(name=self._ontology_name, short_name=self._ontology_short_name)])
+        term_db = repository.get_terminology_by_name(self._ontology_name)
 
-            concepts = []
-            for identifier, label in zip(identifiers, labels):
-                concepts.append(
-                    Concept(
-                        terminology_id=term_db.id,
-                        pref_label=label,
-                        concept_identifier=f"{self.ontology_short_name}:{identifier}",
-                    )
-                )
-                repository.store(concepts)
+        current_page = start_page
+        while current_page < num_pages:
+            try:
+                identifiers, labels, descriptions, embeddings = self._fetch_page_data(current_page)
 
-                concept_identifiers = [c.concept_identifier for c in concepts]
+                if not identifiers:
+                    current_page += 1
+                    continue
+
+                unique_concepts = {}
+                for _, (ident, label) in enumerate(zip(identifiers, labels)):
+                    if ident not in unique_concepts:
+                        unique_concepts[ident] = Concept(
+                            terminology_id=term_db.id, pref_label=label, concept_identifier=ident
+                        )
+
+                repository.store(list(unique_concepts.values()))
+                repository.session.flush()
+
                 saved_concepts = (
                     repository.session.query(Concept.id, Concept.concept_identifier)
-                    .filter(Concept.concept_identifier.in_(concept_identifiers), Concept.terminology_id == term_db.id)
+                    .filter(Concept.concept_identifier.in_(identifiers), Concept.terminology_id == term_db.id)
                     .all()
                 )
-                concept_map = {identifier: c_id for c_id, identifier in saved_concepts}
+                concept_map = {c_identifier: c_id for c_id, c_identifier in saved_concepts}
 
-                mappings = []
-                model_name = self.vectorizer.model_name
-                for identifier, description, embedding in zip(identifiers, descriptions, embeddings):
-                    cid_str = f"{self.ontology_short_name}:{identifier}"
-                    if cid_str in concept_map:
-                        mappings.append(
+                unique_mappings = []
+                seen_mapping_ids = set()
+
+                for ident, desc, emb in zip(identifiers, descriptions, embeddings):
+                    if ident in concept_map and ident not in seen_mapping_ids:
+                        seen_mapping_ids.add(ident)
+                        unique_mappings.append(
                             Mapping(
-                                concept_id=concept_map[cid_str],
-                                text=description,
-                                embedding=embedding,
-                                vectorizer=model_name,
+                                concept_id=concept_map[ident],
+                                text=desc,
+                                embedding=emb,
+                                vectorizer=self.vectorizer.model_name,
                             )
                         )
-                repository.store(mappings)
-                self.current_page += 1
 
-    def process_to_json(self, dest_path: str) -> None:
+                repository.store(unique_mappings)
+                repository.session.commit()
+                current_page += 1
+            except Exception as e:
+                repository.session.rollback()
+                logger.error(f"Failed at page {current_page}: {e}")
+                raise
+
+    def process_to_json(self, dest_path: str, start_page: int = 0) -> None:
         """Fetches concepts and descriptions from the OLS API and stores them in a JSON files to a specified directory.
 
         :param dest_path: The directory path where the resulting JSON files will be saved.
         :return: None.
         """
-        os.makedirs(dest_path, exist_ok=True)
-        terminology_data = {"name": self.ontology_name, "short_name": self.ontology_short_name}
-        # start with the terminology
-        with open(f"{dest_path}/terminology.json", "w", encoding="utf-8") as f:
-            json.dump(terminology_data, f, indent=2)
-        # for each page
-        while self.current_page < self.num_pages:
-            identifiers, labels, descriptions, embeddings = self._fetch_page_data(self.current_page)
+        self._initialize_metadata()
 
-            concepts = []
-            mappings = []
-            for identifier, label, desc, emb in zip(identifiers, labels, descriptions, embeddings):
-                cid = f"{self.ontology_short_name}:{identifier}"
+        num_pages = self._num_pages
+        if num_pages is None or self._ontology_name is None or self._ontology_short_name is None:
+            raise RuntimeError("Ontology metadata failed to initialize properly.")
+
+        os.makedirs(dest_path, exist_ok=True)
+        terminology_data = {"name": self._ontology_name, "short_name": self._ontology_short_name}
+
+        with open(os.path.join(dest_path, "terminology.json"), "w", encoding="utf-8") as f:
+            json.dump(terminology_data, f, indent=2)
+
+        current_page = start_page
+        while current_page < num_pages:
+            identifiers, labels, descriptions, embeddings = self._fetch_page_data(current_page)
+
+            if not identifiers:
+                current_page += 1
+                continue
+
+            concepts, mappings = [], []
+            for ident, label, desc, emb in zip(identifiers, labels, descriptions, embeddings):
                 concepts.append(
                     {
-                        "concept_identifier": cid,
+                        "concept_identifier": ident,
                         "pref_label": label,
-                        "terminology_short_name": self.ontology_short_name,
+                        "terminology_short_name": self._ontology_short_name,
                     }
                 )
                 mappings.append(
                     {
-                        "concept_identifier": cid,
+                        "concept_identifier": ident,
                         "text": desc,
                         "embedding": emb,
                         "vectorizer": self.vectorizer.model_name,
                     }
                 )
 
-            with open(os.path.join(dest_path, f"concepts_{self.current_page}.json"), "w", encoding="utf-8") as f:
+            with open(os.path.join(dest_path, f"concepts_{current_page}.json"), "w", encoding="utf-8") as f:
                 json.dump(concepts, f, indent=2)
-            with open(os.path.join(dest_path, f"mappings_{self.current_page}.json"), "w", encoding="utf-8") as f:
+            with open(os.path.join(dest_path, f"mappings_{current_page}.json"), "w", encoding="utf-8") as f:
                 json.dump(mappings, f, indent=2)
 
-            self.current_page += 1
+            current_page += 1
 
     def _fetch_page_data(self, page: int) -> Tuple[list[str], list[str], list[str], Sequence[Sequence[float]]]:
         """Retrieves a single page of terms from the OLS API and computes text embeddings for their descriptions.
@@ -189,29 +192,35 @@ class OlsClient:
                 - A sequence of computed embeddings for the descriptions.
         """
         url = f"{self.OLS_BASE_URL}ontologies/{self.ontology_id}/terms?page={page}&size={self.page_size}"
-        logging.info(f"Processing page {self.current_page}/{self.num_pages}.")
+        total = self._num_pages if self._num_pages else 0
+        logger.info(f"Processing page {page}/{total}.")
 
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            terms = data.get("_embedded", {}).get("terms", [])
+            resp = requests.get(url)
+            resp.raise_for_status()
+            terms = resp.json().get("_embedded", {}).get("terms", [])
 
-            identifiers = [term["obo_id"] for term in terms]
-            labels = [term["label"] for term in terms]
+            identifiers = []
+            labels = []
             descriptions = []
 
             for term in terms:
-                description = term.get("description")
-                if isinstance(description, list) and description:
-                    descriptions.append(description[0])
-                elif isinstance(description, str) and description:
-                    descriptions.append(description)
-                else:
-                    descriptions.append(term["label"])
+                ident = term.get("obo_id")
+                if not ident:
+                    continue
 
-            embeddings = self.vectorizer.get_embeddings(descriptions)
+                identifiers.append(ident)
+                labels.append(term.get("label", ""))
+                desc = term.get("description")
+                if isinstance(desc, list) and desc:
+                    descriptions.append(desc[0])
+                elif isinstance(desc, str) and desc:
+                    descriptions.append(desc)
+                else:
+                    descriptions.append(term.get("label", ""))
+
+            embeddings = self.vectorizer.get_embeddings(descriptions) if descriptions else []
             return identifiers, labels, descriptions, embeddings
         except Exception as e:
-            logging.error(f"Failed to fetch concepts and descriptions from OLS for page {page}: {str(e)}")
+            logger.error(f"Failed to fetch OLS data for page {page}: {str(e)}")
             raise
