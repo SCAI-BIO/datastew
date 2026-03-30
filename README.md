@@ -1,6 +1,6 @@
 # datastew
 
-[![DOI](https://zenodo.org/badge/822570156.svg)](https://doi.org/10.5281/zenodo.16871713) ![tests](https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml/badge.svg) ![GitHub Release](https://img.shields.io/github/v/release/SCAI-BIO/datastew)
+[![DOI](https://zenodo.org/badge/822570156.svg)](https://doi.org/10.5281/zenodo.16871713) ![tests](https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml/badge.svg) ![codecov](https://codecov.io/gh/SCAI-BIO/datastew/branch/main/graph/badge.svg) ![version](https://img.shields.io/pypi/v/datastew)
 
 Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings.
 

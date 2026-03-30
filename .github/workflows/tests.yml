@@ -56,5 +56,16 @@ jobs:
         run: |
           until pg_isready -h localhost -U testuser -d testdb; do sleep 1; done
 
-      - name: Run tests
-        run: uv run pytest tests
+      - name: Test with pytest
+        run: uv run pytest --junitxml=junit.xml -o junit_family=legacy
+
+      - name: Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
