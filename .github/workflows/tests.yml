@@ -57,7 +57,7 @@ jobs:
           until pg_isready -h localhost -U testuser -d testdb; do sleep 1; done
 
       - name: Test with pytest
-        run: uv run pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
+        run: uv run pytest --junitxml=junit.xml -o junit_family=legacy
 
       - name: Codecov
         uses: codecov/codecov-action@v5
