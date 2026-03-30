@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -10,6 +10,7 @@ from datastew.visualisation import (
     _get_off_diag_mean,
     bar_chart_average_acc_two_distributions,
     enrichment_plot,
+    get_plot_for_current_database_state,
     plot_embeddings,
 )
 
@@ -65,6 +66,84 @@ class TestVisualization(unittest.TestCase):
             mock_plotly_show.assert_called()
         else:
             self.skipTest("Test resource files missing; skipping embedding plot test.")
+
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.savefig")
+    @patch("os.makedirs")
+    def test_enrichment_plot_save(self, mock_makedirs, mock_savefig, mock_show):
+        """Cover directory creation and plot saving."""
+        acc = [0.4, 0.6, 0.8]
+        enrichment_plot(acc, acc, acc, "Test Title", save_plot=True, save_dir="/tmp/mock_dir")
+        mock_makedirs.assert_called_once_with("/tmp/mock_dir", exist_ok=True)
+        mock_savefig.assert_called_once()
+
+    def test_bar_chart_dimension_mismatch(self):
+        """Cover dimension equality validation."""
+        df_2x2 = pd.DataFrame(np.random.rand(2, 2))
+        df_3x3 = pd.DataFrame(np.random.rand(3, 3))
+        with self.assertRaisesRegex(ValueError, "same dimensions"):
+            bar_chart_average_acc_two_distributions(
+                df_2x2, df_3x3, df_2x2, df_2x2, df_2x2, df_2x2, "Title", "L1", "L2"
+            )
+
+    def test_bar_chart_label_mismatch(self):
+        """Cover row/column label matching validation."""
+        df1 = pd.DataFrame(np.random.rand(2, 2), index=["A", "B"], columns=["A", "B"])
+        df2 = pd.DataFrame(np.random.rand(2, 2), index=["C", "D"], columns=["C", "D"])
+        with self.assertRaisesRegex(ValueError, "Row and column labels must match"):
+            bar_chart_average_acc_two_distributions(df1, df2, df1, df1, df1, df1, "Title", "L1", "L2")
+
+    def test_get_plot_empty_database(self):
+        """Cover early return for empty database state."""
+        mock_repo = MagicMock()
+        mock_repo.get_mappings.return_value.items = []
+        result = get_plot_for_current_database_state(mock_repo)
+        self.assertEqual(result, "<b>No entries found in the database.</b>")
+
+    @patch("plotly.graph_objects.Figure.to_html")
+    def test_get_plot_valid_data_html(self, mock_to_html):
+        """Cover database plot HTML generation."""
+        mock_to_html.return_value = "<html>mock</html>"
+        mock_repo = MagicMock()
+        mock_repo.get_mappings.return_value.items = [
+            MagicMock(embedding=[float(i), float(i + 1), float(i + 2)]) for i in range(4)
+        ]
+        result = get_plot_for_current_database_state(mock_repo, return_type="html")
+        self.assertEqual(result, "<html>mock</html>")
+        mock_to_html.assert_called_once()
+
+    @patch("plotly.graph_objects.Figure.to_json")
+    def test_get_plot_valid_data_json(self, mock_to_json):
+        """Cover database plot JSON generation."""
+        mock_to_json.return_value = '{"mock": "json"}'
+        mock_repo = MagicMock()
+        mock_repo.get_mappings.return_value.items = [
+            MagicMock(embedding=[float(i), float(i + 1), float(i + 2)]) for i in range(4)
+        ]
+        result = get_plot_for_current_database_state(mock_repo, return_type="json")
+        self.assertEqual(result, '{"mock": "json"}')
+        mock_to_json.assert_called_once()
+
+    @patch("datastew.visualisation._get_safe_perplexity")
+    def test_get_plot_too_few_entries(self, mock_safe_perp):
+        """Cover fallback return when n_samples <= actual_perplexity."""
+        mock_safe_perp.return_value = 100
+        mock_repo = MagicMock()
+        mock_mapping = MagicMock()
+        mock_mapping.embedding = [0.1, 0.2]
+        mock_repo.get_mappings.return_value.items = [mock_mapping]
+        result = get_plot_for_current_database_state(mock_repo)
+        self.assertEqual(result, "<b>Too few database entries to visualize</b>")
+
+    @patch("builtins.print")
+    def test_plot_embeddings_insufficient_data(self, mock_print):
+        """Cover insufficient data terminal output in plot_embeddings."""
+        mock_dict = MagicMock()
+        mock_dict.name = "Test Source"
+        mock_dict.get_embeddings.return_value = {"id1": [0.1, 0.2]}
+        mock_dict.to_dataframe.return_value = pd.DataFrame({"description": ["test desc"]})
+        plot_embeddings([mock_dict], perplexity=5)
+        mock_print.assert_called_once_with("Insufficient data points (1) to visualize with perplexity 5.")
 
 
 if __name__ == "__main__":
