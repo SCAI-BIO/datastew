@@ -43,11 +43,15 @@ class EmbeddingModel(ABC):
         """Retrieve the embedding vector for a single text input.
 
         :param text: The input text to embed.
+        :raises TypeError: If the input is not a string.
+        :raises ValueError: If the input text is empty or only whitespace.
         :return: A sequence of floats representing the embedding.
         """
-        if not text or not isinstance(text, str):
-            logging.warning("Empty or invalid text passed to get_embedding")
-            return []
+        if not isinstance(text, str):
+            raise TypeError(f"Expected string for 'text', got {type(text).__name__}.")
+
+        if not text.strip():
+            raise ValueError("Input 'text' cannot be empty or solely whitespace.")
 
         text = self._sanitize(text)
 
@@ -64,8 +68,16 @@ class EmbeddingModel(ABC):
         """Retrieve embeddings for a list of text messages
 
         :param messages: A list of text messages to embed.
+        :raises TypeError: If 'messages' is not a list.
+        :raises ValueError: If 'messages' is empty.
         :return: A sequence of embedding vectors.
         """
+        if not isinstance(messages, list):
+            raise TypeError(f"Expected a list for 'messages', got {type(messages).__name__}")
+
+        if not messages:
+            raise ValueError("The 'messages' list cannot be empty.")
+
         sanitized_messages = [self._sanitize(msg) for msg in messages if msg and isinstance(msg, str)]
 
         if self._cache is not None:
