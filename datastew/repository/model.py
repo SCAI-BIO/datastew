@@ -14,7 +14,7 @@ class Terminology(Base):
     __tablename__ = "terminology"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     short_name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
 
     concepts: Mapped[list["Concept"]] = relationship(back_populates="terminology", cascade="all, delete-orphan")
@@ -25,7 +25,7 @@ class Concept(Base):
     __table_args__ = (UniqueConstraint("terminology_id", "concept_identifier", name="uix_term_concept"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    concept_identifier: Mapped[str] = mapped_column(String, nullable=False)
+    concept_identifier: Mapped[str] = mapped_column(String, nullable=False, index=True)
     pref_label: Mapped[str] = mapped_column(String, nullable=False)
 
     terminology_id: Mapped[int] = mapped_column(ForeignKey("terminology.id", ondelete="CASCADE"))
