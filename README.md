@@ -152,3 +152,23 @@ plot_embeddings([data_dictionary_source_1, data_dictionary_source_2], vectorizer
 ```
 
 ![t-SNE plot](./docs/tsne_plot.png)
+
+# Citation
+
+If you use this work in your research, please cite as:
+
+```bibtex
+@article{Salimi_Evaluating_language_model_2025,
+  author  = {Salimi, Yasamin and Adams, Tim and Ay, Mehmet Can and
+             Balabin, Helena and Jacobs, Marc and
+             Hofmann-Apitius, Martin},
+  title   = {Evaluating language model embeddings for Parkinson's disease cohort harmonization using a novel manually curated variable mapping schema},
+  journal = {Scientific Reports},
+  year    = {2025},
+  doi     = {10.1038/s41598-025-06447-2}
+}
+```
+
+**Reference**
+
+Salimi Y, Adams T, Ay MC, Balabin H, Jacobs M, Hofmann-Apitius M. *Evaluating language model embeddings for Parkinson's disease cohort harmonization using a novel manually curated variable mapping schema*. **Scientific Reports**. 2025. https://doi.org/10.1038/s41598-025-06447-2
