@@ -1,0 +1,26 @@
+<svg width="350" height="150" viewBox="0 0 350 150" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>datastew</title>
+<desc>datastew logo: two overlapping rounded document cards, one with a uniform list and one with paragraph-style lines, merging in an amber overlap, next to the wordmark "datastew".</desc>
+
+<!-- Icon -->
+<g transform="translate(20,20)">
+  <rect x="5" y="5" width="45" height="70" rx="10" fill="#0F6E56"/>
+  <line x1="13" y1="20" x2="42" y2="20" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="4" stroke-linecap="round"/>
+  <line x1="13" y1="38" x2="42" y2="38" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3" stroke-linecap="round"/>
+  <line x1="13" y1="52" x2="42" y2="52" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3" stroke-linecap="round"/>
+  <line x1="13" y1="66" x2="42" y2="66" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3" stroke-linecap="round"/>
+
+  <rect x="35" y="5" width="45" height="70" rx="10" fill="#3C3489"/>
+  <line x1="43" y1="20" x2="72" y2="20" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="4" stroke-linecap="round"/>
+  <line x1="43" y1="38" x2="70" y2="38" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3" stroke-linecap="round"/>
+  <line x1="43" y1="52" x2="63" y2="52" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3" stroke-linecap="round"/>
+  <line x1="43" y1="66" x2="53" y2="66" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3" stroke-linecap="round"/>
+
+  <rect x="35" y="5" width="15" height="70" fill="#EF9F27"/>
+</g>
+
+<!-- Wordmark -->
+<text x="130" y="75" dominant-baseline="central" text-anchor="start"
+  font-family="Anthropic Sans, Inter, Helvetica Neue, Arial, sans-serif"
+  font-size="44" font-weight="500" letter-spacing="0.2" fill="#1A1A1A">datastew</text>
+</svg>
