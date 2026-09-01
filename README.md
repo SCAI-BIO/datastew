@@ -1,6 +1,6 @@
 <picture align="left">
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/SCAI-BIO/datastew/refs/heads/main/docs/datastew-logo-dark.svg">
-  <img alt="Syndat Logo" src="https://raw.githubusercontent.com/SCAI-BIO/datastew/refs/heads/main/docs//docs/datastew-logo-light.svg">
+  <img alt="Syndat Logo" src="https://raw.githubusercontent.com/SCAI-BIO/datastew/refs/heads/main/docs/datastew-logo-light.svg">
 </picture>
 
 <p align="left"><a href="https://doi.org/10.5281/zenodo.16871713"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.16871713-blue.svg" alt="DOI"></a>&nbsp;<a href="https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml"><img src="https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml/badge.svg" alt="tests"></a>&nbsp;<a href="https://codecov.io/gh/SCAI-BIO/datastew"><img src="https://codecov.io/gh/SCAI-BIO/datastew/branch/main/graph/badge.svg" alt="codecov"></a>&nbsp;<a href="https://pypi.org/project/datastew/"><img src="https://img.shields.io/pypi/v/datastew" alt="version"></a>&nbsp;<a href="https://pepy.tech/projects/datastew"><img src="https://static.pepy.tech/personalized-badge/datastew?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=BLUE&left_text=downloads" alt="PyPI Downloads"></a></p>
