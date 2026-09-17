@@ -1,5 +1,5 @@
 import logging
-from typing import List, Sequence
+from typing import Sequence
 
 from ollama import Client
 
@@ -13,44 +13,23 @@ class OllamaAdapter(EmbeddingModel):
         super().__init__(model_name, cache)
         self.client = Client(host)
 
-    def get_embedding(self, text: str) -> Sequence[float]:
-        if not text:
-            logging.warning("Empty text passed to get_embedding")
-            return []
-        text = self.sanitize(text)
-
-        if self._cache is not None:
-            cached = self.get_from_cache(text)
-            if cached:
-                return cached
+    def _generate_embedding(self, text: str) -> Sequence[float]:
         try:
-            embedding = self.client.embed(self.model_name, text).get("embeddings")[0]
-            self.add_to_cache(text, embedding)
-            return embedding
+            return self.client.embed(self.model_name, text).get("embeddings")[0]
         except Exception as e:
             logging.error(f"Error getting embedding for {text}: {e}")
             raise
 
-    def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
-        sanitized_messages = [self.sanitize(msg) for msg in messages]
-
-        if self._cache is not None:
-            embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(sanitized_messages)
-
-            if uncached_messages:
-                try:
-                    new_embeddings = self.client.embed(self.model_name, uncached_messages).get("embeddings")
-                    self.add_batch_to_cache(uncached_messages, new_embeddings)
-                    for idx, embedding in zip(uncached_indices, new_embeddings):
-                        embeddings[idx] = embedding
-                except Exception as e:
-                    logging.error(f"Failed processing messages: {e}")
-                    raise
-
-            return [emb for emb in embeddings if emb is not None]
+    def _generate_embeddings(self, messages: list[str]) -> Sequence[Sequence[float]]:
+        chunk_size = 500
+        all_embeddings = []
 
         try:
-            return self.client.embed(self.model_name, sanitized_messages).get("embeddings")
+            for i in range(0, len(messages), chunk_size):
+                chunk = messages[i : i + chunk_size]
+                response = self.client.embed(self.model_name, chunk)
+                all_embeddings.extend(response.get("embeddings", []))
+            return all_embeddings
         except Exception as e:
             logging.error(f"Failed processing messages: {e}")
             raise
