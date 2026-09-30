@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
@@ -69,7 +69,7 @@ class Source(ABC):
         :raises ValueError: If any required field is not found in the DataFrame.
         :return: A DataFrame with selected and renamed columns.
         """
-        missing_cols = [col for col in required.keys() if col not in df.columns]
+        missing_cols = [col for col in required if col not in df.columns]
         if missing_cols:
             raise ValueError(f"Required fields '{missing_cols}' not found in {self.file_path}")
 
@@ -138,16 +138,19 @@ class DataDictionarySource(Source):
     def required_fields(self) -> dict[str, str]:
         return {self.variable_field: "variable", self.description_field: "description"}
 
-    def get_embeddings(self, vectorizer: Vectorizer = Vectorizer()) -> dict[str, Sequence[float]]:
+    def get_embeddings(self, vectorizer: Vectorizer | None = None) -> dict[str, Sequence[float]]:
         """Computes embedding vectors for each variable's description.
 
         :param vectorizer: Vectorizer instance used to compute embeddings, defaults to Vectorizer().
         :return: Dictionary mapping each variable to its corresponding embedding vector.
         """
+        if vectorizer is None:
+            vectorizer = Vectorizer()
+
         df = self.to_dataframe()
         descriptions = df["description"].tolist()
         embeddings = vectorizer.get_embeddings(descriptions)
-        return dict(zip(df["variable"], embeddings))
+        return dict(zip(df["variable"], embeddings, strict=False))
 
 
 class EmbeddingSource(Source):
