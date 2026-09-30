@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
@@ -40,7 +40,7 @@ class Mapping(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(String, nullable=False)
-    embedding: Mapped[Optional[list[float]]] = mapped_column(Vector(768), nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=False)
     vectorizer: Mapped[str] = mapped_column(String, nullable=False)
 
     concept_id: Mapped[int] = mapped_column(ForeignKey("concept.id", ondelete="CASCADE"))
