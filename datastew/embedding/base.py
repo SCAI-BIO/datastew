@@ -1,8 +1,8 @@
 import logging
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from threading import Lock
-from typing import List, Optional, Sequence, Tuple
 
 from cachetools import LRUCache
 
@@ -47,7 +47,7 @@ class EmbeddingModel(ABC):
         pass
 
     @abstractmethod
-    def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
+    def get_embeddings(self, messages: list[str]) -> Sequence[Sequence[float]]:
         """Retrieve embeddings for a list of text messages
 
         :param messages: A list of text messages to embed.
@@ -69,10 +69,10 @@ class EmbeddingModel(ABC):
         """Acquire lock once for the entire batch update."""
         if self._cache_lock is not None and self._cache is not None:
             with self._cache_lock:
-                for text, emb in zip(texts, embeddings):
+                for text, emb in zip(texts, embeddings, strict=False):
                     self._cache[text] = emb
 
-    def get_from_cache(self, text: str) -> Optional[Sequence[float]]:
+    def get_from_cache(self, text: str) -> Sequence[float] | None:
         """Retrieve an embedding from the cache.
 
         :param text: Cached input text.
@@ -83,9 +83,7 @@ class EmbeddingModel(ABC):
                 return self._cache.get(text, None)
         return None
 
-    def get_cached_embeddings(
-        self, messages: List[str]
-    ) -> Tuple[List[Optional[Sequence[float]]], List[int], List[str]]:
+    def get_cached_embeddings(self, messages: list[str]) -> tuple[list[Sequence[float] | None], list[int], list[str]]:
         """Retrieve cached embeddings and identify uncached messages.
 
         :param messages: A list of input text messages.
@@ -95,12 +93,12 @@ class EmbeddingModel(ABC):
             - A list of uncached messages.
         """
         if self._cache_lock is None or self._cache is None:
-            empty_embeddings: List[Optional[Sequence[float]]] = [None] * len(messages)
+            empty_embeddings: list[Sequence[float] | None] = [None] * len(messages)
             return empty_embeddings, list(range(len(messages))), messages
 
-        embeddings: List[Optional[Sequence[float]]] = []
-        uncached_indices: List[int] = []
-        uncached_messages: List[str] = []
+        embeddings: list[Sequence[float] | None] = []
+        uncached_indices: list[int] = []
+        uncached_messages: list[str] = []
 
         with self._cache_lock:
             for i, msg in enumerate(messages):
