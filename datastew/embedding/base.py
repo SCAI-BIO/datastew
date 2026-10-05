@@ -12,6 +12,8 @@ _GLOBAL_CACHES = {}
 _GLOBAL_LOCKS = {}
 _INIT_LOCK = Lock()
 
+_WHITESPACE_RE = re.compile(r"\s+")
+
 
 class EmbeddingModel(ABC):
     def __init__(self, model_name: str, cache: bool = False, cache_size: int = 10000):
@@ -37,25 +39,93 @@ class EmbeddingModel(ABC):
             self._cache = None
             self._cache_lock = None
 
-    @abstractmethod
     def get_embedding(self, text: str) -> Sequence[float]:
         """Retrieve the embedding vector for a single text input.
 
         :param text: The input text to embed.
+        :raises TypeError: If the input is not a string.
+        :raises ValueError: If the input text is empty or only whitespace.
         :return: A sequence of floats representing the embedding.
         """
-        pass
+        if not isinstance(text, str):
+            raise TypeError(f"Expected string for 'text', got {type(text).__name__}.")
 
-    @abstractmethod
+        if not text.strip():
+            raise ValueError("Input 'text' cannot be empty or solely whitespace.")
+
+        text = self._sanitize(text)
+
+        if self._cache is not None:
+            cached = self._get_from_cache(text)
+            if cached:
+                return cached
+
+        embedding = self._generate_embedding(text)
+        self._add_to_cache(text, embedding)
+        return embedding
+
     def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
         """Retrieve embeddings for a list of text messages
 
         :param messages: A list of text messages to embed.
+        :raises TypeError: If 'messages' is not a list.
+        :raises ValueError: If 'messages' is empty.
         :return: A sequence of embedding vectors.
+        """
+        if not isinstance(messages, list):
+            raise TypeError(f"Expected a list for 'messages', got {type(messages).__name__}")
+
+        if not messages:
+            raise ValueError("The 'messages' list cannot be empty.")
+
+        sanitized_messages = [self._sanitize(msg) for msg in messages if msg and isinstance(msg, str)]
+
+        if self._cache is not None:
+            embeddings, uncached_indices, uncached_messages = self._get_cached_embeddings(sanitized_messages)
+
+            if uncached_messages:
+                new_embeddings = self._generate_embeddings(uncached_messages)
+                self._add_batch_to_cache(uncached_messages, new_embeddings)
+                for idx, embedding in zip(uncached_indices, new_embeddings):
+                    embeddings[idx] = embedding
+
+            return [emb for emb in embeddings if emb is not None]
+
+        return self._generate_embeddings(sanitized_messages)
+
+    @abstractmethod
+    def _generate_embedding(self, text: str) -> Sequence[float]:
+        """Generate an embedding vector for a single sanitized text input
+
+        This is an abstract method that must be implemented by subclasses to interface
+        with the specific model's API or inference engine.
+
+        :param text: The sanitized input text to embed.
+        :return: A sequence of floats respresenting the generated embedding.
         """
         pass
 
-    def add_to_cache(self, text: str, embedding: Sequence[float]):
+    @abstractmethod
+    def _generate_embeddings(self, messages: list[str]) -> Sequence[Sequence[float]]:
+        """Generate embedding vectors for a batch of sanitized text messages.
+
+        This is an abstract method that must be implemented by subclasses to interface
+        with the specific model's API or inference engine.
+
+        :param messages: A list of sanitized text messages to embed.
+        :return: A sequence of embedding vectors corresponding to the input messages.
+        """
+        pass
+
+    def _sanitize(self, message: str) -> str:
+        """Clean up the input text by trimming and converting to lowercase.
+
+        :param message: The input text message.
+        :return: Sanitized text.
+        """
+        return _WHITESPACE_RE.sub(" ", message).strip().lower()
+
+    def _add_to_cache(self, text: str, embedding: Sequence[float]):
         """Add a text-embedding pair to cache.
 
         :param text: The input text to be cached.
@@ -65,14 +135,20 @@ class EmbeddingModel(ABC):
             with self._cache_lock:
                 self._cache[text] = embedding
 
-    def add_batch_to_cache(self, texts: Sequence[str], embeddings: Sequence[Sequence[float]]):
-        """Acquire lock once for the entire batch update."""
+    def _add_batch_to_cache(self, texts: Sequence[str], embeddings: Sequence[Sequence[float]]):
+        """Add a batch of text-embedding pairs to the cache.
+
+        Acquires the thread lock once for the entire batch update to minimize overhead.
+
+        :param texts: A sequence of input texts to be cached.
+        :param embeddings: A sequence of corresponding embedding vectors.
+        """
         if self._cache_lock is not None and self._cache is not None:
             with self._cache_lock:
                 for text, emb in zip(texts, embeddings):
                     self._cache[text] = emb
 
-    def get_from_cache(self, text: str) -> Optional[Sequence[float]]:
+    def _get_from_cache(self, text: str) -> Optional[Sequence[float]]:
         """Retrieve an embedding from the cache.
 
         :param text: Cached input text.
@@ -83,7 +159,7 @@ class EmbeddingModel(ABC):
                 return self._cache.get(text, None)
         return None
 
-    def get_cached_embeddings(
+    def _get_cached_embeddings(
         self, messages: List[str]
     ) -> Tuple[List[Optional[Sequence[float]]], List[int], List[str]]:
         """Retrieve cached embeddings and identify uncached messages.
@@ -95,8 +171,7 @@ class EmbeddingModel(ABC):
             - A list of uncached messages.
         """
         if self._cache_lock is None or self._cache is None:
-            empty_embeddings: List[Optional[Sequence[float]]] = [None] * len(messages)
-            return empty_embeddings, list(range(len(messages))), messages
+            return [None] * len(messages), list(range(len(messages))), messages
 
         embeddings: List[Optional[Sequence[float]]] = []
         uncached_indices: List[int] = []
@@ -111,11 +186,3 @@ class EmbeddingModel(ABC):
                     uncached_messages.append(msg)
 
         return embeddings, uncached_indices, uncached_messages
-
-    def sanitize(self, message: str) -> str:
-        """Clean up the input text by trimming and converting to lowercase.
-
-        :param message: The input text message.
-        :return: Sanitized text.
-        """
-        return re.sub(r"\s+", " ", message).strip().lower()
