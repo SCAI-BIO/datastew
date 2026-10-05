@@ -59,7 +59,7 @@ class TestJsonlAdapter(unittest.TestCase):
         mapping_file = os.path.join(self.temp_dir, "mapping.jsonl")
         self.assertTrue(os.path.exists(mapping_file))
 
-        with open(mapping_file, "r") as f:
+        with open(mapping_file) as f:
             data = [json.loads(line) for line in f.readlines()]
 
         self.assertEqual(len(data), 3)
@@ -72,7 +72,7 @@ class TestJsonlAdapter(unittest.TestCase):
         self.converter.from_ohdsi(self.mock_concept_file, self.mock_vectorizer_model, include_vectors=False)
 
         mapping_file = os.path.join(self.temp_dir, "mapping.jsonl")
-        with open(mapping_file, "r") as f:
+        with open(mapping_file) as f:
             data = [json.loads(line) for line in f.readlines()]
 
         self.assertEqual(len(data), 3)
@@ -113,16 +113,16 @@ class TestJsonlAdapter(unittest.TestCase):
         mock_session.query.side_effect = mock_query
         self.converter.from_repository(mock_repo)
 
-        with open(os.path.join(self.temp_dir, "terminology.jsonl"), "r") as f:
+        with open(os.path.join(self.temp_dir, "terminology.jsonl")) as f:
             t_data = json.loads(f.readline())
             self.assertEqual(t_data["short_name"], "TT")
 
-        with open(os.path.join(self.temp_dir, "concept.jsonl"), "r") as f:
+        with open(os.path.join(self.temp_dir, "concept.jsonl")) as f:
             c_data = json.loads(f.readline())
             self.assertEqual(c_data["terminology_short_name"], "TT")
             self.assertEqual(c_data["pref_label"], "Test Concept")
 
-        with open(os.path.join(self.temp_dir, "mapping.jsonl"), "r") as f:
+        with open(os.path.join(self.temp_dir, "mapping.jsonl")) as f:
             m_data = json.loads(f.readline())
             self.assertEqual(m_data["concept_identifier"], "TT:1")
             self.assertEqual(m_data["embedding"], [0.5, 0.5])

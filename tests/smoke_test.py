@@ -3,11 +3,11 @@ def test_package_imports():
     Basic check that the installed wheel and its core submodules can be imported.
     This helps catch missing third-party dependencies in the build configuration.
     """
-    import datastew
+    import datastew  # noqa: PLC0415
 
     assert datastew is not None
 
-    from datastew import embedding, harmonization, io, repository, visualisation
+    from datastew import embedding, harmonization, io, repository, visualisation  # noqa: PLC0415
 
     assert all([embedding, harmonization, io, repository, visualisation])
 
@@ -16,7 +16,7 @@ def test_version_exists():
     """
     Ensure version metadata is accessible.
     """
-    from datastew import __version__
+    from datastew import __version__  # noqa: PLC0415
 
     assert isinstance(__version__, str)
     assert len(__version__) > 0

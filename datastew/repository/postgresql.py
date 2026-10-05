@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Optional, Sequence, Union
+from collections.abc import Sequence
 
 from sqlalchemy import Engine, delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 class PostgreSQLRepository:
-    def __init__(self, session: Session, vectorizer: Vectorizer = Vectorizer()):
+    def __init__(self, session: Session, vectorizer: Vectorizer | None = None):
         """Initializes the repository with an injected database session.
 
         :param session: The active SQLAlchemy session for database operations.
         :param vectorizer: An instance of Vectorizer for generating embeddings.
         """
         self.session = session
-        self.vectorizer = vectorizer
+        self.vectorizer = Vectorizer() if vectorizer is None else vectorizer
 
     @staticmethod
     def setup_database(engine: Engine):
@@ -33,7 +33,7 @@ class PostgreSQLRepository:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         Base.metadata.create_all(engine)
 
-    def store(self, objects: Union[Terminology, Concept, Mapping, list[Union[Terminology, Concept, Mapping]]]):
+    def store(self, objects: Terminology | Concept | Mapping | list[Terminology | Concept | Mapping]):
         """Store one or multiple database objects (Terminology, Concept, or Mapping ) in bulk. Handles conflicts by
         updating existing records based on unique constraints.
 
@@ -181,7 +181,7 @@ class PostgreSQLRepository:
             raise ValueError(f"No Concept found with identifier: {concept_identifier}")
         return concept
 
-    def get_concepts(self, terminology_name: Optional[str] = None, offset: int = 0, limit: int = 100) -> Page[Concept]:
+    def get_concepts(self, terminology_name: str | None = None, offset: int = 0, limit: int = 100) -> Page[Concept]:
         """Retrieves all concepts from the database.
 
         :return: All stored Concept objects.
@@ -222,8 +222,8 @@ class PostgreSQLRepository:
         self,
         concept_id: int,
         text: str,
-        embedding: Optional[Sequence[float]] = None,
-        vectorizer: Optional[str] = None,
+        embedding: Sequence[float] | None = None,
+        vectorizer: str | None = None,
     ) -> Mapping:
         """Create and store a new Mapping for a concept, generating an embedding if not provided.
 
@@ -263,8 +263,8 @@ class PostgreSQLRepository:
 
     def get_mappings(
         self,
-        terminology_name: Optional[str] = None,
-        vectorizer: Optional[str] = None,
+        terminology_name: str | None = None,
+        vectorizer: str | None = None,
         limit: int = 1000,
         offset: int = 0,
     ) -> Page[Mapping]:
@@ -326,11 +326,11 @@ class PostgreSQLRepository:
         self,
         embedding: Sequence[float],
         similarities: bool = True,
-        terminology_name: Optional[str] = None,
-        vectorizer: Optional[str] = None,
+        terminology_name: str | None = None,
+        vectorizer: str | None = None,
         limit: int = 10,
         offset: int = 0,
-    ) -> Page[Union[Mapping, MappingResult]]:
+    ) -> Page[Mapping | MappingResult]:
         """Finds the closest mappings by cosine similarity to a given embedding, optionally filtered.
 
         :param embedding: The target embedding vector to compare against.
@@ -362,7 +362,7 @@ class PostgreSQLRepository:
             else:
                 items.append(row.Mapping)
 
-        return Page[Union[Mapping, MappingResult]](items=items, limit=limit, offset=offset, total_count=total_count)
+        return Page[Mapping | MappingResult](items=items, limit=limit, offset=offset, total_count=total_count)
 
     def clear_all(self):
         """Deletes all Terminology, Concept, and Mapping entries from the database.
