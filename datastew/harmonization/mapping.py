@@ -7,7 +7,7 @@ from datastew.io.source import DataDictionarySource
 
 
 def map_dictionary_to_dictionary(
-    source: DataDictionarySource, target: DataDictionarySource, vectorizer: Vectorizer = Vectorizer(), limit: int = 1
+    source: DataDictionarySource, target: DataDictionarySource, vectorizer: Vectorizer | None = None, limit: int = 1
 ) -> pd.DataFrame:
     """
     Map variables from a source data dictionary to the closest matching variables in a target data dictionary
@@ -22,9 +22,13 @@ def map_dictionary_to_dictionary(
              - 'Source Variable': The variable names from the source data dictionary.
              - 'Target Variable': The closest matching variable names from the target data dictionary.
              - 'Source Description': The descriptions of the variables from the source data dictionary.
-             - 'Target Description': The descriptions of the closest matching variables from the target data dictionary.
+             - 'Target Description': The descriptions of the closest matching variables
+                from the target data dictionary.
              - 'Similarity': The cosine similarity score between the source and target variable descriptions.
     """
+    if vectorizer is None:
+        vectorizer = Vectorizer()
+
     # Load data
     df_source = source.to_dataframe()
     df_target = target.to_dataframe()

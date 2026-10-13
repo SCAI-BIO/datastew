@@ -1,5 +1,6 @@
 import os
 import unittest
+from typing import ClassVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -18,7 +19,7 @@ class TestPostgreSQLRepository(unittest.TestCase):
         _URL.replace("postgresql://", "postgresql+psycopg://", 1) if _URL.startswith("postgresql://") else _URL
     )
 
-    TEST_CONCEPTS = [
+    TEST_CONCEPTS: ClassVar[list[tuple[str, str, str]]] = [
         ("Diabetes mellitus (disorder)", "Concept ID: 11893007", "v1"),
         ("Hypertension (disorder)", "Concept ID: 73211009", "v2"),
         ("Asthma", "Concept ID: 195967001", "v1"),

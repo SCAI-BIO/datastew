@@ -1,5 +1,5 @@
 import logging
-from typing import List, Sequence
+from collections.abc import Sequence
 
 import openai
 
@@ -43,7 +43,7 @@ class GPT4Adapter(EmbeddingModel):
             logging.error(f"Error getting embedding for {text}: {e}")
             raise
 
-    def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
+    def get_embeddings(self, messages: list[str]) -> Sequence[Sequence[float]]:
         sanitized_messages = [self.sanitize(msg) for msg in messages]
 
         if self._cache is not None:
@@ -54,7 +54,7 @@ class GPT4Adapter(EmbeddingModel):
                     response = openai.embeddings.create(model=self.model_name, input=uncached_messages)
                     new_embeddings = [item.embedding for item in response.data]
                     self.add_batch_to_cache(uncached_messages, new_embeddings)
-                    for idx, embedding in zip(uncached_indices, new_embeddings):
+                    for idx, embedding in zip(uncached_indices, new_embeddings, strict=False):
                         embeddings[idx] = embedding
                 except Exception as e:
                     logging.error(f"Error in processing chunk: {e}")

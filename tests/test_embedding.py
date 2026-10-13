@@ -1,5 +1,5 @@
 import unittest
-from typing import Sequence
+from collections.abc import Sequence
 from unittest.mock import patch
 
 from datastew.embedding.base import _GLOBAL_CACHES, _GLOBAL_LOCKS
@@ -51,7 +51,7 @@ class TestEmbedding(unittest.TestCase):
             embeddings2 = self.adapter.get_embeddings(messages)
             self.assertEqual(spy_encode.call_count, 1)
 
-            for emb1, emb2 in zip(embeddings1, embeddings2):
+            for emb1, emb2 in zip(embeddings1, embeddings2, strict=False):
                 self.assertSequenceEqual(emb1, emb2)
 
     def test_partial_cache_hit_batch(self):

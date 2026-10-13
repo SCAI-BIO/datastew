@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Optional, Sequence, Tuple
+from collections.abc import Sequence
 
 import requests
 
@@ -33,9 +33,9 @@ class OlsClient:
         self.OLS_BASE_URL = ols_api_base_url
         self.page_size = page_size
 
-        self._ontology_name: Optional[str] = None
-        self._ontology_short_name: Optional[str] = None
-        self._num_pages: Optional[int] = None
+        self._ontology_name: str | None = None
+        self._ontology_short_name: str | None = None
+        self._num_pages: int | None = None
 
     def _initialize_metadata(self) -> None:
         """Fetches ontology metadata in a single network request block."""
@@ -91,7 +91,7 @@ class OlsClient:
                     continue
 
                 unique_concepts = {}
-                for _, (ident, label) in enumerate(zip(identifiers, labels)):
+                for _, (ident, label) in enumerate(zip(identifiers, labels, strict=False)):
                     if ident not in unique_concepts:
                         unique_concepts[ident] = Concept(
                             terminology_id=term_db.id, pref_label=label, concept_identifier=ident
@@ -110,7 +110,7 @@ class OlsClient:
                 unique_mappings = []
                 seen_mapping_ids = set()
 
-                for ident, desc, emb in zip(identifiers, descriptions, embeddings):
+                for ident, desc, emb in zip(identifiers, descriptions, embeddings, strict=False):
                     if ident in concept_map and ident not in seen_mapping_ids:
                         seen_mapping_ids.add(ident)
                         unique_mappings.append(
@@ -157,7 +157,7 @@ class OlsClient:
                 continue
 
             concepts, mappings = [], []
-            for ident, label, desc, emb in zip(identifiers, labels, descriptions, embeddings):
+            for ident, label, desc, emb in zip(identifiers, labels, descriptions, embeddings, strict=False):
                 concepts.append(
                     {
                         "concept_identifier": ident,
@@ -181,7 +181,7 @@ class OlsClient:
 
             current_page += 1
 
-    def _fetch_page_data(self, page: int) -> Tuple[list[str], list[str], list[str], Sequence[Sequence[float]]]:
+    def _fetch_page_data(self, page: int) -> tuple[list[str], list[str], list[str], Sequence[Sequence[float]]]:
         """Retrieves a single page of terms from the OLS API and computes text embeddings for their descriptions.
 
         :param page: The page index to fetch from the API.
@@ -222,5 +222,5 @@ class OlsClient:
             embeddings = self.vectorizer.get_embeddings(descriptions) if descriptions else []
             return identifiers, labels, descriptions, embeddings
         except Exception as e:
-            logger.error(f"Failed to fetch OLS data for page {page}: {str(e)}")
+            logger.error(f"Failed to fetch OLS data for page {page}: {e!s}")
             raise

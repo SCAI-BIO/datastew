@@ -3,7 +3,7 @@
   <img alt="Syndat Logo" src="https://raw.githubusercontent.com/SCAI-BIO/datastew/refs/heads/main/docs/datastew-logo-light.svg">
 </picture>
 
-<p align="left"><a href="https://doi.org/10.5281/zenodo.16871713"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.16871713-blue.svg" alt="DOI"></a>&nbsp;<a href="https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml"><img src="https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml/badge.svg" alt="tests"></a>&nbsp;<a href="https://codecov.io/gh/SCAI-BIO/datastew"><img src="https://codecov.io/gh/SCAI-BIO/datastew/branch/main/graph/badge.svg" alt="codecov"></a>&nbsp;<a href="https://pypi.org/project/datastew/"><img src="https://img.shields.io/pypi/v/datastew" alt="version"></a>&nbsp;<a href="https://pepy.tech/projects/datastew"><img src="https://static.pepy.tech/personalized-badge/datastew?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=BLUE&left_text=downloads" alt="PyPI Downloads"></a></p>
+<p align="left"><a href="https://doi.org/10.5281/zenodo.16871713"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.16871713-blue.svg" alt="DOI"></a>&nbsp;<a href="https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml"><img src="https://github.com/SCAI-BIO/datastew/actions/workflows/tests.yml/badge.svg" alt="tests"></a>&nbsp;<a href="https://github.com/SCAI-BIO/datastew/actions/workflows/linting.yml"><img src="https://github.com/SCAI-BIO/datastew/actions/workflows/linting.yml/badge.svg" alt="linting"></a>&nbsp;<a href="https://codecov.io/gh/SCAI-BIO/datastew"><img src="https://codecov.io/gh/SCAI-BIO/datastew/branch/main/graph/badge.svg" alt="codecov"></a>&nbsp;<a href="https://pypi.org/project/datastew/"><img src="https://img.shields.io/pypi/v/datastew" alt="version"></a>&nbsp;<a href="https://pepy.tech/projects/datastew"><img src="https://static.pepy.tech/personalized-badge/datastew?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=BLUE&left_text=downloads" alt="PyPI Downloads"></a></p>
 
 Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings.
 
@@ -174,4 +174,4 @@ If you use this work in your research, please cite as:
 
 **Reference**
 
-Salimi Y, Adams T, Ay MC, Balabin H, Jacobs M, Hofmann-Apitius M. *Evaluating language model embeddings for Parkinson's disease cohort harmonization using a novel manually curated variable mapping schema*. **Scientific Reports**. 2025. https://doi.org/10.1038/s41598-025-06447-2
+Salimi Y, Adams T, Ay MC, Balabin H, Jacobs M, Hofmann-Apitius M. _Evaluating language model embeddings for Parkinson's disease cohort harmonization using a novel manually curated variable mapping schema_. **Scientific Reports**. 2025. https://doi.org/10.1038/s41598-025-06447-2

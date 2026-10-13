@@ -13,8 +13,8 @@ from .visualisation import (
 )
 
 __all__ = [
-    "__version__",
     "Vectorizer",
+    "__version__",
     "bar_chart_average_acc_two_distributions",
     "enrichment_plot",
     "get_plot_for_current_database_state",

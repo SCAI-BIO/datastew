@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Literal
 
 SupportedModel = Literal[
     "sentence-transformers/all-MiniLM-L6-v2",
@@ -15,7 +15,7 @@ class Vectorizer:
     def __init__(
         self,
         model: SupportedModel = "sentence-transformers/all-mpnet-base-v2",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         host: str = "http://localhost:11434",
         cache: bool = False,
     ):
@@ -29,13 +29,13 @@ class Vectorizer:
         self.model = self.initialize_model(model, api_key, host, cache)
         self.model_name = self.model.model_name
 
-    def initialize_model(self, model: SupportedModel, api_key: Optional[str], host: str, cache: bool):
+    def initialize_model(self, model: SupportedModel, api_key: str | None, host: str, cache: bool):
         if model in [
             "sentence-transformers/all-MiniLM-L6-v2",
             "sentence-transformers/all-mpnet-base-v2",
             "FremyCompany/BioLORD-2023",
         ]:
-            from datastew.embedding.hugging_face import HuggingFaceAdapter
+            from datastew.embedding.hugging_face import HuggingFaceAdapter  # noqa: PLC0415
 
             return HuggingFaceAdapter(model, cache)
 
@@ -48,12 +48,12 @@ class Vectorizer:
             ]
             and api_key
         ):
-            from datastew.embedding.openai import GPT4Adapter
+            from datastew.embedding.openai import GPT4Adapter  # noqa: PLC0415
 
             return GPT4Adapter(api_key, model, cache)
 
         elif model == "nomic-embed-text":
-            from datastew.embedding.ollama import OllamaAdapter
+            from datastew.embedding.ollama import OllamaAdapter  # noqa: PLC0415
 
             return OllamaAdapter(model, host, cache)
 
@@ -63,5 +63,5 @@ class Vectorizer:
     def get_embedding(self, text: str):
         return self.model.get_embedding(text)
 
-    def get_embeddings(self, messages: List[str]):
+    def get_embeddings(self, messages: list[str]):
         return self.model.get_embeddings(messages)

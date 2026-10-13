@@ -1,7 +1,8 @@
 import json
 import logging
 import os
-from typing import Any, Callable, Literal
+from collections.abc import Callable
+from typing import Any, Literal
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -40,14 +41,14 @@ class Importer:
             variable_to_embedding = data_dictionary.get_embeddings(self.vectorizer)
 
             concepts = []
-            for variable in variable_to_embedding.keys():
-                concepts.append(
-                    Concept(
-                        terminology_id=terminology.id,
-                        pref_label=variable,
-                        concept_identifier=f"{terminology_name}:{variable}",
-                    )
+            concepts.extend(
+                Concept(
+                    terminology_id=terminology.id,
+                    pref_label=variable,
+                    concept_identifier=f"{terminology_name}:{variable}",
                 )
+                for variable in variable_to_embedding
+            )
             self.repository.store(concepts)
 
             concept_identifiers = [c.concept_identifier for c in concepts]
@@ -59,7 +60,7 @@ class Importer:
             concept_map = {identifier: c_id for c_id, identifier in saved_concepts}
 
             mappings = []
-            for variable, description in zip(variable_to_embedding.keys(), descriptions):
+            for variable, description in zip(variable_to_embedding.keys(), descriptions, strict=False):
                 concept_id_str = f"{terminology_name}:{variable}"
                 mappings.append(
                     Mapping(
@@ -73,7 +74,7 @@ class Importer:
 
         except Exception as e:
             logger.exception("Failed to import data dictionary.")
-            raise RuntimeError(f"Failed to import data dictionary source: {e}")
+            raise RuntimeError(f"Failed to import data dictionary source: {e}") from e
 
     def import_from_jsonl(
         self,
@@ -124,7 +125,7 @@ class Importer:
         :param row_processor: A callable function to transform the raw JSON row into a database-ready format.
         """
         buffer = []
-        with open(jsonl_path, "r", encoding="utf-8") as file:
+        with open(jsonl_path, encoding="utf-8") as file:
             for line in file:
                 if not line.strip():
                     continue
@@ -147,7 +148,7 @@ class Importer:
         :param chunk_size: The number of terminologies to insert per transaction batch.
         """
         buffer = []
-        with open(jsonl_path, "r", encoding="utf-8") as file:
+        with open(jsonl_path, encoding="utf-8") as file:
             for line in file:
                 if not line.strip():
                     continue
@@ -171,16 +172,12 @@ class Importer:
         """
         session = self.repository.session
 
-        session.execute(
-            text(
-                """
+        session.execute(text("""
                 CREATE UNLOGGED TABLE IF NOT EXISTS staging_concept (
                     terminology_short_name TEXT,
                     pref_label TEXT,
                     concept_identifier TEXT)
-                """
-            )
-        )
+                """))
         session.execute(text("TRUNCATE staging_concept"))
 
         def process_concept(data: dict[str, Any]) -> dict[str, Any]:
@@ -205,18 +202,14 @@ class Importer:
             row_processor=process_concept,
         )
 
-        session.execute(
-            text(
-                """
+        session.execute(text("""
                 INSERT INTO concept (terminology_id, pref_label, concept_identifier)
                 SELECT t.id, s.pref_label, s.concept_identifier
                 FROM staging_concept s
                 JOIN terminology t ON s.terminology_short_name = t.short_name
                 ON CONFLICT (terminology_id, concept_identifier)
                 DO UPDATE SET pref_label = EXCLUDED.pref_label
-                """
-            )
-        )
+                """))
         session.execute(text("DROP TABLE staging_concept"))
 
     def _import_mapping_staging(self, jsonl_path: str, chunk_size: int = 2048, generate_embeddings: bool = False):
@@ -233,22 +226,18 @@ class Importer:
         effective_chunk_size = min(chunk_size, 2048)
         session = self.repository.session
 
-        session.execute(
-            text(
-                """
+        session.execute(text("""
                 CREATE UNLOGGED TABLE IF NOT EXISTS staging_mapping (
                     concept_identifier TEXT,
                     text TEXT,
                     embedding vector(768),
                     vectorizer TEXT
                 )
-                """
-            )
-        )
+                """))
         session.execute(text("TRUNCATE staging_mapping"))
 
         buffer = []
-        with open(jsonl_path, "r", encoding="utf-8") as file:
+        with open(jsonl_path, encoding="utf-8") as file:
             for line in file:
                 if not line.strip():
                     continue
@@ -271,18 +260,14 @@ class Importer:
                 self._embed_and_insert_mapping_chunk(session, buffer, generate_embeddings)
 
         # Resolve FKs and Upsert to Final Table
-        session.execute(
-            text(
-                """
+        session.execute(text("""
                 INSERT INTO mapping (concept_id, text, embedding, vectorizer)
                 SELECT c.id, s.text, s.embedding, s.vectorizer
                 FROM staging_mapping s
                 JOIN concept c ON s.concept_identifier = c.concept_identifier
                 ON CONFLICT (concept_id, vectorizer, text)
                 DO UPDATE SET embedding = EXCLUDED.embedding
-                """
-            )
-        )
+                """))
         session.execute(text("DROP TABLE staging_mapping"))
 
     def _embed_and_insert_mapping_chunk(
@@ -304,28 +289,26 @@ class Importer:
             if len(embeddings) != len(buffer):
                 raise RuntimeError(f"LLM returned {len(embeddings)} embeddings for {len(buffer)} texts.")
 
-            for item, emb in zip(buffer, embeddings):
+            for item, emb in zip(buffer, embeddings, strict=False):
                 item["embedding"] = emb
                 item["vectorizer"] = vectorizer_name
 
         insert_data = []
-        for item in buffer:
-            insert_data.append(
-                {
-                    "concept_identifier": item["concept_identifier"],
-                    "text": item["text"],
-                    "embedding": str(item["embedding"]),
-                    "vectorizer": item["vectorizer"],
-                }
-            )
+        insert_data.extend(
+            {
+                "concept_identifier": item["concept_identifier"],
+                "text": item["text"],
+                "embedding": str(item["embedding"]),
+                "vectorizer": item["vectorizer"],
+            }
+            for item in buffer
+        )
 
         session.execute(
-            text(
-                """
+            text("""
                 INSERT INTO staging_mapping (concept_identifier, text, embedding, vectorizer)
                 VALUES (:concept_identifier, :text, CAST(:embedding AS vector(768)), :vectorizer)
-                """
-            ),
+                """),
             insert_data,
         )
 

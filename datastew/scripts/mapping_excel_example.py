@@ -37,7 +37,8 @@ target = DataDictionarySource("target.xlxs", variable_field="var", description_f
 # --------------------------------------------------------------------
 # 2) Perform automated mapping
 # --------------------------------------------------------------------
-# This uses LLM-based embeddings under the hood to identify semantically similar variables between the two dictionaries.
+# This uses LLM-based embeddings under the hood to identify semantically
+# similar variables between the two dictionaries.
 df = map_dictionary_to_dictionary(source, target)
 
 # --------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import logging
-from typing import List, Sequence
+from collections.abc import Sequence
+from typing import ClassVar
 
 from sentence_transformers import SentenceTransformer
 
@@ -7,8 +8,8 @@ from datastew.embedding.base import EmbeddingModel
 
 
 class HuggingFaceAdapter(EmbeddingModel):
-    _model_cache = {}
-    _load_count = 0
+    _model_cache: ClassVar[dict[str, SentenceTransformer]] = {}
+    _load_count: ClassVar[int] = 0
 
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2", cache: bool = False):
         super().__init__(model_name, cache)
@@ -39,7 +40,7 @@ class HuggingFaceAdapter(EmbeddingModel):
             logging.error(f"Error getting embedding for {text}: {e}")
             raise
 
-    def get_embeddings(self, messages: List[str]) -> Sequence[Sequence[float]]:
+    def get_embeddings(self, messages: list[str]) -> Sequence[Sequence[float]]:
         sanitized_messages = [self.sanitize(msg) for msg in messages]
         if self._cache is not None:
             embeddings, uncached_indices, uncached_messages = self.get_cached_embeddings(sanitized_messages)
@@ -51,7 +52,7 @@ class HuggingFaceAdapter(EmbeddingModel):
                         [float(element) for element in row] for row in new_embeddings if row is not None
                     ]
                     self.add_batch_to_cache(uncached_messages, flattened_embeddings)
-                    for idx, embedding in zip(uncached_indices, flattened_embeddings):
+                    for idx, embedding in zip(uncached_indices, flattened_embeddings, strict=False):
                         embeddings[idx] = embedding
                 except Exception as e:
                     logging.error(f"Failed processing messages: {e}")

@@ -49,7 +49,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["flake8>=7.3.0", "pytest>=9.0.2", "pytest-cov>=6.2.1"]
+dev = ["pytest>=9.0.2", "pytest-cov>=6.2.1", "ruff>=0.16.9"]
 
 
 [project.urls]
@@ -57,3 +57,26 @@ Homepage = "https://github.com/SCAI-BIO/datastew"
 Repository = "https://github.com/SCAI-BIO/datastew"
 Documentation = "https://github.com/SCAI-BIO/datastew#readme"
 Tracker = "https://github.com/SCAI-BIO/datastew/issues"
+
+[tool.ruff]
+line-length = 127
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "UP",
+    "I",
+    "C90",
+    "B",
+    "SIM",
+    "PERF",
+    "PLC",
+    "PLE",
+    "PLW",
+    "RUF",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10

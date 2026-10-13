@@ -1,6 +1,7 @@
 import json
 import os
-from typing import Any, Dict, Union
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -94,7 +95,7 @@ class JsonlAdapter:
             self._write_to_jsonl(mapping_file_path, self._object_to_dict(m))
         self._flush_to_file(mapping_file_path)
 
-    def from_ohdsi(self, src: str, vectorizer: Vectorizer = Vectorizer(), include_vectors: bool = True):
+    def from_ohdsi(self, src: str, vectorizer: Vectorizer | None, include_vectors: bool = True):
         """
         Converts data from OHDSI to SQL-compatible JSONL format.
 
@@ -104,6 +105,9 @@ class JsonlAdapter:
         """
         if not os.path.exists(src):
             raise FileNotFoundError(f"OHDSI concept file '{src}' does not exist or is not a file.")
+
+        if vectorizer is None:
+            vectorizer = Vectorizer()
 
         terminology_file_path = self._get_file_path("terminology")
         concept_file_path = self._get_file_path("concept")
@@ -150,7 +154,7 @@ class JsonlAdapter:
                 )
 
                 # Mapping JSON
-                mapping = {
+                mapping: dict[str, str | Sequence[float]] = {
                     "concept_identifier": concept_identifier,
                     "text": label,
                 }
@@ -170,7 +174,7 @@ class JsonlAdapter:
                 self._write_to_jsonl(mapping_file_path, mapping_data)
             self._flush_to_file(mapping_file_path)
 
-    def _object_to_dict(self, obj: Union[Terminology, Concept, Mapping]) -> Dict[str, Any]:
+    def _object_to_dict(self, obj: Terminology | Concept | Mapping) -> dict[str, Any]:
         if isinstance(obj, Terminology):
             return {"name": obj.name, "short_name": obj.short_name}
         elif isinstance(obj, Concept):

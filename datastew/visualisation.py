@@ -1,5 +1,5 @@
 import os
-from typing import Literal, Optional, cast
+from typing import Literal, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -111,8 +111,8 @@ def bar_chart_average_acc_two_distributions(
 
 def get_plot_for_current_database_state(
     repository: PostgreSQLRepository,
-    terminology: Optional[str] = None,
-    vectorizer: Optional[str] = None,
+    terminology: str | None = None,
+    vectorizer: str | None = None,
     limit: int = 1000,
     offset: int = 0,
     perplexity: int = 5,
@@ -177,7 +177,7 @@ def get_plot_for_current_database_state(
 
 
 def plot_embeddings(
-    data_dictionaries: list[DataDictionarySource], vectorizer: Vectorizer = Vectorizer(), perplexity: int = 5
+    data_dictionaries: list[DataDictionarySource], vectorizer: Vectorizer | None = None, perplexity: int = 5
 ):
     """Generate and display an interactive t-SNE scatter plot for embeddings extracted
     from multiple data dictionary sources.
@@ -186,6 +186,9 @@ def plot_embeddings(
     :param vectorizer: The model used to compute embeddings. Defaults to Vectorizer().
     :param perplexity: The perplexity for the t-SNE algorithm, defaults to 5.
     """
+    if vectorizer is None:
+        vectorizer = Vectorizer()
+
     all_embeddings = []
     all_texts = []
     all_source_names = []
