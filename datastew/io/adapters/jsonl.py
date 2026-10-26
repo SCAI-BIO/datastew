@@ -95,7 +95,7 @@ class JsonlAdapter:
             self._write_to_jsonl(mapping_file_path, self._object_to_dict(m))
         self._flush_to_file(mapping_file_path)
 
-    def from_ohdsi(self, src: str, vectorizer: Vectorizer | None, include_vectors: bool = True):
+    def from_ohdsi(self, src: str, vectorizer: Vectorizer | None = None, include_vectors: bool = True):
         """
         Converts data from OHDSI to SQL-compatible JSONL format.
 

@@ -12,7 +12,7 @@ version = "0.1.0"
 description = "Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings."
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.11,<3.16"
 authors = [
     { name = "Tim Adams", email = "tim.adams@scai.fraunhofer.de" },
     { name = "Mehmet Can Ay", email = "mehmet.ay@scai.fraunhofer.de" },
@@ -21,35 +21,34 @@ keywords = ["data-harmonization", "LLM", "embeddings", "data-steward"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 
 dependencies = [
-    "cachetools>=7.0.5",
-    "matplotlib>=3.10.8",
-    "numpy>=2.2.6",
-    "ollama>=0.6.1",
-    "openai>=2.30.0",
+    "cachetools>=7.2.4",
+    "matplotlib>=3.11.2",
+    "numpy>=2.4.6",
+    "ollama>=0.6.3",
+    "openai>=3.35.1",
     "openpyxl>=3.1.5",
-    "pandas>=2.3.3",
-    "pgvector>=0.4.2",
-    "plotly>=6.6.0",
-    "psycopg[binary]>=3.3.3",
-    "python-dotenv>=1.2.2",
-    "requests>=2.33.0",
-    "scikit-learn>=1.7.2",
+    "pandas>=3.0.6",
+    "pgvector>=0.5.1",
+    "plotly>=7.1.0",
+    "psycopg[binary]>=3.3.6",
+    "requests>=2.34.2",
+    "scikit-learn>=1.9.1",
     "seaborn>=0.13.2",
-    "sentence-transformers>=5.3.0",
-    "sqlalchemy>=2.0.48",
-    "torch>=2.11.0",
+    "sentence-transformers>=6.1.0",
+    "sqlalchemy>=2.1.5",
+    "torch>=2.14.1",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=9.0.2", "pytest-cov>=6.2.1", "ruff>=0.16.9"]
+dev = ["pytest>=9.1.1", "pytest-cov>=7.1.0", "ruff>=0.17.1"]
 
 
 [project.urls]
@@ -58,8 +57,18 @@ Repository = "https://github.com/SCAI-BIO/datastew"
 Documentation = "https://github.com/SCAI-BIO/datastew#readme"
 Tracker = "https://github.com/SCAI-BIO/datastew/issues"
 
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "python_version >= '3.15'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.ruff]
-line-length = 127
+line-length = 119
 
 [tool.ruff.lint]
 select = [
