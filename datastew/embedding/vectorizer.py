@@ -1,4 +1,12 @@
+__lazy_modules__ = ["datastew.embedding.hugging_face", "datastew.embedding.openai", "datastew.embedding.ollama"]
+
+import sys
 from typing import Literal
+
+if sys.version_info >= (3, 15):
+    from datastew.embedding.hugging_face import HuggingFaceAdapter as _HuggingFaceAdapter
+    from datastew.embedding.ollama import OllamaAdapter as _OllamaAdapter
+    from datastew.embedding.openai import GPT4Adapter as _GPT4Adapter
 
 SupportedModel = Literal[
     "sentence-transformers/all-MiniLM-L6-v2",
@@ -35,7 +43,10 @@ class Vectorizer:
             "sentence-transformers/all-mpnet-base-v2",
             "FremyCompany/BioLORD-2023",
         ]:
-            from datastew.embedding.hugging_face import HuggingFaceAdapter  # noqa: PLC0415
+            if sys.version_info >= (3, 15):
+                return _HuggingFaceAdapter(model, cache)
+            else:
+                from datastew.embedding.hugging_face import HuggingFaceAdapter  # noqa: PLC0415
 
             return HuggingFaceAdapter(model, cache)
 
@@ -48,14 +59,20 @@ class Vectorizer:
             ]
             and api_key
         ):
-            from datastew.embedding.openai import GPT4Adapter  # noqa: PLC0415
+            if sys.version_info >= (3, 15):
+                return _GPT4Adapter(api_key, model, cache)
+            else:
+                from datastew.embedding.openai import GPT4Adapter  # noqa: PLC0415
 
-            return GPT4Adapter(api_key, model, cache)
+                return GPT4Adapter(api_key, model, cache)
 
         elif model == "nomic-embed-text":
-            from datastew.embedding.ollama import OllamaAdapter  # noqa: PLC0415
+            if sys.version_info >= (3, 15):
+                return _OllamaAdapter(model, host, cache)
+            else:
+                from datastew.embedding.ollama import OllamaAdapter  # noqa: PLC0415
 
-            return OllamaAdapter(model, host, cache)
+                return OllamaAdapter(model, host, cache)
 
         else:
             raise NotImplementedError(f"The model '{model}' is not supported or missing API key.")

@@ -7,12 +7,7 @@ from datastew.embedding.base import EmbeddingModel
 
 
 class GPT4Adapter(EmbeddingModel):
-    def __init__(
-        self,
-        api_key: str,
-        model_name: str = "text-embedding-ada-002",
-        cache: bool = False,
-    ):
+    def __init__(self, api_key: str, model_name: str = "text-embedding-ada-002", cache: bool = False):
         """Initialize the GPT-4 adapter with OpenAI API key and model name.
 
         :param api_key: The API key for accessing OpenAI services.

@@ -11,8 +11,7 @@ name = "datastew"
 version = "0.1.0"
 description = "Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings."
 readme = "README.md"
-license = "Apache-2.0"
-license-files = ["LICENSE"]
+license = { file = "LICENSE" }
 requires-python = ">=3.11,<3.16"
 authors = [
     { name = "Tim Adams", email = "tim.adams@scai.fraunhofer.de" },
@@ -30,28 +29,31 @@ classifiers = [
 ]
 
 dependencies = [
-    "cachetools>=7.2.8",
+    "cachetools>=7.3.0",
     "matplotlib>=3.11.2",
     "numpy>=2.4.6",
     "ollama>=0.6.3",
-    "openai>=3.45.0",
+    "openai>=3.46.0",
     "openpyxl>=3.1.5",
     "pandas>=3.1.1",
     "pgvector>=0.5.1",
     "plotly>=7.1.0",
     "psycopg[binary]>=3.3.8",
-    "python-dotenv>=1.2.4",
     "requests>=2.34.2",
     "scikit-learn>=1.9.1",
     "seaborn>=0.13.2",
     "sentence-transformers>=6.2.0",
     "sqlalchemy>=2.1.8",
     "torch>=2.15.0",
-    "tqdm>=4.70.1",
 ]
 
-[dependency-groups]
-dev = ["pytest>=9.2.0", "pytest-cov>=7.1.0", "ruff>=0.17.3"]
+[project.optional-dependencies]
+dev = [
+ "pytest>=9.2.0",
+ "pytest-cov>=7.1.0",
+ "ruff>=0.17.4",
+]
+
 
 [project.urls]
 Homepage = "https://github.com/SCAI-BIO/datastew"
@@ -60,8 +62,7 @@ Documentation = "https://github.com/SCAI-BIO/datastew#readme"
 Tracker = "https://github.com/SCAI-BIO/datastew/issues"
 
 [tool.ruff]
-target-version = "py311"
-line-length = 127
+line-length = 119
 
 [tool.ruff.lint]
 select = [
