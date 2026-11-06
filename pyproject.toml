@@ -29,25 +29,29 @@ classifiers = [
 ]
 
 dependencies = [
-    "cachetools>=7.2.4",
+    "cachetools>=7.3.0",
     "matplotlib>=3.11.2",
     "numpy>=2.4.6",
     "ollama>=0.6.3",
-    "openai>=3.35.1",
+    "openai>=3.46.0",
     "openpyxl>=3.1.5",
-    "pandas>=3.0.6",
+    "pandas>=3.1.1",
     "pgvector>=0.5.1",
     "plotly>=7.1.0",
-    "psycopg[binary]>=3.3.6",
+    "psycopg[binary]>=3.3.8",
     "requests>=2.34.2",
     "scikit-learn>=1.9.1",
     "seaborn>=0.13.2",
-    "sentence-transformers>=6.1.0",
-    "sqlalchemy>=2.1.5",
+    "sentence-transformers>=6.2.0",
+    "sqlalchemy>=2.1.8",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=9.1.1", "pytest-cov>=7.1.0", "ruff>=0.17.1"]
+dev = [
+ "pytest>=9.2.0",
+ "pytest-cov>=7.1.0",
+ "ruff>=0.17.4",
+]
 
 
 [project.urls]
