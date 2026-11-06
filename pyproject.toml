@@ -44,7 +44,6 @@ dependencies = [
     "seaborn>=0.13.2",
     "sentence-transformers>=6.1.0",
     "sqlalchemy>=2.1.5",
-    "torch>=2.14.1",
 ]
 
 [project.optional-dependencies]
@@ -56,16 +55,6 @@ Homepage = "https://github.com/SCAI-BIO/datastew"
 Repository = "https://github.com/SCAI-BIO/datastew"
 Documentation = "https://github.com/SCAI-BIO/datastew#readme"
 Tracker = "https://github.com/SCAI-BIO/datastew/issues"
-
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cpu", marker = "python_version >= '3.15'" },
-]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
 
 [tool.ruff]
 line-length = 119
