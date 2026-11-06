@@ -30,7 +30,7 @@ jobs:
             uv.lock
 
       - name: Install dependencies
-        run: uv sync --locked
+        run: uv sync --locked --extra dev
 
       - name: Run Ruff
         run: uv run --no-sync ruff check . --output-format=github
