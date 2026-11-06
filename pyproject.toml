@@ -44,6 +44,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "sentence-transformers>=6.2.0",
     "sqlalchemy>=2.1.8",
+    "torch>=2.15.0",
 ]
 
 [project.optional-dependencies]
