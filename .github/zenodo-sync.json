@@ -1,0 +1,148 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tiadams/zenodo-schema-sync/main/schema/zenodo-sync.schema.json",
+  "concept": "16871713",
+  "repository": "https://github.com/SCAI-BIO/datastew",
+  "access": {
+    "record": "public",
+    "files": "public",
+    "embargo": {
+      "active": false
+    }
+  },
+  "files": {
+    "enabled": true
+  },
+  "metadata": {
+    "resource_type": "software",
+    "title": "datastew",
+    "description": "Datastew is a Python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings.",
+    "creators": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Adams, Tim",
+          "given_name": "Tim",
+          "family_name": "Adams",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-2823-0102",
+              "scheme": "orcid"
+            }
+          ]
+        },
+        "role": "researcher",
+        "affiliations": [
+          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Ay, Mehmet Can",
+          "given_name": "Mehmet Can",
+          "family_name": "Ay",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-2977-7695",
+              "scheme": "orcid"
+            }
+          ]
+        },
+        "role": "researcher",
+        "affiliations": [
+          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+        ]
+      }
+    ],
+    "contributors": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Salimi, Yasamin",
+          "given_name": "Yasamin",
+          "family_name": "Salimi",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-7773-7786",
+              "scheme": "orcid"
+            }
+          ]
+        },
+        "role": "datamanager",
+        "affiliations": [
+          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Valderrama, Diego",
+          "given_name": "Diego",
+          "family_name": "Valderrama",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-3450-0359",
+              "scheme": "orcid"
+            }
+          ]
+        },
+        "role": "datacollector",
+        "affiliations": [
+          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+        ]
+      }
+    ],
+    "subjects": [
+      "data harmonization",
+      "data stewardship",
+      "large language models",
+      "LLM"
+    ],
+    "languages": [
+      "eng"
+    ],
+    "rights": [
+      "apache-2.0"
+    ],
+    "copyright": "Copyright 2025 Fraunhofer SCAI",
+    "additional_descriptions": [
+      {
+        "description": "If you use this software, please cite it as:\nSalimi, Y., Adams, T., Ay, M. C., Balabin, H., Jacobs, M., &amp; Hofmann-Apitius, M. (2024). On the utility of large language model embeddings for revolutionizing semantic data harmonization in Alzheimer's and Parkinson's disease. Scientific Reports. https://doi.org/10.21203/rs.3.rs-4108029/v1",
+        "type": "notes"
+      }
+    ],
+    "related_identifiers": [
+      {
+        "identifier": "10.1038/s41598-025-06447-2",
+        "scheme": "doi",
+        "relation_type": "issupplementto",
+        "resource_type": "publication-article"
+      },
+      {
+        "identifier": "10.21203/rs.3.rs-4108029/v1",
+        "scheme": "doi",
+        "relation_type": "issupplementto",
+        "resource_type": "publication-preprint"
+      },
+      {
+        "identifier": "10.24406/publica-4577",
+        "scheme": "doi",
+        "relation_type": "issupplementto",
+        "resource_type": "publication-conferencepaper"
+      },
+      {
+        "identifier": "10.4126/FRL01-006472846",
+        "scheme": "doi",
+        "relation_type": "issupplementto",
+        "resource_type": "poster"
+      }
+    ]
+  },
+  "custom_fields": {
+    "code:codeRepository": "https://github.com/SCAI-BIO/datastew",
+    "code:programmingLanguage": [
+      "python"
+    ],
+    "code:developmentStatus": "active"
+  }
+}
