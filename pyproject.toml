@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.12.1,<0.13.0"]
+requires = ["uv_build>=0.13.7,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -11,8 +11,9 @@ name = "datastew"
 version = "0.1.0"
 description = "Datastew is a python library for intelligent data harmonization using Large Language Model (LLM) vector embeddings."
 readme = "README.md"
-license = { file = "LICENSE" }
-requires-python = ">=3.10,<3.15"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11,<3.16"
 authors = [
     { name = "Tim Adams", email = "tim.adams@scai.fraunhofer.de" },
     { name = "Mehmet Can Ay", email = "mehmet.ay@scai.fraunhofer.de" },
@@ -21,36 +22,36 @@ keywords = ["data-harmonization", "LLM", "embeddings", "data-steward"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 
 dependencies = [
-    "cachetools>=7.0.5",
-    "matplotlib>=3.10.8",
-    "numpy>=2.2.6",
-    "ollama>=0.6.1",
-    "openai>=2.30.0",
+    "cachetools>=7.2.8",
+    "matplotlib>=3.11.2",
+    "numpy>=2.4.6",
+    "ollama>=0.6.3",
+    "openai>=3.45.0",
     "openpyxl>=3.1.5",
-    "pandas>=2.3.3",
-    "pgvector>=0.4.2",
-    "plotly>=6.6.0",
-    "psycopg[binary]>=3.3.3",
-    "python-dotenv>=1.2.2",
-    "requests>=2.33.0",
-    "scikit-learn>=1.7.2",
+    "pandas>=3.1.1",
+    "pgvector>=0.5.1",
+    "plotly>=7.1.0",
+    "psycopg[binary]>=3.3.8",
+    "python-dotenv>=1.2.4",
+    "requests>=2.34.2",
+    "scikit-learn>=1.9.1",
     "seaborn>=0.13.2",
-    "sentence-transformers>=5.3.0",
-    "sqlalchemy>=2.0.48",
-    "torch>=2.11.0",
+    "sentence-transformers>=6.2.0",
+    "sqlalchemy>=2.1.8",
+    "torch>=2.15.0",
+    "tqdm>=4.70.1",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest>=9.0.2", "pytest-cov>=6.2.1", "ruff>=0.16.9"]
-
+[dependency-groups]
+dev = ["pytest>=9.2.0", "pytest-cov>=7.1.0", "ruff>=0.17.3"]
 
 [project.urls]
 Homepage = "https://github.com/SCAI-BIO/datastew"
@@ -59,6 +60,7 @@ Documentation = "https://github.com/SCAI-BIO/datastew#readme"
 Tracker = "https://github.com/SCAI-BIO/datastew/issues"
 
 [tool.ruff]
+target-version = "py311"
 line-length = 127
 
 [tool.ruff.lint]
