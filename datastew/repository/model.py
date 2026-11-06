@@ -5,6 +5,8 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+EMBEDDING_DIMENSIONS = 768
+
 
 class Base(DeclarativeBase):
     pass
@@ -40,7 +42,7 @@ class Mapping(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(String, nullable=False)
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSIONS), nullable=False)
     vectorizer: Mapped[str] = mapped_column(String, nullable=False)
 
     concept_id: Mapped[int] = mapped_column(ForeignKey("concept.id", ondelete="CASCADE"))
