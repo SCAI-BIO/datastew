@@ -37,20 +37,20 @@ jobs:
       TEST_POSTGRES_URI: postgresql://testuser:testpass@localhost:5432/testdb
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --locked --all-extras --dev
+        run: uv sync --locked --group dev
 
       - name: Wait for PostgreSQL to become ready
         run: |
@@ -60,12 +60,12 @@ jobs:
         run: uv run pytest --junitxml=junit.xml -o junit_family=legacy --cov=datastew --cov-report=xml
 
       - name: Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/test-results-action@v1.2.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

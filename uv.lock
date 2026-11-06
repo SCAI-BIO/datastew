@@ -639,7 +639,7 @@ dependencies = [
     { name = "sqlalchemy" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -667,7 +667,6 @@ requires-dist = [
     { name = "sentence-transformers", specifier = ">=6.2.0" },
     { name = "sqlalchemy", specifier = ">=2.1.8" },
 ]
-provides-extras = ["dev"]
 
 [[package]]
 name = "et-xmlfile"

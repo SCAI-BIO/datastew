@@ -22,21 +22,20 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.3
       - name: Install Python 3.15
         run: uv python install 3.15
       - name: Update package version
-        run: |
-          VERSION=${{ github.event.release.tag_name }}
-          sed -i 's/__version__ = ".*"/__version__ = "'${VERSION}'"/' datastew/_version.py
-          uv version "$VERSION"
+        run: uv version "${VERSION#v}" --no-sync
+        env:
+          VERSION: ${{ github.event.release.tag_name }}
       - name: Build
         run: uv build
       - name: Smoke test (wheel)
-        run: uv run --isolated --no-project --with dist/*.whl tests/smoke_test.py
+        run: uv run --isolated --no-project --with dist/*.whl --with pytest pytest tests/smoke_test.py
       - name: Smoke test (source distribution)
-        run: uv run --isolated --no-project --with dist/*.tar.gz tests/smoke_test.py
+        run: uv run --isolated --no-project --with dist/*.tar.gz --with pytest pytest tests/smoke_test.py
       - name: Publish
         run: uv publish
