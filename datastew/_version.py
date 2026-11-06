@@ -1,1 +1,6 @@
-__version__ = "0.4.0" # will be substituted in publish workflow
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("datastew")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
